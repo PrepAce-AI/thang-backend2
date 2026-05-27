@@ -29,8 +29,6 @@ public class UserService {
     @Value("${google.client.id}")
     private String googleClientId;
 
-
-
     public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtService jwtService, EmailService emailService){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -46,7 +44,7 @@ public class UserService {
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
-        // 🔥 HASH PASSWORD
+        //  HASH PASSWORD
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone());
         user.setRoleId(3); // STUDENT default
@@ -65,6 +63,8 @@ public class UserService {
         return savedUser;
     }
 
+
+
     //Normal Login
     public String login(String email, String password){
         User user = userRepository.findByEmail(email)
@@ -79,10 +79,11 @@ public class UserService {
         return jwtService.generateToken(user.getEmail());
     }
 
+
+
     //GOOGLE LOGIN + REGISTER
     public Map<String, Object> googleAuth(String idTokenString) {
         try {
-            // 🔥 ADD DÒNG NÀY
             System.out.println("GOOGLE ID TOKEN: " + idTokenString);
 
             GoogleIdTokenVerifier verifier =
@@ -95,15 +96,12 @@ public class UserService {
                             .build();
 
             GoogleIdToken idToken = verifier.verify(idTokenString);
-
             System.out.println("VERIFY RESULT: " + idToken);
 
             if (idToken == null) {
                 throw new RuntimeException("Invalid Google Token");
             }
-
             GoogleIdToken.Payload payload = idToken.getPayload();
-
             System.out.println("TOKEN RAW: " + idTokenString);
             System.out.println("TOKEN LENGTH: " + (idTokenString == null ? "NULL" : idTokenString.length()));
 
@@ -134,7 +132,6 @@ public class UserService {
             response.put("user", user);
 
             return response;
-
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Google Auth Failed");
@@ -146,12 +143,10 @@ public class UserService {
     //Change Password
     public void changePassword(String email, ChangePasswordRequest req){
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found!!!"));
-
         //Check Old Password
         if(!passwordEncoder.matches(req.getOldPassword(), user.getPasswordHash())){
             throw new RuntimeException("Old Password Is Incorrect!!!");
         }
-
         //Set new password
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
 

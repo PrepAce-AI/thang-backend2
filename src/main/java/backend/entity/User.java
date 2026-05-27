@@ -41,6 +41,10 @@ public class User {
 
     private Date verificationExpiry;
 
+    private String school;
+
+    private String bio;
+
     public User() {}
 
     // getters & setters
@@ -131,5 +135,21 @@ public class User {
 
     public void setVerificationExpiry(Date verificationExpiry) {
         this.verificationExpiry = verificationExpiry;
+    }
+
+    public String getSchool() {
+        return school;
+    }
+
+    public void setSchool(String school) {
+        this.school = school;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 }

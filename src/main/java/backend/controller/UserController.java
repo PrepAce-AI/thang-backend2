@@ -102,6 +102,26 @@ public class UserController {
 
 
 
+    //AVATAR ======================================================================
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@RequestHeader("Authorization") String token, @RequestBody UpdateProfileRequest req){
+        String jwt = token.replace("Bearer ", "");
+        String email = jwtService.extractUsername(jwt);
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found !!!"));
+
+        user.setFullName(req.getFullName());
+        user.setPhone(req.getPhone());
+        user.setSchool(req.getSchool());
+        user.setBio(req.getBio());
+
+        userRepository.save(user);
+
+        return ResponseEntity.ok(user);
+    }
+    //============================================================================
+
+
 
 
     //FORGET - RESET - CHANGE PASSWORD ======================================================================
