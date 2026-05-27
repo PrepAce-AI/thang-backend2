@@ -27,8 +27,16 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/auth/**"
+                                "/api/auth/**",
+                                "/api/entry-test",
+                                "/api/entry-test/ping",
+                                "/api/entry-test/course/**",
+                                "/api/entry-test/submit",
+                                "/api/entry-test/history",
+                                "/api/payments/**",
+                                "/api/ai/**"
                         ).permitAll()
+                        // TODO: đổi sang .authenticated() sau khi tích hợp JWT filter đầy đủ
 
                         .anyRequest().authenticated()
                 );
