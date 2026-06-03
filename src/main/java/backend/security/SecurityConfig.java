@@ -39,7 +39,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource(){
 
         CorsConfiguration configuration =
-                new CorsConfiguration();
+                new CorsConfiguration(); //Cross-Origin Resource Sharing
 
         configuration.setAllowedOrigins(
                 List.of("http://localhost:5173")

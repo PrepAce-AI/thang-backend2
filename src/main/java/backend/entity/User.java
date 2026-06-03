@@ -45,6 +45,8 @@ public class User {
 
     private String bio;
 
+    private boolean verified = false;
+
     public User() {}
 
     // getters & setters
@@ -151,5 +153,13 @@ public class User {
 
     public void setBio(String bio) {
         this.bio = bio;
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.verified = verified;
     }
 }
