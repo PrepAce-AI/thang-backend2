@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
 
-@Data // Tự động sinh Get/Set với Lombok
+@Data
 @Entity
 @Table(name = "Courses")
 public class Course {
@@ -13,17 +13,18 @@ public class Course {
     @Column(name = "course_id")
     private Integer id;
 
-    @Column(name = "course_title", nullable = false)
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR cho tiêu đề khóa học
+    @Column(name = "course_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
-    @Column(name = "course_description")
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR(MAX) cho mô tả khóa học dài
+    @Column(name = "course_description", columnDefinition = "NVARCHAR(MAX)")
     private String description;
 
     @Column(name = "thumbnail_url")
     private String thumbnailUrl;
 
-    // Quan hệ 1 Khóa học có nhiều Chương
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @OrderBy("order ASC") // Sắp xếp chapter theo thứ tự
+    @OrderBy("order ASC")
     private List<Chapter> chapters;
 }

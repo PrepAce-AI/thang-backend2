@@ -36,6 +36,8 @@ public class SecurityConfig {
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)
                         .requestMatchers("/api/materials/**").authenticated()
+                        // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
+                        .requestMatchers("/api/outlines/**").authenticated()
 
                         .requestMatchers("/api/courses/**").authenticated()
                         .anyRequest().authenticated()

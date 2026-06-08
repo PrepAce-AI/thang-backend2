@@ -1,5 +1,6 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.List;
@@ -13,19 +14,19 @@ public class Chapter {
     @Column(name = "chapter_id")
     private Integer id;
 
-    @Column(name = "chapter_title", nullable = false)
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu tiêu đề chương tiếng Việt
+    @Column(name = "chapter_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
     @Column(name = "chapter_order")
     private Integer order;
 
-    // Trỏ về Khóa học
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id")
     private Course course;
 
-    // Quan hệ 1 Chương có nhiều Bài giảng
+    @JsonManagedReference(value = "chapter-lessons")
     @OneToMany(mappedBy = "chapter", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @OrderBy("order ASC") // Sắp xếp lesson theo thứ tự
+    @OrderBy("order ASC")
     private List<Lesson> lessons;
 }

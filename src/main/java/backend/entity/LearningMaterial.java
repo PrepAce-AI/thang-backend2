@@ -7,18 +7,19 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Data
 @Entity
-@Table(name = "LearningMaterials") // 🔥 Giữ nguyên viết liền hoa thường
+@Table(name = "LearningMaterials")
 public class LearningMaterial {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "material_id") // Khớp hoàn toàn với DB
+    @Column(name = "material_id")
     private Integer id;
 
-    @Column(name = "material_title", nullable = false) // Khớp hoàn toàn với DB
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu tiêu đề tài liệu tiếng Việt
+    @Column(name = "material_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
-    @Column(name = "file_url", nullable = false) // Khớp hoàn toàn với DB
+    @Column(name = "file_url", nullable = false)
     private String fileUrl;
 
     @Column(name = "uploaded_at")

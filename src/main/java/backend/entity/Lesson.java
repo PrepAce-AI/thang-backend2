@@ -1,8 +1,8 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
-
 import java.util.List;
 
 @Data
@@ -14,10 +14,12 @@ public class Lesson {
     @Column(name = "lesson_id")
     private Integer id;
 
-    @Column(name = "lesson_title", nullable = false)
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR cho tiêu đề bài học
+    @Column(name = "lesson_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
-    @Column(name = "lesson_description")
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR(MAX) cho mô tả bài học
+    @Column(name = "lesson_description", columnDefinition = "NVARCHAR(MAX)")
     private String description;
 
     @Column(name = "video_url")
@@ -29,12 +31,11 @@ public class Lesson {
     @Column(name = "lesson_order")
     private Integer order;
 
-    // Trỏ về Chương
+    @JsonBackReference(value = "chapter-lessons")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "chapter_id")
     private Chapter chapter;
 
-    // Thêm vào trong class Lesson
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private List<LearningMaterial> materials;
 }

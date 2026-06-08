@@ -2,6 +2,7 @@ package backend.service;
 
 import backend.dto.request.ReviewRequest;
 import backend.dto.response.ReviewResponse;
+import backend.dto.response.ReviewSummaryResponse;
 import backend.entity.Course;
 import backend.entity.CourseReview;
 import backend.entity.User;
@@ -72,5 +73,40 @@ public class CourseReviewService {
         res.setUserFullName(review.getUser().getFullName());
         res.setUserAvatarUrl(review.getUser().getAvatarUrl());
         return res;
+    }
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public ReviewSummaryResponse getReviewSummary(Integer courseId) {
+        // Lấy danh sách review gốc từ Repository của bạn
+        List<CourseReview> reviewList = reviewRepository.findByCourseIdOrderByCreatedAtDesc(courseId);
+
+        ReviewSummaryResponse summary = new ReviewSummaryResponse();
+        summary.setTotalReviews(reviewList.size());
+
+        // Nếu chưa có ai đánh giá, trả về dữ liệu trống an toàn để tránh React bị chia cho số 0
+        if (reviewList.isEmpty()) {
+            summary.setAverageRating(0.0);
+            summary.setRatingStarsCount(java.util.Map.of(1, 0L, 2, 0L, 3, 0L, 4, 0L, 5, 0L));
+            summary.setReviews(java.util.List.of());
+            return summary;
+        }
+
+        // 1. Tính điểm trung bình (Ví dụ: rớt ra 4.6666 -> làm tròn thành 4.7)
+        double avg = reviewList.stream().mapToInt(CourseReview::getRating).average().orElse(0.0);
+        summary.setAverageRating(Math.round(avg * 10.0) / 10.0);
+
+        // 2. Thống kê số lượng từng mức sao từ 1 đến 5 (Gom nhóm dữ liệu SQL)
+        java.util.Map<Integer, Long> starsCount = new java.util.HashMap<>(java.util.Map.of(1, 0L, 2, 0L, 3, 0L, 4, 0L, 5, 0L));
+        java.util.Map<Integer, Long> actualCounts = reviewList.stream()
+                .collect(Collectors.groupingBy(CourseReview::getRating, Collectors.counting()));
+        starsCount.putAll(actualCounts);
+        summary.setRatingStarsCount(starsCount);
+
+        // 3. Tái sử dụng hàm mapToResponse xịn của Toàn để chuyển sang List DTO
+        List<ReviewResponse> details = reviewList.stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+        summary.setReviews(details);
+
+        return summary;
     }
 }
