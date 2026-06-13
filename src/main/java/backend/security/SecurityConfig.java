@@ -22,16 +22,16 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
-        http    .cors(Customizer.withDefaults())
-                .csrf(csrf -> csrf.disable())
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .csrf(csrf -> csrf.disable())                    // Tắt CSRF
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/**"
-                        ).permitAll()
-
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/**").permitAll()      // Cho phép TẤT CẢ API
+                        .requestMatchers("/**").permitAll()          // Cho phép tất cả (dev)
+                        .anyRequest().permitAll()                    // Cho phép tất cả request
                 );
+
         return http.build();
     }
 
@@ -42,7 +42,7 @@ public class SecurityConfig {
                 new CorsConfiguration(); //Cross-Origin Resource Sharing
 
         configuration.setAllowedOrigins(
-                List.of("http://localhost:5173")
+                List.of("*")
         );
 
         configuration.setAllowedMethods(

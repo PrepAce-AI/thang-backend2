@@ -45,7 +45,7 @@ public class User {
 
     private String bio;
 
-    private boolean verified = false;
+//    private boolean verified = false;
 
     public User() {}
 
@@ -155,11 +155,11 @@ public class User {
         this.bio = bio;
     }
 
-    public boolean isVerified() {
-        return verified;
-    }
-
-    public void setVerified(boolean verified) {
-        this.verified = verified;
-    }
+//    public boolean isVerified() {
+//        return verified;
+//    }
+//
+//    public void setVerified(boolean verified) {
+//        this.verified = verified;
+//    }
 }
