@@ -17,6 +17,12 @@ public class QuizController {
     }
 
     //Get All Quiz
+    @GetMapping
+    public ResponseEntity<List<Quiz>> getAllQuizzes(){
+        List<Quiz> quizzes = quizRepository.findAll();
+        return ResponseEntity.ok(quizzes);
+    }
+
     @GetMapping("/course/{courseId}")
     public ResponseEntity<List<Quiz>> getQuizzesByCourse(@PathVariable Integer courseId){
         List<Quiz> quizzes = quizRepository.findByCourseId(courseId);

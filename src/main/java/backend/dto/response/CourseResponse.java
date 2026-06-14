@@ -13,18 +13,6 @@ public class CourseResponse {
     private Double price;
     private String status;// derive tu is_published
 
-//    public CourseResponse() {
-//    }
-//
-//    public CourseResponse(Integer id, String title, Integer teacherId, String teacherName, Double price, String status) {
-//        this.id = id;
-//        this.title = title;
-//        this.teacherId = teacherId;
-//        this.teacherName = teacherName;
-//        this.price = price;
-//        this.status = status;
-//    }
-
     public Integer getId() {
         return id;
     }

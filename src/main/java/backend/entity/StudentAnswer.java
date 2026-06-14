@@ -1,4 +1,5 @@
 package backend.entity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,14 +18,17 @@ public class StudentAnswer {
 
     @ManyToOne
     @JoinColumn(name = "sessions_id", nullable = false)
+    @JsonIgnore
     private TestSession session;
 
     @ManyToOne
     @JoinColumn(name = "question_id", nullable = false)
+    @JsonIgnore //Tranh lap quiz
     private Question question;
 
     @ManyToOne
     @JoinColumn(name = "selected_option_id")
+    @JsonIgnore
     private QuestionOption selectedOption;
 
     @Column(name = "answered_at")

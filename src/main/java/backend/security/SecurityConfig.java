@@ -17,7 +17,7 @@ import java.util.*;
 public class SecurityConfig {
 
     @Bean
-    public BCryptPasswordEncoder passwordEncoder(){
+    public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
@@ -25,43 +25,28 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())                    // Tắt CSRF
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**").permitAll()      // Cho phép TẤT CẢ API
-                        .requestMatchers("/**").permitAll()          // Cho phép tất cả (dev)
-                        .anyRequest().permitAll()                    // Cho phép tất cả request
-                );
+                        // Cho phép tất cả request trong giai đoạn dev
+                        .anyRequest().permitAll()
+                )
+                .formLogin(form -> form.disable())     // Tắt form login
+                .httpBasic(httpBasic -> httpBasic.disable()); // Tắt basic auth
 
         return http.build();
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource(){
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
 
-        CorsConfiguration configuration =
-                new CorsConfiguration(); //Cross-Origin Resource Sharing
+        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedMethods(List.of("*"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(false);
 
-        configuration.setAllowedOrigins(
-                List.of("*")
-        );
-
-        configuration.setAllowedMethods(
-                List.of("*")
-        );
-
-        configuration.setAllowedHeaders(
-                List.of("*")
-        );
-
-        configuration.setAllowCredentials(true);
-
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
-
-        source.registerCorsConfiguration(
-                "/**",
-                configuration
-        );
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
 
         return source;
     }

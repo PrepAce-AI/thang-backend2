@@ -165,6 +165,83 @@ public class TestService {
         return response;
     }
 
+    @Transactional
+    public TestResultResponse getResult(int sessionsId, int userId) {
+
+        TestSession session = testSessionRepository.findById(sessionsId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        // Kiểm tra đúng chủ sở hữu bài thi
+        if (session.getStudent().getId() != userId) {
+            throw new RuntimeException("Access denied");
+        }
+
+        TestResultResponse response = new TestResultResponse();
+
+        response.setSessionsId(session.getSessionsId());
+        response.setScore(session.getScore());
+        response.setSubmittedAt(session.getSubmittedAt());
+
+        int totalQuestions = session.getQuiz().getQuestions().size();
+        response.setTotalQuestions(totalQuestions);
+
+        int correctAnswers = 0;
+        List<QuestionResult> questionResults = new ArrayList<>();
+
+        List<StudentAnswer> answers =
+                studentAnswerRepository.findBySessionSessionsId(sessionsId);
+
+        for (StudentAnswer answer : answers) {
+
+            Question question = answer.getQuestion();
+
+            String selectedAnswer = null;
+
+            if (answer.getSelectedOption() != null) {
+                selectedAnswer =
+                        answer.getSelectedOption().getOptionContent();
+            }
+
+            String correctedAnswer = question.getCorrectAnswer();
+
+            boolean isCorrect =
+                    selectedAnswer != null
+                            && selectedAnswer.equals(correctedAnswer);
+
+            if (isCorrect) {
+                correctAnswers++;
+            }
+
+            QuestionResult qr = new QuestionResult();
+
+            qr.setQuestionId(question.getQuestionId());
+            qr.setContent(question.getQuestionContent());
+            qr.setSelectedAnswer(selectedAnswer);
+            qr.setCorrectedAnswer(correctedAnswer);
+            qr.setExplanation(question.getExplanation());
+            qr.setCorrect(isCorrect);
+
+            questionResults.add(qr);
+        }
+
+        response.setCorrectAnswers(correctAnswers);
+        response.setQuestions(questionResults);
+
+        int timeSpent = 0;
+
+        if (session.getStartedAt() != null && session.getSubmittedAt() != null) {
+
+            long seconds =
+                    (session.getSubmittedAt().getTime()
+                            - session.getStartedAt().getTime()) / 1000;
+
+            timeSpent = (int) seconds;
+        }
+
+        response.setTimeSpent(timeSpent);
+
+        return response;
+    }
 
     /**
      * Tính thời gian thi theo quy tắc thi Việt Nam
