@@ -27,4 +27,18 @@ public class Course {
     @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("order ASC")
     private List<Chapter> chapters;
+
+
+    // 🔥 BẢO TOÀN THÊM ĐOẠN NÀY VÀO CUỐI FILE ĐỂ ĐỒNG BỘ VỚI SQL SERVER:
+    @Column(name = "price")
+    private java.math.BigDecimal price;
+
+    @Column(name = "is_published")
+    private Boolean isPublished;
+
+    @Column(name = "teacher_id")
+    private Integer teacherId;
+
+    @Column(name = "subject_id")
+    private Integer subjectId;
 }

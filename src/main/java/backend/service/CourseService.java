@@ -1,9 +1,6 @@
 package backend.service;
 
-import backend.dto.response.ChapterDto;
-import backend.dto.response.CourseDetailResponse;
-import backend.dto.response.LessonDto;
-import backend.dto.response.MaterialDto;
+import backend.dto.response.*;
 import backend.entity.Chapter;
 import backend.entity.Course;
 import backend.entity.Lesson;
@@ -13,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,12 +19,56 @@ public class CourseService {
     @Autowired
     private CourseRepository courseRepository;
     @Transactional(readOnly = true)
+    public List<CourseListResponse> getAllCourses() {
+        return courseRepository.findAll().stream().map(course -> {
+            var dto = new backend.dto.response.CourseListResponse();
+            dto.setId(course.getId());
+            dto.setTitle(course.getTitle());
+            dto.setDescription(course.getDescription());
+
+            // Hàm này sẽ nạp đường link ảnh từ bảng Courses (SQL) vào DTO,
+            // nhờ có @JsonProperty ở bước 1, nó sẽ biến thành "thumbnail_url" cực chuẩn khi gửi qua React
+            dto.setThumbnailUrl(course.getThumbnailUrl());
+
+            dto.setPrice(course.getPrice());
+            dto.setIsPublished(course.getIsPublished());
+            return dto;
+        }).collect(Collectors.toList());
+    }
+    @Transactional(readOnly = true)
     public CourseDetailResponse getCourseDetailById(Integer courseId) {
         // Tìm khóa học, nếu không thấy quăng lỗi (bạn có thể thay bằng Exception tự custom)
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học"));
 
         return mapToResponse(course);
+    }
+
+    @Transactional
+    public Course saveCourse(Course course) {
+        return courseRepository.save(course);
+    }
+
+    @Transactional
+    public void deleteCourse(Integer courseId) {
+        courseRepository.deleteById(courseId);
+    }
+
+    @Transactional
+    public Course updateCourse(Integer courseId, java.util.Map<String, Object> updates) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học"));
+        
+        if (updates.containsKey("title")) {
+            course.setTitle((String) updates.get("title"));
+        }
+        if (updates.containsKey("description")) {
+            course.setDescription((String) updates.get("description"));
+        }
+        if (updates.containsKey("is_published")) {
+            course.setIsPublished(Boolean.parseBoolean(String.valueOf(updates.get("is_published"))));
+        }
+        return courseRepository.save(course);
     }
 
     // Hàm thực hiện chuyển đổi Entity -> DTO thủ công

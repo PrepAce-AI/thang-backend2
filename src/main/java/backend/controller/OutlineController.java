@@ -111,4 +111,30 @@ public class OutlineController {
         lessonRepository.deleteById(lessonId);
         return ResponseEntity.ok(Map.of("message", "Xóa bài học thành công!"));
     }
+
+    @Autowired private backend.repository.LearningMaterialRepository materialRepository;
+
+    // 7. API: Thêm tài liệu vào Bài học
+    @PostMapping("/lessons/{lessonId}/materials")
+    public ResponseEntity<?> addMaterial(@PathVariable Integer lessonId, @RequestBody Map<String, Object> body) {
+        var lessonOptional = lessonRepository.findById(lessonId);
+        if (lessonOptional.isEmpty()) {
+            return ResponseEntity.badRequest().body("Không tìm thấy bài học");
+        }
+        backend.entity.LearningMaterial mat = new backend.entity.LearningMaterial();
+        mat.setTitle((String) body.get("title"));
+        mat.setFileUrl((String) body.get("fileUrl"));
+        mat.setLesson(lessonOptional.get());
+        return ResponseEntity.ok(materialRepository.save(mat));
+    }
+
+    // 8. API: Xóa tài liệu
+    @DeleteMapping("/materials/{materialId}")
+    public ResponseEntity<?> deleteMaterial(@PathVariable Integer materialId) {
+        if (!materialRepository.existsById(materialId)) {
+            return ResponseEntity.notFound().build();
+        }
+        materialRepository.deleteById(materialId);
+        return ResponseEntity.ok(Map.of("message", "Xóa tài liệu thành công"));
+    }
 }

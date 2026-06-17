@@ -8,6 +8,10 @@ import backend.entity.User;
 import backend.repository.AcademicQuestionRepository;
 import backend.repository.UserRepository;
 import backend.repository.CourseRepository;
+import backend.repository.AcademicAnswerRepository;
+import backend.dto.request.AnswerRequest;
+import backend.dto.response.AnswerResponse;
+import backend.entity.AcademicAnswer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,6 +28,9 @@ public class AcademicQuestionService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private AcademicAnswerRepository answerRepository;
 
     // 1. Logic Đăng câu hỏi mới
     @Transactional
@@ -56,7 +63,38 @@ public class AcademicQuestionService {
                 .collect(Collectors.toList());
     }
 
-    // Hàm phụ chuyển đổi sang DTO
+    // 3. Logic Đăng câu trả lời
+    @Transactional
+    public AnswerResponse createAnswer(Integer questionId, AnswerRequest request) {
+        String currentUserEmail = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        User user = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+        AcademicQuestion question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question không tồn tại"));
+
+        AcademicAnswer answer = new AcademicAnswer();
+        answer.setContent(request.getContent());
+        answer.setUser(user);
+        answer.setQuestion(question);
+
+        AcademicAnswer savedAnswer = answerRepository.save(answer);
+        return mapToAnswerResponse(savedAnswer);
+    }
+
+    // Hàm phụ chuyển đổi sang DTO cho Answer
+    private AnswerResponse mapToAnswerResponse(AcademicAnswer answer) {
+        AnswerResponse response = new AnswerResponse();
+        response.setId(answer.getId());
+        response.setContent(answer.getContent());
+        response.setCreatedAt(answer.getCreatedAt());
+        response.setUserFullName(answer.getUser().getFullName());
+        response.setUserAvatarUrl(answer.getUser().getAvatarUrl());
+        response.setUserRoleId(answer.getUser().getRoleId());
+        return response;
+    }
+
+    // Hàm phụ chuyển đổi sang DTO cho Question
     private QuestionResponse mapToResponse(AcademicQuestion question) {
         QuestionResponse response = new QuestionResponse();
         response.setId(question.getId());
@@ -64,6 +102,14 @@ public class AcademicQuestionService {
         response.setCreatedAt(question.getCreatedAt());
         response.setUserFullName(question.getUser().getFullName());
         response.setUserAvatarUrl(question.getUser().getAvatarUrl());
+        response.setUserRoleId(question.getUser().getRoleId());
+        
+        List<AnswerResponse> answerResponses = answerRepository.findByQuestionIdOrderByCreatedAtAsc(question.getId())
+                .stream()
+                .map(this::mapToAnswerResponse)
+                .collect(Collectors.toList());
+        response.setAnswers(answerResponses);
+        
         return response;
     }
 }

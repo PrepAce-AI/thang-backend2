@@ -27,4 +27,12 @@ public class AcademicQuestionController {
     public ResponseEntity<List<QuestionResponse>> getQuestionsByLesson(@PathVariable Integer lessonId) {
         return ResponseEntity.ok(questionService.getQuestionsByLesson(lessonId));
     }
+
+    // API Trả lời câu hỏi (Yêu cầu đăng nhập)
+    @PostMapping("/{questionId}/answers")
+    public ResponseEntity<backend.dto.response.AnswerResponse> postAnswer(
+            @PathVariable Integer questionId,
+            @RequestBody backend.dto.request.AnswerRequest request) {
+        return ResponseEntity.ok(questionService.createAnswer(questionId, request));
+    }
 }

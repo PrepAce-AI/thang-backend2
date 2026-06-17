@@ -21,6 +21,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private JwtService jwtService;
 
+    // 🔥 ĐÃ THÊM: Tiêm UserRepository vào để tìm kiếm User dưới DB bằng email
+    @Autowired
+    private backend.repository.UserRepository userRepository;
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -45,11 +49,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // 4. Nếu hợp lệ và chưa được phân quyền trong hệ thống
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
+                // 🔥 ĐÃ SỬA: Truy vấn DB và phân quyền động tinh gọn bằng cấu hình if-else chốt chặn STUDENT
+                var userEntity = userRepository.findByEmail(userEmail).orElse(null);
+                java.util.List<org.springframework.security.core.authority.SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
+
+                if (userEntity != null) {
+                    int roleId = userEntity.getRoleId();
+                    String roleName;
+
+                    if (roleId == 1) {
+                        roleName = "ADMIN";
+                    } else if (roleId == 2) {
+                        roleName = "TEACHER";
+                    } else {
+                        roleName = "STUDENT"; // Thỏa mãn điều kiện Java, an toàn phòng thủ tuyệt đối
+                    }
+
+                    // Đóng mộc quyền chuẩn (Ví dụ: ROLE_STUDENT)
+                    authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + roleName));
+                }
+
                 // Báo cho Spring Security biết user này là ai
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userEmail,
                         null,
-                        new ArrayList<>() // (Thực tế sau này bạn có thể truyền Role ADMIN/STUDENT vào đây)
+                        authorities // 🔥 ĐÃ SỬA: Thay thế mảng rỗng bằng danh sách quyền động dịch từ DB
                 );
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
