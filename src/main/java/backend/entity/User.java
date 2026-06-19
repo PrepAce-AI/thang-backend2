@@ -51,6 +51,8 @@ public class User {
     @Column(name = "bio", columnDefinition = "NVARCHAR(MAX)")
     private String bio;
 
+//    private boolean verified = false;
+
     public User() {}
 
     // getters & setters (Giữ nguyên không thay đổi)
