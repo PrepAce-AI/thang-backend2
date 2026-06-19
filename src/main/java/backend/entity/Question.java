@@ -1,42 +1,37 @@
 package backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "Questions")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Getter @Setter @NoArgsConstructor
 public class Question {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "question_id")
-    private int questionId;
+    private Integer questionId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "quiz_id", nullable = false)
-    @JsonIgnore
     private Quiz quiz;
 
-    @Column(name = "question_content", nullable = false)
+    @Column(name = "question_content", columnDefinition = "NVARCHAR(MAX)")
     private String questionContent;
 
     @Column(name = "correct_answer")
     private String correctAnswer;
 
-    @Column(name = "explanation")
-    private String explanation;
+    /** Mức độ nhận thức: 1-Nhận biết, 2-Thông hiểu, 3-Vận dụng, 4-Vận dụng cao */
+    @Column(name = "cognitive_level")
+    private Integer cognitiveLevel;
 
-    // Relationship với Options
-    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "question", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<QuestionOption> options = new ArrayList<>();
-
-    @OneToMany(mappedBy = "question")
-    private List<StudentAnswer> studentAnswers = new ArrayList<>();
 }
