@@ -1,31 +1,14 @@
 package backend.exceptions;
-<<<<<<< HEAD
-import org.springframework.http.ResponseEntity;
-=======
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
->>>>>>> ddd31be (Xong backend phan hai và chuẩn hóa cấu trúc repo)
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 import java.util.Map;
-<<<<<<< HEAD
-
-@RestControllerAdvice
-public class GlobalExceptionHander {
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, String>> handle(RuntimeException ex) {
-        Map<String, String> error = new HashMap<>();
-        error.put("message", ex.getMessage());
-
-        return ResponseEntity
-                .badRequest()
-                .body(error);
-=======
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -58,6 +41,5 @@ public class GlobalExceptionHander {
     public ResponseEntity<Map<String, String>> handleGeneric(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "INTERNAL_ERROR", "message", ex.getMessage()));
->>>>>>> ddd31be (Xong backend phan hai và chuẩn hóa cấu trúc repo)
     }
 }
