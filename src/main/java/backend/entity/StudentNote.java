@@ -1,34 +1,34 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.util.Date;
 
 @Data
 @Entity
-@Table(name = "AcademicQuestions")
-public class AcademicQuestion {
+@Table(name = "student_notes")
+public class StudentNote {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "question_id")
     private Integer id;
 
-    // Giữ nguyên NVARCHAR(MAX) để lưu câu hỏi dài có tiếng Việt
     @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
     private String content;
+
+    @Column(name = "timestamp_seconds", nullable = false)
+    private Integer timestampSeconds;
 
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt = new Date();
 
-    @Column(name = "timestamp_seconds")
-    private Integer timestampSeconds;
-
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @JsonBackReference(value = "lesson-notes")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id", nullable = false)
     private Lesson lesson;

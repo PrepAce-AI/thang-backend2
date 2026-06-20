@@ -13,6 +13,27 @@ public class CourseController {
 
     @Autowired
     private CourseService courseService;
+
+    @Autowired
+    private backend.repository.CourseRepository courseRepository;
+
+    @GetMapping("/delete-seed")
+    public ResponseEntity<String> deleteSeedData() {
+        try {
+            java.util.List<backend.entity.Course> courses = courseRepository.findAll();
+            for (backend.entity.Course c : courses) {
+                if (c.getTitle().contains("THPT Quốc Gia") || 
+                    c.getTitle().contains("Vật Lý 12") || 
+                    c.getTitle().contains("Hóa Học 12")) {
+                    courseRepository.delete(c);
+                }
+            }
+            return ResponseEntity.ok("Đã xóa sạch các khóa học mẫu THPT!");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Lỗi khi xóa: " + e.getMessage());
+        }
+    }
+
     @GetMapping
     public ResponseEntity<List<backend.dto.response.CourseListResponse>> getAllCourses() {
         List<backend.dto.response.CourseListResponse> courses = courseService.getAllCourses();
