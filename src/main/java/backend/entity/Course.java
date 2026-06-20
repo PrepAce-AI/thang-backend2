@@ -3,7 +3,9 @@ package backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Entity
 @Table(name = "Courses")
@@ -33,11 +35,22 @@ public class Course {
     private String thumbnailUrl;
 
     @Column(name = "price")
-    private Double price;
+    private BigDecimal price;
 
     @Column(name = "is_published")
     private Boolean isPublished;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    // === FIELDS MỚI CHO ADMIN ===
+    @Column(name = "status")
+    private String status;           // PENDING, PUBLISHED, REJECTED
+
+    @Column(name = "review_note", columnDefinition = "NVARCHAR(MAX)")
+    private String reviewNote;
+
+    @Column(name = "reviewed_at")
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date reviewedAt;
 }

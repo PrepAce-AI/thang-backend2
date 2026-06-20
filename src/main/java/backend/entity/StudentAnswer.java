@@ -17,7 +17,7 @@ public class StudentAnswer {
     private int answerId;
 
     @ManyToOne
-    @JoinColumn(name = "sessions_id", nullable = false)
+    @JoinColumn(name = "session_id", nullable = false)
     @JsonIgnore
     private TestSession session;
 

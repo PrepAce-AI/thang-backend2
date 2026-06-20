@@ -33,8 +33,9 @@ public class Question {
     @Column(name = "explanation")
     private String explanation;
 
-    // Relationship với Options
-    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "question",
+            fetch = FetchType.EAGER,
+            cascade = CascadeType.ALL)
     private List<QuestionOption> options = new ArrayList<>();
 
     @OneToMany(mappedBy = "question")

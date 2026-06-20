@@ -37,13 +37,18 @@ public class User {
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 
+    @Column(name = "verification_code")
     private String verificationCode;
 
+    @Column(name = "verification_expiry")
     private Date verificationExpiry;
 
     private String school;
 
     private String bio;
+
+    @Column(name = "role_name")
+    private String roleName;
 
 //    private boolean verified = false;
 
@@ -155,11 +160,11 @@ public class User {
         this.bio = bio;
     }
 
-//    public boolean isVerified() {
-//        return verified;
-//    }
-//
-//    public void setVerified(boolean verified) {
-//        this.verified = verified;
-//    }
+    public String getRoleName() {
+        return roleName;
+    }
+
+    public void setRoleName(String roleName) {
+        this.roleName = roleName;
+    }
 }

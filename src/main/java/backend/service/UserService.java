@@ -76,7 +76,7 @@ public class UserService {
         if (!isMatch) {
             throw new RuntimeException("Wrong password");
         }
-        return jwtService.generateToken(user.getEmail());
+        return jwtService.generateToken(user);
     }
 
 
@@ -125,7 +125,7 @@ public class UserService {
             user.setAccountStatus("ACTIVE");
             userRepository.save(user);
 
-            String token = jwtService.generateToken(user.getEmail());
+            String token = jwtService.generateToken(user);
 
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);

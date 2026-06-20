@@ -54,27 +54,61 @@ public class TestService {
     }
 
     //Lay cau hoi
-    public List<QuestionResponse> getQuestions (int sessionsId, int studentId){
+    public List<QuestionResponse> getQuestions (int sessionsId, Integer studentId){
         TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId)
-                                                    .orElseThrow(() -> new RuntimeException("Phiên Thi Không Tồn Tại"));
-        List<Question> questions = new ArrayList<>(session.getQuiz().getQuestions());
-        Collections.shuffle(questions); //Xao tron cau hoi
+                .orElseThrow(() -> new RuntimeException("Phiên Thi Không Tồn Tại"));
+
+        Integer quizId = session.getQuiz().getQuizId();
+
+        // Force load questions + options
+        List<Question> questions =
+                questionRepository.findByQuizId(quizId);
+
+        for (Question q : questions) {
+            System.out.println(
+                    "Question "
+                            + q.getQuestionId()
+                            + " options = "
+                            + q.getOptions().size()
+            );
+        }
+
+        // ===== DEBUG =====
+        System.out.println("Quiz ID = " + quizId);
+
+        for (Question q : questions) {
+            System.out.println(
+                    "Question ID = "
+                            + q.getQuestionId()
+                            + ", options = "
+                            + q.getOptions().size()
+            );
+        }
+        // =================
 
         List<QuestionResponse> responses = new ArrayList<>();
+
         for(Question q : questions){
             QuestionResponse qr = new QuestionResponse();
             qr.setQuestionId(q.getQuestionId());
             qr.setContent(q.getQuestionContent());
-            qr.setExplanation(q.getExplanation());
+            qr.setExplanation(q.getExplanation() != null ? q.getExplanation() : "");
 
             List<OptionResponse> options = new ArrayList<>();
-            for (QuestionOption opt : q.getOptions()){
-                options.add(new OptionResponse(opt.getOptionId(), opt.getOptionContent()));
+
+            // Debug
+            System.out.println("Câu " + q.getQuestionId() + " có " + (q.getOptions() != null ? q.getOptions().size() : 0) + " options");
+
+            if (q.getOptions() != null) {
+                for (QuestionOption opt : q.getOptions()) {
+                    options.add(new OptionResponse(opt.getOptionId(), opt.getOptionContent()));
+                }
             }
             qr.setOptions(options);
-
             responses.add(qr);
         }
+
+        Collections.shuffle(responses);
         return responses;
     }
 
@@ -99,63 +133,77 @@ public class TestService {
     }
 
     @Transactional
-    public TestResultResponse submitTest(int sessionsId, int studentId){
-        TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId).orElseThrow(() -> new RuntimeException("Phiên Thi Không Tồn Tại"));
-        if("SUBMITTED".equals(session.getStatus())){
-            throw new RuntimeException("Bài Thi Đã Được Nộp !!!");
+    public TestResultResponse submitTest(int sessionsId, int studentId) {
+        TestSession session = testSessionRepository
+                .findBySessionsIdAndStudentId(sessionsId, studentId)
+                .orElseThrow(() -> new RuntimeException("Phiên thi không tồn tại"));
+        if ("SUBMITTED".equals(session.getStatus())) {
+            throw new RuntimeException("Bài thi đã được nộp");
         }
-
-        //Lay tat ca dap an cua thi sinh trong bai thi nay
-        List<StudentAnswer> studentAnswers = studentAnswerRepository.findBySessionSessionsId(sessionsId);
-
-        //Lay tat ca cau hoi trong quiz
+        // Lấy tất cả đáp án của thí sinh
+        List<StudentAnswer> studentAnswers =
+                studentAnswerRepository.findBySessionSessionsId(sessionsId);
+        // Lấy toàn bộ câu hỏi của quiz
         List<Question> questions = session.getQuiz().getQuestions();
         int totalQuestions = questions.size();
         int correctCount = 0;
-
         List<QuestionResult> resultDetails = new ArrayList<>();
-        for (Question quesiton : questions){
-            StudentAnswer studentAnswer = studentAnswers
-                    .stream()
-                    .filter(sa -> sa.getQuestion().getQuestionId() == quesiton.getQuestionId())
+
+        for (Question question : questions) {
+
+            StudentAnswer studentAnswer = studentAnswers.stream()
+                    .filter(sa -> sa.getQuestion().getQuestionId()
+                            == question.getQuestionId())
                     .findFirst()
                     .orElse(null);
 
             QuestionResult qr = new QuestionResult();
-            qr.setQuestionId(quesiton.getQuestionId());
-            qr.setContent(quesiton.getQuestionContent());
-            qr.setExplanation(quesiton.getExplanation());
+            qr.setQuestionId(question.getQuestionId());
+            qr.setContent(question.getQuestionContent());
+            qr.setExplanation(question.getExplanation());
 
-            if (studentAnswer != null && studentAnswer.getSelectedOption() != null){
-                String selectedContent = studentAnswer.getSelectedOption().getOptionContent();
+            if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
+                String selectedContent =
+                        studentAnswer.getSelectedOption().getOptionContent();
                 qr.setSelectedAnswer(selectedContent);
-
-                boolean isCorrect = quesiton.getCorrectAnswer() != null &&
-                                    quesiton.getCorrectAnswer().trim().equalsIgnoreCase(selectedContent);
-                qr.setCorrectedAnswer(quesiton.getCorrectAnswer());
+                boolean isCorrect =
+                        question.getCorrectAnswer() != null
+                                && question.getCorrectAnswer()
+                                .trim()
+                                .equalsIgnoreCase(selectedContent.trim());
+                qr.setCorrectedAnswer(question.getCorrectAnswer());
                 qr.setCorrect(isCorrect);
-
-                if (isCorrect) correctCount++; //Neu cau do dung thi correctCount +1 --> So cau dung
-            }else{
-                qr.setSelectedAnswer("Chưa Trả Lời");
-                qr.setCorrectedAnswer(quesiton.getCorrectAnswer());
+                if (isCorrect) {
+                    correctCount++;
+                }
+            } else {
+                qr.setSelectedAnswer("Chưa trả lời");
+                qr.setCorrectedAnswer(question.getCorrectAnswer());
                 qr.setCorrect(false);
             }
-
             resultDetails.add(qr);
         }
-        float score = totalQuestions > 0 ? (float) correctCount / totalQuestions * 10 : 0;
 
-        //Update session
+        // Điểm thang 10
+        float score = totalQuestions > 0
+                ? ((float) correctCount / totalQuestions) * 10
+                : 0;
+
+        // Làm tròn 2 chữ số
+        score = Math.round(score * 100) / 100.0f;
+
+        // Cập nhật session
         session.setSubmittedAt(new Date());
         session.setScore(score);
         session.setStatus("SUBMITTED");
+
         testSessionRepository.save(session);
 
-        //Return result
+        // Tạo response
         TestResultResponse response = new TestResultResponse();
-        response.setSessionsId(sessionsId);
-        response.setScore(Math.round(score * 10)/ 10.0f);
+
+        response.setSessionsId(session.getSessionsId());
+        response.setScore(score);
         response.setTotalQuestions(totalQuestions);
         response.setCorrectAnswers(correctCount);
         response.setTimeSpent(calculateTimeSpent(session));
@@ -165,61 +213,69 @@ public class TestService {
         return response;
     }
 
+    // === THAY THẾ TOÀN BỘ PHẦN getResult() ===
     @Transactional
     public TestResultResponse getResult(int sessionsId, int userId) {
 
         TestSession session = testSessionRepository.findById(sessionsId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
 
-        // Kiểm tra đúng chủ sở hữu bài thi
         if (session.getStudent().getId() != userId) {
             throw new RuntimeException("Access denied");
         }
 
         TestResultResponse response = new TestResultResponse();
-
         response.setSessionsId(session.getSessionsId());
-        response.setScore(session.getScore());
+        response.setScore(session.getScore() != null ? session.getScore() : 0f);
         response.setSubmittedAt(session.getSubmittedAt());
 
-        int totalQuestions = session.getQuiz().getQuestions().size();
-        response.setTotalQuestions(totalQuestions);
+        List<Question> allQuestions = session.getQuiz().getQuestions();
+        response.setTotalQuestions(allQuestions.size());
+
+        List<StudentAnswer> answers = studentAnswerRepository.findBySessionSessionsId(sessionsId);
 
         int correctAnswers = 0;
         List<QuestionResult> questionResults = new ArrayList<>();
 
-        List<StudentAnswer> answers =
-                studentAnswerRepository.findBySessionSessionsId(sessionsId);
-
-        for (StudentAnswer answer : answers) {
-
-            Question question = answer.getQuestion();
-
-            String selectedAnswer = null;
-
-            if (answer.getSelectedOption() != null) {
-                selectedAnswer =
-                        answer.getSelectedOption().getOptionContent();
-            }
-
-            String correctedAnswer = question.getCorrectAnswer();
-
-            boolean isCorrect =
-                    selectedAnswer != null
-                            && selectedAnswer.equals(correctedAnswer);
-
-            if (isCorrect) {
-                correctAnswers++;
-            }
+        for (Question question : allQuestions) {
+            StudentAnswer studentAnswer = answers.stream()
+                    .filter(sa -> sa.getQuestion().getQuestionId() == question.getQuestionId())
+                    .findFirst()
+                    .orElse(null);
 
             QuestionResult qr = new QuestionResult();
-
             qr.setQuestionId(question.getQuestionId());
             qr.setContent(question.getQuestionContent());
-            qr.setSelectedAnswer(selectedAnswer);
-            qr.setCorrectedAnswer(correctedAnswer);
             qr.setExplanation(question.getExplanation());
-            qr.setCorrect(isCorrect);
+            qr.setCorrectedAnswer(question.getCorrectAnswer());
+
+            String correctAnswer = question.getCorrectAnswer() != null
+                    ? question.getCorrectAnswer().trim() : "";
+
+            if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
+                String selectedContent = studentAnswer.getSelectedOption().getOptionContent().trim();
+
+                qr.setSelectedAnswer(selectedContent);
+
+                // === LOGIC SO SÁNH MẠNH HƠN ===
+                boolean isCorrect = false;
+
+                if (correctAnswer.equalsIgnoreCase(selectedContent)) {
+                    isCorrect = true;
+                } else {
+                    // Xử lý trường hợp đáp án đúng là "x=2 hoặc x=3" nhưng option là "x=2 hoặc x=3"
+                    String normalizedCorrect = correctAnswer.replace("hoặc", "hoặc").trim();
+                    String normalizedSelected = selectedContent.replace("hoặc", "hoặc").trim();
+                    isCorrect = normalizedCorrect.equalsIgnoreCase(normalizedSelected);
+                }
+
+                qr.setCorrect(isCorrect);
+                if (isCorrect) correctAnswers++;
+
+            } else {
+                qr.setSelectedAnswer("Chưa trả lời");
+                qr.setCorrect(false);
+            }
 
             questionResults.add(qr);
         }
@@ -227,17 +283,12 @@ public class TestService {
         response.setCorrectAnswers(correctAnswers);
         response.setQuestions(questionResults);
 
+        // Tính thời gian
         int timeSpent = 0;
-
         if (session.getStartedAt() != null && session.getSubmittedAt() != null) {
-
-            long seconds =
-                    (session.getSubmittedAt().getTime()
-                            - session.getStartedAt().getTime()) / 1000;
-
+            long seconds = (session.getSubmittedAt().getTime() - session.getStartedAt().getTime()) / 1000;
             timeSpent = (int) seconds;
         }
-
         response.setTimeSpent(timeSpent);
 
         return response;

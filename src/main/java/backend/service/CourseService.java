@@ -21,7 +21,7 @@ public class CourseService {
             res.setId(c.getCourseId());
             res.setTitle(c.getTitle());
             res.setTeacherId(c.getTeacherId());
-            res.setPrice(c.getPrice());
+            res.setPrice(c.getPrice().doubleValue());
 
             //Map is_published --> status
             res.setStatus(Boolean.TRUE.equals(c.getIsPublished()) ? "PUBLISHED" : "PENDING");
@@ -47,7 +47,7 @@ public class CourseService {
                     CourseResponse cRes = new CourseResponse();
                     cRes.setId(c.getCourseId());
                     cRes.setTitle(c.getTitle());
-                    cRes.setPrice(c.getPrice());
+                    cRes.setPrice(c.getPrice().doubleValue());
                     cRes.setTeacherName("Teacher #"+c.getTeacherId());
                     cRes.setStatus("PUBLISHED");
                     return cRes;
