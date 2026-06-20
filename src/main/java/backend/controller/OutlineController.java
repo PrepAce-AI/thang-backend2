@@ -19,25 +19,6 @@ public class OutlineController {
     @Autowired private ChapterRepository chapterRepository;
     @Autowired private LessonRepository lessonRepository;
     @Autowired private CourseRepository courseRepository; // Đảm bảo bạn đã có CourseRepository
-    @Autowired private backend.service.YouTubeService youtubeService;
-
-    // API Import YouTube Playlist
-    @PostMapping("/courses/{courseId}/import-playlist")
-    public ResponseEntity<?> importPlaylist(@PathVariable Integer courseId, @RequestBody Map<String, Object> body) {
-        String playlistUrl = (String) body.get("playlistUrl");
-        String chapterTitle = (String) body.get("chapterTitle");
-        
-        if (playlistUrl == null || !playlistUrl.contains("list=")) {
-            return ResponseEntity.badRequest().body("Đường dẫn YouTube Playlist không hợp lệ!");
-        }
-
-        try {
-            youtubeService.importPlaylist(courseId, playlistUrl, chapterTitle);
-            return ResponseEntity.ok(Map.of("message", "Import thành công!"));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
-        }
-    }
 
     // 1. API: Thêm Chương mới vào Khóa học
     @PostMapping("/courses/{courseId}/chapters")

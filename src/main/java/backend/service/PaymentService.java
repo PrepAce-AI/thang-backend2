@@ -64,7 +64,7 @@ public class PaymentService {
         // Lưu payment record
         Payment payment = new Payment();
         payment.setStudentId(studentId);
-        payment.setCourseId(course.getCourseId());
+        payment.setCourseId(course.getId());
         payment.setAmount(course.getPrice());
         payment.setPaymentMethod(request.getPaymentMethod().toUpperCase());
         payment.setPaymentStatus(status);
@@ -74,14 +74,14 @@ public class PaymentService {
 
         // Nếu SUCCESS → tự động enroll
         if ("SUCCESS".equals(status)) {
-            autoEnroll(studentId, course.getCourseId());
-            log.info("Student {} purchased courseId={} via {} — enrolled", studentId, course.getCourseId(), request.getPaymentMethod());
+            autoEnroll(studentId, course.getId());
+            log.info("Student {} purchased courseId={} via {} — enrolled", studentId, course.getId(), request.getPaymentMethod());
         }
 
         return PaymentResponse.builder()
                 .paymentId(saved.getPaymentId())
-                .courseId(course.getCourseId())
-                .courseTitle(course.getCourseTitle())
+                .courseId(course.getId())
+                .courseTitle(course.getTitle())
                 .amount(saved.getAmount())
                 .paymentMethod(saved.getPaymentMethod())
                 .paymentStatus(saved.getPaymentStatus())
@@ -116,7 +116,7 @@ public class PaymentService {
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
                 .courseId(payment.getCourseId())
-                .courseTitle(course != null ? course.getCourseTitle() : null)
+                .courseTitle(course != null ? course.getTitle() : null)
                 .amount(payment.getAmount())
                 .paymentMethod(payment.getPaymentMethod())
                 .paymentStatus("SUCCESS")
@@ -136,7 +136,7 @@ public class PaymentService {
                     return PaymentResponse.builder()
                             .paymentId(p.getPaymentId())
                             .courseId(p.getCourseId())
-                            .courseTitle(course != null ? course.getCourseTitle() : "Unknown")
+                            .courseTitle(course != null ? course.getTitle() : "Unknown")
                             .amount(p.getAmount())
                             .paymentMethod(p.getPaymentMethod())
                             .paymentStatus(p.getPaymentStatus())
