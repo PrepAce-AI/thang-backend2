@@ -33,6 +33,7 @@ public class SecurityConfig {
                         // Cho phép Request dò đường OPTIONS
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/courses/delete-seed").permitAll()
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)
                         .requestMatchers("/api/materials/**").authenticated()
@@ -40,6 +41,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/outlines/**").authenticated()
 
                         .requestMatchers("/api/courses", "/api/courses/**").authenticated()
+                        .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 // 2. BẢO SPRING CHẠY QUA BỘ LỌC JWT TRƯỚC TIÊN
