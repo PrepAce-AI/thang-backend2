@@ -33,7 +33,21 @@ public class SecurityConfig {
                         // Cho phép Request dò đường OPTIONS
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+<<<<<<< HEAD
                         .requestMatchers("/api/courses/delete-seed").permitAll()
+=======
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/entry-test",
+                                "/api/entry-test/ping",
+                                "/api/entry-test/course/**",
+                                "/api/entry-test/submit",
+                                "/api/entry-test/history",
+                                "/api/payments/**",
+                                "/api/ai/**"
+                        ).permitAll()
+                        // TODO: đổi sang .authenticated() sau khi tích hợp JWT filter đầy đủ
+>>>>>>> f5620a3a34733e82ef9c40c496c04e867b3a8658
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)
                         .requestMatchers("/api/materials/**").authenticated()
