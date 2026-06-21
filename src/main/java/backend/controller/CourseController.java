@@ -45,6 +45,11 @@ public class CourseController {
         CourseDetailResponse response = courseService.getCourseDetailById(courseId);
         return ResponseEntity.ok(response);
     }
+    @GetMapping("/{courseId}")
+    public ResponseEntity<CourseDetailResponse> getCourseDetail(@PathVariable Integer courseId) {
+        CourseDetailResponse response = courseService.getCourseDetailById(courseId);
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping
     public ResponseEntity<java.util.Map<String, Object>> createCourse(@RequestBody java.util.Map<String, Object> body) {
@@ -63,6 +68,22 @@ public class CourseController {
         // Gán cứng một subject_id (ví dụ 1) để lọt qua cổng kiểm duyệt NOT NULL của SQL Server
         course.setSubjectId(1);
 
+    @PostMapping
+    public ResponseEntity<java.util.Map<String, Object>> createCourse(@RequestBody java.util.Map<String, Object> body) {
+        Course course = new Course();
+        course.setTitle((String) body.getOrDefault("title", "Khóa học nháp (Chưa đặt tên)"));
+        course.setDescription((String) body.getOrDefault("description", ""));
+        course.setIsPublished(false);
+        course.setPrice(java.math.BigDecimal.ZERO);
+
+        if (body.containsKey("teacher_id")) {
+            try {
+                course.setTeacherId(Integer.parseInt(String.valueOf(body.get("teacher_id"))));
+            } catch (Exception e) {}
+        }
+
+        // Gán cứng một subject_id (ví dụ 1) để lọt qua cổng kiểm duyệt NOT NULL của SQL Server
+        course.setSubjectId(1);
 
         Course saved = courseService.saveCourse(course); // Tạm gọi qua repository hoặc service
 
