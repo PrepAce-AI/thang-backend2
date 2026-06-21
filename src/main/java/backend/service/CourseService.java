@@ -1,8 +1,8 @@
 package backend.service;
 
-import backend.dto.response.CourseResponse;
+import backend.dto.response.*;
 import backend.entity.Course;
-import backend.entity.Lesson;
+import backend.dto.*;
 import backend.repository.CourseRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,7 +20,7 @@ public class CourseService {
     public List<CourseListResponse> getAllCourses() {
         return courseRepository.findAll().stream().map(course -> {
             var dto = new backend.dto.response.CourseListResponse();
-            dto.setId(course.getId());
+            dto.setId(course.getCourseId());
             dto.setTitle(course.getTitle());
             dto.setDescription(course.getDescription());
 
@@ -72,7 +72,7 @@ public class CourseService {
     // Hàm thực hiện chuyển đổi Entity -> DTO thủ công
     private CourseDetailResponse mapToResponse(Course course) {
         CourseDetailResponse response = new CourseDetailResponse();
-        response.setId(course.getId());
+        response.setId(course.getCourseId());
         response.setTitle(course.getTitle());
         response.setDescription(course.getDescription());
         response.setThumbnailUrl(course.getThumbnailUrl());

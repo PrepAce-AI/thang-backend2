@@ -33,8 +33,6 @@ public class Quiz {
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 
-    // Relationship với Questions
-    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     /** Loại quiz: ENTRY_TEST | PRACTICE | MOCK_EXAM */
     @Column(name = "quiz_type", length = 50)
     private String quizType;

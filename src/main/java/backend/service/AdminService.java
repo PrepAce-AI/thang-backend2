@@ -36,7 +36,6 @@ public class AdminService {
         Course course = courseRepository.findById(courseId).orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học"));
         course.setStatus(status);
         course.setReviewNote(note);
-        course.setReviewedAt(new Date());
 
         if ("PUBLISHED".equals(status)){
             course.setIsPublished(true);

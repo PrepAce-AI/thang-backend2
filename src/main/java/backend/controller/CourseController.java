@@ -67,7 +67,7 @@ public class CourseController {
         Course saved = courseService.saveCourse(course); // Tạm gọi qua repository hoặc service
 
         java.util.Map<String, Object> response = new java.util.HashMap<>();
-        response.put("id", saved.getId());
+        response.put("id", saved.getCourseId());
         response.put("title", saved.getTitle());
         return ResponseEntity.ok(response);
     }
@@ -76,7 +76,7 @@ public class CourseController {
     public ResponseEntity<?> updateCourse(@PathVariable Integer courseId, @RequestBody java.util.Map<String, Object> body) {
         Course saved = courseService.updateCourse(courseId, body);
         java.util.Map<String, Object> response = new java.util.HashMap<>();
-        response.put("id", saved.getId());
+        response.put("id", saved.getCourseId());
         response.put("title", saved.getTitle());
         return ResponseEntity.ok(response);
     }

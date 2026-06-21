@@ -64,7 +64,7 @@ public class PaymentService {
         // Lưu payment record
         Payment payment = new Payment();
         payment.setStudentId(studentId);
-        payment.setCourseId(course.getId());
+        payment.setCourseId(course.getCourseId());
         payment.setAmount(course.getPrice());
         payment.setPaymentMethod(request.getPaymentMethod().toUpperCase());
         payment.setPaymentStatus(status);
@@ -74,13 +74,13 @@ public class PaymentService {
 
         // Nếu SUCCESS → tự động enroll
         if ("SUCCESS".equals(status)) {
-            autoEnroll(studentId, course.getId());
-            log.info("Student {} purchased courseId={} via {} — enrolled", studentId, course.getId(), request.getPaymentMethod());
+            autoEnroll(studentId, course.getCourseId());
+            log.info("Student {} purchased courseId={} via {} — enrolled", studentId, course.getCourseId(), request.getPaymentMethod());
         }
 
         return PaymentResponse.builder()
                 .paymentId(saved.getPaymentId())
-                .courseId(course.getId())
+                .courseId(course.getCourseId())
                 .courseTitle(course.getTitle())
                 .amount(saved.getAmount())
                 .paymentMethod(saved.getPaymentMethod())

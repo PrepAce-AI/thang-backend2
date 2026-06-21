@@ -29,7 +29,7 @@ public class OutlineController {
         }
 
         // Tính toán số thứ tự tự động tăng cho chương mới
-        List<Chapter> existingChapters = chapterRepository.findByCourseIdOrderByOrderAsc(courseId);
+        List<Chapter> existingChapters = chapterRepository.findByCourse_CourseIdOrderByOrderAsc(courseId);
         int nextOrder = existingChapters.size() + 1;
 
         Chapter chapter = new Chapter();

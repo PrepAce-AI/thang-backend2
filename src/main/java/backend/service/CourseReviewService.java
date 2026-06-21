@@ -37,7 +37,7 @@ public class CourseReviewService {
         review.setUser(user);
 
         Course course = new Course();
-        course.setId(courseId);
+        course.setCourseId(courseId);
         review.setCourse(course);
 
         CourseReview saved = reviewRepository.save(review);
@@ -58,7 +58,7 @@ public class CourseReviewService {
 
     @Transactional(readOnly = true)
     public List<ReviewResponse> getReviewsByCourse(Integer courseId) {
-        return reviewRepository.findByCourseIdOrderByCreatedAtDesc(courseId)
+        return reviewRepository.findByCourse_CourseIdOrderByCreatedAtDesc(courseId)
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -77,7 +77,7 @@ public class CourseReviewService {
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public ReviewSummaryResponse getReviewSummary(Integer courseId) {
         // Lấy danh sách review gốc từ Repository của bạn
-        List<CourseReview> reviewList = reviewRepository.findByCourseIdOrderByCreatedAtDesc(courseId);
+        List<CourseReview> reviewList = reviewRepository.findByCourse_CourseIdOrderByCreatedAtDesc(courseId);
 
         ReviewSummaryResponse summary = new ReviewSummaryResponse();
         summary.setTotalReviews(reviewList.size());

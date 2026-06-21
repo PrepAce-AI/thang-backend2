@@ -63,7 +63,7 @@ public class EntryTestService {
             throw new BadRequestException("Quiz này không phải Entry Test");
         }
 
-        List<Question> questions = questionRepository.findByQuizIdWithOptions(quiz.getQuizId());
+        List<Question> questions = questionRepository.findByQuizId(quiz.getQuizId());
         if (questions.isEmpty()) {
             throw new BadRequestException("Entry Test chưa có câu hỏi nào");
         }
@@ -140,7 +140,7 @@ public class EntryTestService {
     // ─── Helper ─────────────────────────────────────────────────────────────────
 
     private QuizResponse mapToQuizResponse(Quiz quiz) {
-        List<Question> questions = questionRepository.findByQuizIdWithOptions(quiz.getQuizId());
+        List<Question> questions = questionRepository.findByQuizId(quiz.getQuizId());
 
         List<QuizResponse.QuestionResponse> questionResponses = questions.stream()
                 .map(q -> QuizResponse.QuestionResponse.builder()

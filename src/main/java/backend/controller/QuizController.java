@@ -25,7 +25,7 @@ public class QuizController {
 
     @GetMapping("/course/{courseId}")
     public ResponseEntity<List<Quiz>> getQuizzesByCourse(@PathVariable Integer courseId){
-        List<Quiz> quizzes = quizRepository.findByCourseId(courseId);
+        List<Quiz> quizzes = quizRepository.findByCourse_CourseId(courseId);
         return ResponseEntity.ok(quizzes);
     }
 

@@ -67,7 +67,7 @@ public class AcademicQuestionController {
             map.put("userName", q.getUser() != null ? q.getUser().getFullName() : null);
             map.put("lessonId", q.getLesson() != null ? q.getLesson().getId() : null);
             if (q.getLesson() != null && q.getLesson().getChapter() != null && q.getLesson().getChapter().getCourse() != null) {
-                map.put("courseId", q.getLesson().getChapter().getCourse().getId());
+                map.put("courseId", q.getLesson().getChapter().getCourse().getCourseId());
                 map.put("teacherId", q.getLesson().getChapter().getCourse().getTeacherId());
             }
             result.add(map);
