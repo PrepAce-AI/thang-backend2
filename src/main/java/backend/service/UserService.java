@@ -66,17 +66,29 @@ public class UserService {
 
 
     //Normal Login
-    public String login(String email, String password){
+    // Đổi kiểu trả về từ String thành Map<String, Object>
+    public Map<String, Object> login(String email, String password){
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email not found"));
+
         boolean isMatch = password.equals(user.getPasswordHash()) || passwordEncoder.matches(password, user.getPasswordHash());
+
         if (!user.getAccountStatus().equals("ACTIVE")){
             throw new RuntimeException("Please verify your email first !!!");
         }
         if (!isMatch) {
             throw new RuntimeException("Wrong password");
         }
-        return jwtService.generateToken(user);
+
+        // Tạo token mã hóa
+        String token = jwtService.generateToken(user.getEmail());
+
+        // Gộp cả token và thông tin user trả về y hệt luồng Google Auth
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("user", user);
+
+        return response;
     }
 
 
@@ -125,7 +137,7 @@ public class UserService {
             user.setAccountStatus("ACTIVE");
             userRepository.save(user);
 
-            String token = jwtService.generateToken(user);
+            String token = jwtService.generateToken(user.getEmail());
 
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);

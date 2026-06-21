@@ -6,7 +6,9 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Date;
+import java.util.List;
 
+@Data
 @Entity
 @Table(name = "Courses")
 @Getter
@@ -14,6 +16,7 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Course {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "course_id")
@@ -22,10 +25,7 @@ public class Course {
     @Column(name = "teacher_id", nullable = false)
     private Integer teacherId;
 
-    @Column(name = "subject_id", nullable = false)
-    private Integer subjectId;
-
-    @Column(name = "course_title", nullable = false)
+    @Column(name = "course_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
     @Column(name = "course_description", columnDefinition = "NVARCHAR(MAX)")
@@ -34,14 +34,14 @@ public class Course {
     @Column(name = "thumbnail_url")
     private String thumbnailUrl;
 
-    @Column(name = "price")
+    @Column(name = "price", precision = 10, scale = 2)
     private BigDecimal price;
 
     @Column(name = "is_published")
     private Boolean isPublished;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Column(name = "subject_id")
+    private Integer subjectId;
 
     // === FIELDS MỚI CHO ADMIN ===
     @Column(name = "status")
@@ -52,5 +52,9 @@ public class Course {
 
     @Column(name = "reviewed_at")
     @Temporal(TemporalType.TIMESTAMP)
-    private Date reviewedAt;
+    private Date createdAt;
+
+    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OrderBy("order ASC")
+    private List<Chapter> chapters;
 }

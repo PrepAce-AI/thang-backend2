@@ -17,14 +17,14 @@ public class Question {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "question_id")
-    private int questionId;
+    private Integer questionId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "quiz_id", nullable = false)
     @JsonIgnore
     private Quiz quiz;
 
-    @Column(name = "question_content", nullable = false)
+    @Column(name = "question_content", columnDefinition = "NVARCHAR(MAX)")
     private String questionContent;
 
     @Column(name = "correct_answer")
@@ -32,6 +32,9 @@ public class Question {
 
     @Column(name = "explanation")
     private String explanation;
+    /** Mức độ nhận thức: 1-Nhận biết, 2-Thông hiểu, 3-Vận dụng, 4-Vận dụng cao */
+    @Column(name = "cognitive_level")
+    private Integer cognitiveLevel;
 
     @OneToMany(mappedBy = "question",
             fetch = FetchType.EAGER,

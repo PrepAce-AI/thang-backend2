@@ -17,17 +17,17 @@ public class Quiz {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "quiz_id")
-    private int quizId;
+    private Integer quizId;
 
     @ManyToOne
     @JoinColumn(name = "course_id", nullable = false)
     private Course course;
 
-    @Column(name = "quiz_title", nullable = false)
+    @Column(name = "quiz_title")
     private String quizTitle;
 
     @Column(name = "duration_minutes")
-    private int durationMinutes;
+    private Integer durationMinutes;
 
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
@@ -35,5 +35,10 @@ public class Quiz {
 
     // Relationship với Questions
     @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    /** Loại quiz: ENTRY_TEST | PRACTICE | MOCK_EXAM */
+    @Column(name = "quiz_type", length = 50)
+    private String quizType;
+
+    @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<Question> questions = new ArrayList<>();
 }
