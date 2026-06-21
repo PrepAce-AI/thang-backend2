@@ -37,16 +37,18 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public Map<String, String> login(
+    public ResponseEntity<?> login(
             @RequestBody LoginRequest request
     ){
-        String token = userService.login(
+        // Nhận Map từ Service chứa cả token và user
+        Map<String, Object> authData = userService.login(
                 request.getEmail(),
                 request.getPassword()
         );
-        return Map.of("token", token);
-    }
 
+        // Trả về kèm HTTP 200 OK
+        return ResponseEntity.ok(authData);
+    }
     @PostMapping("/google")
     public ResponseEntity<?> googleAuth(@RequestBody Map<String, String> body) {
 
