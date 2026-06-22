@@ -20,6 +20,10 @@ public class JwtService {
     }
 
     public String generateToken(User user) {
+
+        System.out.println("EMAIL = " + user.getEmail());
+        System.out.println("ROLE = " + user.getRoleName());
+
         return Jwts.builder()
                 .setSubject(user.getEmail())
                 .claim("userId", user.getId())
@@ -32,14 +36,14 @@ public class JwtService {
     }
 
 
-    public String generateToken(String email) {
-        return Jwts.builder()
-                .setSubject(email)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 86400000))
-                .signWith(getSignKey())
-                .compact();
-    }
+//    public String generateToken(String email) {
+//        return Jwts.builder()
+//                .setSubject(email)
+//                .setIssuedAt(new Date())
+//                .setExpiration(new Date(System.currentTimeMillis() + 86400000))
+//                .signWith(getSignKey())
+//                .compact();
+//    }
 
     //Change Password
     public String extractUsername(String token){
