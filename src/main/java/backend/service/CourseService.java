@@ -113,4 +113,8 @@ public class CourseService {
 
         return response;
     }
+
+    public List<Course> getCoursesByTeacherId(Integer teacherId) {
+        return courseRepository.findByTeacherId(teacherId);
+    }
 }
