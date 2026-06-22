@@ -59,6 +59,10 @@ public class AIService {
         record.setRequestType("CHAT");
         AIChatHistory saved = chatHistoryRepository.save(record);
 
+        if (aiResponse == null) {
+            aiResponse = "AI không trả về nội dung.";
+        }
+
         log.info("AI Chat — studentId={}, chars={}", studentId, aiResponse.length());
 
         return ChatResponse.builder()
