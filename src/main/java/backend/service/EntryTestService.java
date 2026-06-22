@@ -6,6 +6,8 @@ import backend.dto.response.QuizResultResponse;
 import backend.entity.Question;
 import backend.entity.Quiz;
 import backend.entity.QuizAttempt;
+import backend.dto.response.StartQuizResponse;
+
 import backend.exceptions.BadRequestException;
 import backend.exceptions.ResourceNotFoundException;
 import backend.repository.QuestionRepository;
@@ -171,5 +173,54 @@ public class EntryTestService {
         if (percentage >= 65) return "Khá";
         if (percentage >= 50) return "Trung bình";
         return "Yếu";
+    }
+
+    // ─── START QUIZ ─────────────────────────────────────────────────────────────────
+    public StartQuizResponse startQuiz(Integer quizId, Integer studentId) {
+
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại: " + quizId));
+
+        if (!"ENTRY_TEST".equals(quiz.getQuizType())) {
+            throw new BadRequestException("Quiz này không phải Entry Test");
+        }
+
+        // Lấy câu hỏi
+        List<Question> questions = questionRepository.findByQuizId(quizId);
+
+        if (questions.isEmpty()) {
+            throw new BadRequestException("Entry Test chưa có câu hỏi");
+        }
+
+        // Tạo attempt (session làm bài)
+        QuizAttempt attempt = new QuizAttempt();
+        attempt.setQuiz(quiz);
+        attempt.setStudentId(studentId);
+        attempt.setStartedAt(new Date());
+
+        QuizAttempt saved = quizAttemptRepository.save(attempt);
+
+        // Map question
+        List<QuizResponse.QuestionResponse> questionResponses =
+                questions.stream().map(q ->
+                        QuizResponse.QuestionResponse.builder()
+                                .questionId(q.getQuestionId())
+                                .questionContent(q.getQuestionContent())
+                                .cognitiveLevel(q.getCognitiveLevel())
+                                .options(q.getOptions().stream()
+                                        .map(o -> QuizResponse.OptionResponse.builder()
+                                                .optionId(o.getOptionId())
+                                                .optionContent(o.getOptionContent())
+                                                .build())
+                                        .toList())
+                                .build()
+                ).toList();
+
+        return StartQuizResponse.builder()
+                .attemptId(saved.getAttemptId())
+                .quizId(quiz.getQuizId())
+                .quizTitle(quiz.getQuizTitle())
+                .questions(questionResponses)
+                .build();
     }
 }
