@@ -45,11 +45,26 @@ public class AIService {
 
     @Transactional
     public ChatResponse chat(Integer studentId, ChatRequest request) {
+
         String contextualPrompt = request.getSubject() != null
                 ? "[Môn: " + request.getSubject() + "] " + request.getMessage()
                 : request.getMessage();
 
-        String aiResponse = geminiService.ask(SYSTEM_CONTEXT, contextualPrompt);
+        String aiResponse;
+
+        try {
+            aiResponse = geminiService.ask(SYSTEM_CONTEXT, contextualPrompt);
+
+            if (aiResponse == null || aiResponse.isBlank()) {
+                throw new RuntimeException("Empty AI response");
+            }
+
+        } catch (Exception e) {
+            log.error("Gemini error", e);
+
+            // KHÔNG ghi DB fallback im lặng
+            aiResponse = "Xin lỗi, AI đang quá tải. Vui lòng thử lại sau.";
+        }
 
         AIChatHistory record = new AIChatHistory();
         record.setStudentId(studentId);
@@ -57,13 +72,10 @@ public class AIService {
         record.setAiResponse(aiResponse);
         record.setCreatedAt(new Date());
         record.setRequestType("CHAT");
+
         AIChatHistory saved = chatHistoryRepository.save(record);
 
-        if (aiResponse == null) {
-            aiResponse = "AI không trả về nội dung.";
-        }
-
-        log.info("AI Chat — studentId={}, chars={}", studentId, aiResponse.length());
+        log.info("AI Chat SUCCESS — studentId={}, chars={}", studentId, aiResponse.length());
 
         return ChatResponse.builder()
                 .chatId(saved.getChatId())
@@ -71,17 +83,6 @@ public class AIService {
                 .aiResponse(aiResponse)
                 .createdAt(saved.getCreatedAt())
                 .build();
-    }
-
-    public Page<ChatResponse> getChatHistory(Integer studentId, int page, int size) {
-        return chatHistoryRepository
-                .findByStudentIdOrderByCreatedAtDesc(studentId, PageRequest.of(page, size))
-                .map(h -> ChatResponse.builder()
-                        .chatId(h.getChatId())
-                        .question(h.getQuestion())
-                        .aiResponse(h.getAiResponse())
-                        .createdAt(h.getCreatedAt())
-                        .build());
     }
 
     // ─── UC-28: AI Gap Diagnosis ─────────────────────────────────────────────────
@@ -289,5 +290,22 @@ public class AIService {
         h.setCreatedAt(new Date());
         h.setRequestType(type);
         chatHistoryRepository.save(h);
+    }
+
+    public Page<ChatResponse> getChatHistory(Integer studentId, int page, int size) {
+
+        Page<AIChatHistory> historyPage =
+                chatHistoryRepository.findByStudentIdOrderByCreatedAtDesc(
+                        studentId,
+                        PageRequest.of(page, size)
+                );
+
+        return historyPage.map(h -> ChatResponse.builder()
+                .chatId(h.getChatId())
+                .question(h.getQuestion())
+                .aiResponse(h.getAiResponse())
+                .createdAt(h.getCreatedAt())
+                .build()
+        );
     }
 }

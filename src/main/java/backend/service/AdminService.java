@@ -32,20 +32,18 @@ public class AdminService {
     }
 
     @Transactional
-    public Course updateCourseStatus(Integer courseId, String status, String note){
-        Course course = courseRepository.findById(courseId).orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học"));
+    public Course updateCourseStatus(Integer id, String status, String note) {
+        Course course = courseRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Not found"));
+
         course.setStatus(status);
         course.setReviewNote(note);
 
-        if ("PUBLISHED".equals(status)){
-            course.setIsPublished(true);
-        }else if ("REJECTED".equals(status)){
-            course.setIsPublished(false);
-        }
+        courseRepository.save(course);
+        courseRepository.flush();
 
-        return courseRepository.save(course);
+        return course;
     }
-
     // ==================== USERS ====================
     public List<User> getAllUsers() {
         return userRepository.findAll();
