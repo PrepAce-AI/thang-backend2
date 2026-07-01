@@ -3,11 +3,16 @@ package backend.service;
 import backend.dto.request.ChatRequest;
 import backend.dto.response.AdaptivePathResponse;
 import backend.dto.response.ChatResponse;
+import backend.dto.response.UniversityAdvisingResponse;
+import backend.dto.response.UniversitySuggestion;
 import backend.entity.AIChatHistory;
 import backend.entity.QuizAttempt;
 import backend.repository.AIChatHistoryRepository;
 import backend.repository.EnrollmentRepository;
 import backend.repository.QuizAttemptRepository;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,12 +39,19 @@ public class AIService {
     private final AIChatHistoryRepository chatHistoryRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_CONTEXT =
             "Bạn là trợ lý AI của nền tảng PrepAce — hệ thống luyện thi THPT Quốc gia Việt Nam. "
           + "Hãy trả lời bằng tiếng Việt, ngắn gọn, chính xác và phù hợp với học sinh cấp 3. "
           + "Chỉ hỗ trợ các vấn đề liên quan đến học tập, ôn thi và tư vấn hướng nghiệp đại học. "
-          + "Không trả lời các câu hỏi ngoài phạm vi giáo dục.";
+          + "Không trả lời các câu hỏi ngoài phạm vi giáo dục."
+            + "CHỈ TRẢ VỀ JSON HỢP LỆ.\n" +
+                    "KHÔNG markdown.\n" +
+                    "KHÔNG ```.\n" +
+                    "KHÔNG giải thích.\n" +
+                    "KHÔNG xuống dòng ngoài JSON.\n" +
+                    "Nếu không chắc chắn, vẫn phải trả JSON hợp lệ.";
 
     // ─── UC-26: AI Chatbot ───────────────────────────────────────────────────────
 
@@ -195,27 +207,89 @@ public class AIService {
     // ─── UC-30: AI University Advising ──────────────────────────────────────────
 
     @Transactional
-    public ChatResponse adviseUniversity(Integer studentId, String targetScore, String preferredMajor) {
-        Double avgScore = quizAttemptRepository.findAverageScoreByStudentId(studentId).orElse(0.0);
+    public UniversityAdvisingResponse getUniversityAdvising(Integer studentId, String block) {
 
-        String prompt = String.format(
-                "Học sinh điểm trung bình %s/10. Điểm mục tiêu: %s. Ngành yêu thích: %s. "
-              + "Hãy tư vấn các trường đại học phù hợp tại Việt Nam, điểm chuẩn tham khảo, "
-              + "và các bước chuẩn bị hồ sơ xét tuyển.",
-                String.format("%.1f", avgScore),
-                targetScore != null ? targetScore : "chưa xác định",
-                preferredMajor != null ? preferredMajor : "chưa xác định"
-        );
+        Double avgScore = quizAttemptRepository
+                .findAverageScoreByStudentId(studentId)
+                .orElse(0.0);
 
-        String advice = geminiService.ask(SYSTEM_CONTEXT, prompt);
-        saveAIHistory(studentId, "Tư vấn chọn trường ĐH - " + preferredMajor, advice, "UNIVERSITY_ADVISE");
+        boolean hasData = avgScore > 0;
 
-        log.info("University Advising — studentId={}, major={}", studentId, preferredMajor);
+        // ─────────────────────────────
+        // 1. AI PROMPT (structured JSON yêu cầu Gemini)
+        // ─────────────────────────────
+        String prompt = """
+            You are a JSON API.
+            
+            ABSOLUTE RULES:
+            - Output ONLY valid JSON
+            - No markdown
+            - No explanation
+            - No extra text
+            - Using Vietnamese
+            - Must be complete JSON (never cut)
+            - If unsure, still return valid JSON
+            
+            Return format exactly:
+            
+            {
+              "suggestions": [
+                {
+                  "universityName": "string",
+                  "major": "string",
+                  "admissionScore": "string",
+                  "reason": "string",
+                  "matchScore": 0.0
+                }
+              ],
+              "summary": "string"
+            }
+            
+            User data:
+            - avgScore: %.1f
+            - block: %s
+            """.formatted(avgScore, block);
 
-        return ChatResponse.builder()
-                .question("Tư vấn chọn trường đại học ngành: " + preferredMajor)
-                .aiResponse(advice)
-                .createdAt(new Date())
+        String aiResponse = geminiService.ask(SYSTEM_CONTEXT, prompt);
+        if (aiResponse == null || aiResponse.length() < 10) {
+            return UniversityAdvisingResponse.builder()
+                    .hasData(hasData)
+                    .block(block)
+                    .predictedScore(avgScore)
+                    .summary("AI không trả dữ liệu hợp lệ")
+                    .suggestions(List.of())
+                    .build();
+        }
+
+        saveAIHistory(studentId,
+                "AI University Advising",
+                aiResponse,
+                "UNIVERSITY_ADVISE");
+
+        // ─────────────────────────────
+        // 2. PARSE JSON (quan trọng)
+        // ─────────────────────────────
+        List<UniversitySuggestion> suggestions = parseSuggestions(aiResponse);
+
+        // ─────────────────────────────
+        // 3. SORT by matchScore (AI + backend hybrid)
+        // ─────────────────────────────
+        suggestions = suggestions.stream()
+                .sorted(Comparator.comparing(UniversitySuggestion::getMatchScore)
+                        .reversed())
+                .toList();
+
+        // ─────────────────────────────
+        // 4. SUMMARY extract
+        // ─────────────────────────────
+        String summary = extractSummary(aiResponse);
+
+        return UniversityAdvisingResponse.builder()
+                .hasData(hasData)
+                .block(block)
+                .predictedScore(avgScore)
+                .summary(summary)
+                .suggestions(suggestions)
                 .build();
     }
 
@@ -293,13 +367,11 @@ public class AIService {
     }
 
     public Page<ChatResponse> getChatHistory(Integer studentId, int page, int size) {
-
         Page<AIChatHistory> historyPage =
                 chatHistoryRepository.findByStudentIdOrderByCreatedAtDesc(
                         studentId,
                         PageRequest.of(page, size)
                 );
-
         return historyPage.map(h -> ChatResponse.builder()
                 .chatId(h.getChatId())
                 .question(h.getQuestion())
@@ -307,5 +379,95 @@ public class AIService {
                 .createdAt(h.getCreatedAt())
                 .build()
         );
+    }
+
+    // --------- Parse Json --------
+    private boolean isValidJson(String json) {
+        return json != null
+                && json.trim().startsWith("{")
+                && json.trim().endsWith("}");
+    }
+
+    private String cleanJson(String aiResponse) {
+        if (aiResponse == null) return "";
+
+        return aiResponse
+                .replaceAll("(?s)```json", "")
+                .replaceAll("(?s)```", "")
+                .replaceAll("[^\\x20-\\x7E\\n\\r\\t\u00A0-\\uFFFF]", "") // loại ký tự rác
+                .trim();
+    }
+
+    private String getText(JsonNode node, String field) {
+        return node.has(field) && !node.get(field).isNull()
+                ? node.get(field).asText()
+                : "";
+    }
+
+    private JsonNode safeParse(String json) {
+        try {
+            String cleaned = cleanJson(json);
+
+            if (!isValidJson(cleaned)) {
+                log.error("AI returned invalid JSON:\n{}", cleaned);
+                return null;
+            }
+
+            return new ObjectMapper().readTree(cleaned);
+
+        } catch (Exception e) {
+            log.error("Invalid JSON from AI:\n{}", json, e);
+            return null;
+        }
+    }
+
+    private JsonNode safeJsonParse(String aiResponse) {
+        try {
+            if (aiResponse == null) return null;
+
+            String cleaned = aiResponse
+                    .replaceAll("```json", "")
+                    .replaceAll("```", "")
+                    .trim();
+
+            return objectMapper.readTree(cleaned);
+
+        } catch (Exception e) {
+            log.error("JSON parse failed. Raw AI:\n{}", aiResponse, e);
+            return null;
+        }
+    }
+    private List<UniversitySuggestion> parseSuggestions(String aiResponse) {
+        try {
+            JsonNode root = safeJsonParse(aiResponse);
+
+            if (root == null || !root.has("suggestions")) {
+                return new ArrayList<>();
+            }
+
+            return objectMapper.convertValue(
+                    root.get("suggestions"),
+                    new com.fasterxml.jackson.core.type.TypeReference<List<UniversitySuggestion>>() {}
+            );
+
+        } catch (Exception e) {
+            log.error("parseSuggestions failed", e);
+            return new ArrayList<>();
+        }
+    }
+
+    // -------- SUMMARY EXTRACTOR -------
+    private String extractSummary(String aiResponse) {
+        try {
+            JsonNode root = safeJsonParse(aiResponse);
+            if (root == null) return "No AI summary";
+
+            return root.has("summary")
+                    ? root.get("summary").asText()
+                    : "No AI summary";
+
+        } catch (Exception e) {
+            return "No AI summary";
+        }
     }
 }
