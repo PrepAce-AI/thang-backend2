@@ -12,7 +12,7 @@ import java.util.*;
 public class TestSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "session_id")
+    @Column(name = "sessions_id")
     private int sessionsId;
 
     @ManyToOne
