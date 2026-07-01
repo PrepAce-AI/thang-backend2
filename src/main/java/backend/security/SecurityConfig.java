@@ -32,6 +32,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         // Cho phép Request dò đường OPTIONS
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/courses/delete-seed").permitAll()

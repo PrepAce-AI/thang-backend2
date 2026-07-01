@@ -187,18 +187,20 @@ public class PaymentService {
         Course course = courseRepository.findById(request.getCourseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
 
-        String transactionCode = "QR-" + UUID.randomUUID().toString().substring(0, 8);
+        String transactionCode = "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         String amount = String.valueOf(course.getPrice().intValue());
-        String bank = "970436"; // Vietcombank demo
-        String account = "0123456789"; // demo account
+        String bankBin = "970436";           // Vietcombank
+        String accountNo = "9703391695";     // Số tài khoản của bạn
+        String accountName = "NGUYEN CUU THANG";
         String content = "PAY " + transactionCode;
 
-        // VietQR image API (public free)
+        // Tạo QR động bằng VietQR
         String qrUrl = "https://img.vietqr.io/image/"
-                + bank + "-" + account + "-compact2.png"
+                + bankBin + "-" + accountNo + "-compact2.jpg"
                 + "?amount=" + amount
-                + "&addInfo=" + content;
+                + "&addInfo=" + content
+                + "&accountName=" + accountName.replace(" ", "%20");
 
         Payment payment = new Payment();
         payment.setStudentId(studentId);
@@ -211,11 +213,14 @@ public class PaymentService {
         paymentRepository.save(payment);
 
         return Map.of(
-                "transactionCode", transactionCode,
+                "transactionRef", transactionCode,
                 "qrUrl", qrUrl,
                 "amount", course.getPrice(),
                 "content", content,
-                "courseTitle", course.getTitle()
+                "courseTitle", course.getTitle(),
+                "bankBin", bankBin,
+                "accountNo", accountNo,
+                "accountName", accountName
         );
     }
 
