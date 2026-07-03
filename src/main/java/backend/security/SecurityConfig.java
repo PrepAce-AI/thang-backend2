@@ -43,12 +43,12 @@ public class SecurityConfig {
                                 "/api/entry-test/course/**",
                                 "/api/entry-test/submit",
                                 "/api/entry-test/history",
-                                "/api/payments/**"
+                                "/api/payments/**",
+                                "/api/ai/**"
                         ).permitAll()
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)
                         .requestMatchers("/api/materials/**").authenticated()
-                        .requestMatchers("/api/ai/**").authenticated()
                         // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
                         .requestMatchers("/api/outlines/**").authenticated()
 
