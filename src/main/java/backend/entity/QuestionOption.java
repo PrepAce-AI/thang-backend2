@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "QuestionOptions")
+@Table(name = "question_options")
 @Getter @Setter
 public class QuestionOption {
     @Id
@@ -19,17 +19,11 @@ public class QuestionOption {
     @JsonIgnore
     private Question question;
 
-    @Column(name = "option_content", nullable = false)
+    @Column(name = "content", columnDefinition = "NVARCHAR(500)",nullable = false)
     private String optionContent;
 
+    @Column(name = "is_correct", nullable = false)
+    private Boolean isCorrect = false;
+
     public QuestionOption() {}
-
-    public int getOptionId() { return optionId; }
-    public void setOptionId(int optionId) { this.optionId = optionId; }
-
-    public Question getQuestion() { return question; }
-    public void setQuestion(Question question) { this.question = question; }
-
-    public String getOptionContent() { return optionContent; }
-    public void setOptionContent(String optionContent) { this.optionContent = optionContent; }
 }

@@ -5,10 +5,11 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "Questions")
+@Table(name = "questions")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -24,17 +25,23 @@ public class Question {
     @JsonIgnore
     private Quiz quiz;
 
-    @Column(name = "question_content", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
     private String questionContent;
 
-    @Column(name = "correct_answer")
-    private String correctAnswer;
-
-    @Column(name = "explanation")
+    @Column(name = "explanation", columnDefinition = "NVARCHAR(MAX)")
     private String explanation;
-    /** Mức độ nhận thức: 1-Nhận biết, 2-Thông hiểu, 3-Vận dụng, 4-Vận dụng cao */
-    @Column(name = "cognitive_level")
-    private Integer cognitiveLevel;
+
+    @Column(name = "topic")
+    private String topic;
+
+    @Column(name = "subject")
+    private String subject;
+
+    @Column(name = "created_at", insertable = false, updatable = true)
+    public Date createdAt;
+
+    @Column(name = "difficulty")
+    private Integer difficulty;
 
     @OneToMany(mappedBy = "question",
             fetch = FetchType.EAGER,

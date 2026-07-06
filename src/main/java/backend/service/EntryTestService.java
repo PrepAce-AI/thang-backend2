@@ -3,16 +3,15 @@ package backend.service;
 import backend.dto.request.SubmitQuizRequest;
 import backend.dto.response.QuizResponse;
 import backend.dto.response.QuizResultResponse;
-import backend.entity.Question;
-import backend.entity.Quiz;
-import backend.entity.QuizAttempt;
+import backend.entity.*;
 import backend.dto.response.StartQuizResponse;
-
 import backend.exceptions.BadRequestException;
 import backend.exceptions.ResourceNotFoundException;
 import backend.repository.QuestionRepository;
 import backend.repository.QuizAttemptRepository;
 import backend.repository.QuizRepository;
+import backend.repository.TestSessionRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -70,21 +69,43 @@ public class EntryTestService {
             throw new BadRequestException("Entry Test chưa có câu hỏi nào");
         }
 
-        Map<Integer, String> answers = request.getAnswers();
+        Map<Integer, Integer> answers = request.getAnswers();
         int correctCount = 0;
         List<QuizResultResponse.QuestionResultDetail> details = new ArrayList<>();
 
         for (Question q : questions) {
-            String selected = answers.getOrDefault(q.getQuestionId(), "");
-            boolean isCorrect = q.getCorrectAnswer() != null
-                    && q.getCorrectAnswer().trim().equalsIgnoreCase(selected.trim());
+            Integer selectedOptionId = Integer.valueOf(request.getAnswers().get(q.getQuestionId()));
+
+            QuestionOption correctOption =
+                    q.getOptions()
+                            .stream()
+                            .filter(QuestionOption::getIsCorrect)
+                            .findFirst()
+                            .orElse(null);
+
+            boolean isCorrect =
+                    correctOption != null &&
+                            correctOption.getOptionId().equals(selectedOptionId);
             if (isCorrect) correctCount++;
 
             details.add(QuizResultResponse.QuestionResultDetail.builder()
                     .questionId(q.getQuestionId())
                     .questionContent(q.getQuestionContent())
-                    .selectedAnswer(selected)
-                    .correctAnswer(q.getCorrectAnswer())
+                    .selectedAnswer(
+                            selectedOptionId == null
+                                    ? null
+                                    : q.getOptions()
+                                    .stream()
+                                    .filter(o -> o.getOptionId().equals(selectedOptionId))
+                                    .map(QuestionOption::getOptionContent)
+                                    .findFirst()
+                                    .orElse(null)
+                    )
+                    .correctAnswer(
+                            correctOption == null
+                                    ? null
+                                    : correctOption.getOptionContent()
+                    )
                     .isCorrect(isCorrect)
                     .build());
         }
@@ -148,7 +169,6 @@ public class EntryTestService {
                 .map(q -> QuizResponse.QuestionResponse.builder()
                         .questionId(q.getQuestionId())
                         .questionContent(q.getQuestionContent())
-                        .cognitiveLevel(q.getCognitiveLevel())
                         .options(q.getOptions().stream()
                                 .map(o -> QuizResponse.OptionResponse.builder()
                                         .optionId(o.getOptionId())
@@ -206,7 +226,6 @@ public class EntryTestService {
                         QuizResponse.QuestionResponse.builder()
                                 .questionId(q.getQuestionId())
                                 .questionContent(q.getQuestionContent())
-                                .cognitiveLevel(q.getCognitiveLevel())
                                 .options(q.getOptions().stream()
                                         .map(o -> QuizResponse.OptionResponse.builder()
                                                 .optionId(o.getOptionId())

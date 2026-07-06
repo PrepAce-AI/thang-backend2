@@ -166,19 +166,43 @@ public class TestService {
                 String selectedContent =
                         studentAnswer.getSelectedOption().getOptionContent();
                 qr.setSelectedAnswer(selectedContent);
+                QuestionOption correctOption =
+                        question.getOptions()
+                                .stream()
+                                .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                                .findFirst()
+                                .orElse(null);
+
                 boolean isCorrect =
-                        question.getCorrectAnswer() != null
-                                && question.getCorrectAnswer()
-                                .trim()
-                                .equalsIgnoreCase(selectedContent.trim());
-                qr.setCorrectedAnswer(question.getCorrectAnswer());
+                        studentAnswer.getSelectedOption() != null
+                                && correctOption != null
+                                && Objects.equals(
+                                studentAnswer.getSelectedOption().getOptionId(),
+                                correctOption.getOptionId());
+
+                qr.setCorrectedAnswer(
+                        correctOption != null
+                                ? correctOption.getOptionContent()
+                                : null);
+
                 qr.setCorrect(isCorrect);
+
                 if (isCorrect) {
                     correctCount++;
                 }
             } else {
                 qr.setSelectedAnswer("Chưa trả lời");
-                qr.setCorrectedAnswer(question.getCorrectAnswer());
+                QuestionOption correctOption =
+                        question.getOptions()
+                                .stream()
+                                .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                                .findFirst()
+                                .orElse(null);
+
+                qr.setCorrectedAnswer(
+                        correctOption != null
+                                ? correctOption.getOptionContent()
+                                : null);
                 qr.setCorrect(false);
             }
             resultDetails.add(qr);
@@ -247,35 +271,42 @@ public class TestService {
             qr.setQuestionId(question.getQuestionId());
             qr.setContent(question.getQuestionContent());
             qr.setExplanation(question.getExplanation());
-            qr.setCorrectedAnswer(question.getCorrectAnswer());
 
-            String correctAnswer = question.getCorrectAnswer() != null
-                    ? question.getCorrectAnswer().trim() : "";
+            QuestionOption correctOption =
+                    question.getOptions()
+                            .stream()
+                            .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                            .findFirst()
+                            .orElse(null);
+
+            qr.setCorrectedAnswer(
+                    correctOption != null
+                            ? correctOption.getOptionContent()
+                            : null);
 
             if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
-                String selectedContent = studentAnswer.getSelectedOption().getOptionContent().trim();
 
-                qr.setSelectedAnswer(selectedContent);
+                qr.setSelectedAnswer(
+                        studentAnswer.getSelectedOption().getOptionContent());
 
-                // === LOGIC SO SÁNH MẠNH HƠN ===
-                boolean isCorrect = false;
-
-                if (correctAnswer.equalsIgnoreCase(selectedContent)) {
-                    isCorrect = true;
-                } else {
-                    // Xử lý trường hợp đáp án đúng là "x=2 hoặc x=3" nhưng option là "x=2 hoặc x=3"
-                    String normalizedCorrect = correctAnswer.replace("hoặc", "hoặc").trim();
-                    String normalizedSelected = selectedContent.replace("hoặc", "hoặc").trim();
-                    isCorrect = normalizedCorrect.equalsIgnoreCase(normalizedSelected);
-                }
+                boolean isCorrect =
+                        correctOption != null &&
+                                Objects.equals(
+                                        studentAnswer.getSelectedOption().getOptionId(),
+                                        correctOption.getOptionId());
 
                 qr.setCorrect(isCorrect);
-                if (isCorrect) correctAnswers++;
+
+                if (isCorrect) {
+                    correctAnswers++;
+                }
 
             } else {
+
                 qr.setSelectedAnswer("Chưa trả lời");
                 qr.setCorrect(false);
             }
+
 
             questionResults.add(qr);
         }

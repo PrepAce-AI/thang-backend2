@@ -13,11 +13,11 @@ import java.util.Date;
 public class StudentAnswer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "answer_id")
+    @Column(name = "id")
     private int answerId;
 
     @ManyToOne
-    @JoinColumn(name = "session_id", nullable = false)
+    @JoinColumn(name = "attempt_id", nullable = false)
     @JsonIgnore
     private TestSession session;
 
