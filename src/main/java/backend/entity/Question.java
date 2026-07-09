@@ -50,4 +50,6 @@ public class Question {
 
     @OneToMany(mappedBy = "question")
     private List<StudentAnswer> studentAnswers = new ArrayList<>();
+    @Column(name = "question_type", length = 50)
+    private String questionType;
 }

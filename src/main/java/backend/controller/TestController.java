@@ -118,4 +118,20 @@ public class TestController {
             return ResponseEntity.status(403).build();
         }
     }
+
+    @PutMapping("/{sessionsId}/questions/{questionId}/grade")
+    public ResponseEntity<String> gradeEssay(
+            @PathVariable int sessionsId,
+            @PathVariable int questionId,
+            @RequestBody Map<String, Object> body) {
+        try {
+            float score = Float.parseFloat(body.get("score").toString());
+            String comment = (String) body.get("comment");
+
+            testService.gradeEssayAnswer(sessionsId, questionId, score, comment);
+            return ResponseEntity.ok("Chấm điểm câu tự luận thành công!");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi khi chấm điểm: " + e.getMessage());
+        }
+    }
 }
