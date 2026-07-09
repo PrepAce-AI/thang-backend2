@@ -88,7 +88,7 @@ public class AdminController {
 
         // Lấy userId của Admin hiện tại (từ JWT)
         // Tạm thời hardcode createdBy = 1 (Admin), sau sẽ lấy từ token
-        Notification noti = notificationService.createNotification(title, content, targetRole, 1);
+        Notification noti = notificationService.createNotification(title, content, targetRole, 1,null);
         return ResponseEntity.ok(noti);
     }
 }
