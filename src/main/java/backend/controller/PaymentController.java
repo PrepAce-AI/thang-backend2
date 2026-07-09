@@ -26,25 +26,40 @@ public class PaymentController {
      * Body: { courseId, paymentMethod, transactionCode? }
      */
     @PostMapping("/purchase")
-    public ResponseEntity<PaymentResponse> purchaseCourse(
+    public ResponseEntity<PaymentResponse> purchase(
             @RequestHeader("X-Student-Id") Integer studentId,
-            @Valid @RequestBody PurchaseRequest request) {
-        return ResponseEntity.ok(paymentService.purchaseCourse(studentId, request));
+            @RequestBody PurchaseRequest request) {
+
+        return ResponseEntity.ok(
+                paymentService.purchaseCourse(studentId, request)
+        );
     }
 
-    /**
-     * Webhook callback từ VNPAY/MOMO xác nhận giao dịch
-     * Gọi sau khi cổng thanh toán redirect về server
-     */
-    @PostMapping("/confirm/{transactionCode}")
-    public ResponseEntity<PaymentResponse> confirmPayment(@PathVariable String transactionCode) {
-        return ResponseEntity.ok(paymentService.confirmPayment(transactionCode));
-    }
-
-    /** Lịch sử giao dịch của học sinh */
     @GetMapping("/history")
-    public ResponseEntity<List<PaymentResponse>> getHistory(
+    public ResponseEntity<?> history(
             @RequestHeader("X-Student-Id") Integer studentId) {
-        return ResponseEntity.ok(paymentService.getPaymentHistory(studentId));
+
+        return ResponseEntity.ok(
+                paymentService.getPaymentHistory(studentId)
+        );
+    }
+
+    @PostMapping("/confirm/{transactionCode}")
+    public ResponseEntity<?> confirm(@PathVariable String transactionCode) {
+        return ResponseEntity.ok(
+                paymentService.confirmPayment(transactionCode)
+        );
+    }
+
+    @PostMapping("/bank/create")
+    public ResponseEntity<?> createBank(@RequestBody PurchaseRequest request,
+                                        @RequestHeader("X-Student-Id") Integer studentId) {
+
+        return ResponseEntity.ok(paymentService.createBankPayment(studentId, request));
+    }
+
+    @PostMapping("/bank/confirm/{transactionCode}")
+    public ResponseEntity<?> confirmBank(@PathVariable String transactionCode) {
+        return ResponseEntity.ok(paymentService.confirmPayment(transactionCode));
     }
 }

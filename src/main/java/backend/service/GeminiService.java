@@ -1,76 +1,171 @@
 package backend.service;
 
+import backend.exceptions.GeminiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Tích hợp Google Gemini API (gemini-1.5-flash).
- * Docs: https://ai.google.dev/api/generate-content
+ * Google Gemini Service
+ * Stable version
  */
-@Slf4j
 @Service
+@Slf4j
 public class GeminiService {
 
     @Value("${gemini.api.key}")
     private String apiKey;
 
-    @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent}")
+    @Value("${gemini.api.url}")
     private String apiUrl;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
-    /**
-     * Gửi prompt tới Gemini và nhận về text response.
-     * @param systemContext  Hướng dẫn cho AI (vai trò, giới hạn ngữ cảnh)
-     * @param userPrompt     Câu hỏi / yêu cầu từ user
-     * @return text response từ Gemini
-     */
+    public GeminiService() {
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(15000);
+        factory.setReadTimeout(45000);
+
+        this.restTemplate = new RestTemplate(factory);
+    }
+
     public String ask(String systemContext, String userPrompt) {
+
         String fullPrompt = systemContext + "\n\n" + userPrompt;
 
-        Map<String, Object> part = Map.of("text", fullPrompt);
-        Map<String, Object> content = Map.of("parts", List.of(part));
         Map<String, Object> body = Map.of(
-                "contents", List.of(content),
+                "contents", List.of(
+                        Map.of(
+                                "parts", List.of(
+                                        Map.of("text", fullPrompt)
+                                )
+                        )
+                ),
                 "generationConfig", Map.of(
                         "temperature", 0.7,
-                        "maxOutputTokens", 2048
+                        "maxOutputTokens", 2048,
+                        "topP", 0.95,
+                        "topK", 40
                 )
         );
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String url = apiUrl + "?key=" + apiKey;
+        String model = "gemini-2.5-flash";
+
+        String url =
+                apiUrl
+                        + model
+                        + ":generateContent?key="
+                        + apiKey;
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, new HttpEntity<>(body, headers), Map.class);
-            return extractText(response.getBody());
-        } catch (Exception e) {
-            log.error("Gemini API call failed: {}", e.getMessage());
-            throw new RuntimeException("AI service tạm thời không khả dụng. Vui lòng thử lại sau.");
+
+            ResponseEntity<Map> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.POST,
+                            new HttpEntity<>(body, headers),
+                            Map.class
+                    );
+
+            String text = extractTextSafe(response.getBody());
+
+            if (text == null || text.isBlank()) {
+                throw new GeminiException(
+                        500,
+                        "Gemini returned empty response."
+                );
+            }
+
+            return text.trim();
+
+        }
+
+        catch (HttpStatusCodeException e) {
+
+            int status = e.getStatusCode().value();
+
+            log.error(
+                    "Gemini HTTP {}:\n{}",
+                    status,
+                    e.getResponseBodyAsString()
+            );
+
+            throw new GeminiException(
+                    status,
+                    e.getResponseBodyAsString()
+            );
+        }
+
+        catch (Exception e) {
+
+            log.error("Gemini API failed", e);
+
+            throw new GeminiException(
+                    500,
+                    e.getMessage()
+            );
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private String extractText(Map<?, ?> body) {
-        if (body == null) return "Không nhận được phản hồi từ AI.";
+    /**
+     * Extract generated text safely
+     */
+    private String extractTextSafe(Map<?, ?> body) {
+
         try {
-            List<?> candidates = (List<?>) body.get("candidates");
-            if (candidates == null || candidates.isEmpty()) return "AI không trả về kết quả.";
-            Map<?, ?> candidate = (Map<?, ?>) candidates.get(0);
-            Map<?, ?> content = (Map<?, ?>) candidate.get("content");
-            List<?> parts = (List<?>) content.get("parts");
-            Map<?, ?> part = (Map<?, ?>) parts.get(0);
-            return (String) part.get("text");
-        } catch (Exception e) {
-            log.error("Failed to parse Gemini response: {}", e.getMessage());
-            return "Lỗi phân tích phản hồi AI.";
+
+            if (body == null)
+                return null;
+
+            List<?> candidates =
+                    (List<?>) body.get("candidates");
+
+            if (candidates == null || candidates.isEmpty())
+                return null;
+
+            Map<?, ?> candidate =
+                    (Map<?, ?>) candidates.get(0);
+
+            Map<?, ?> content =
+                    (Map<?, ?>) candidate.get("content");
+
+            if (content == null)
+                return null;
+
+            List<?> parts =
+                    (List<?>) content.get("parts");
+
+            if (parts == null || parts.isEmpty())
+                return null;
+
+            Map<?, ?> part =
+                    (Map<?, ?>) parts.get(0);
+
+            Object text = part.get("text");
+
+            return text == null
+                    ? null
+                    : text.toString();
+
+        }
+
+        catch (Exception e) {
+
+            log.error("Parse Gemini response failed", e);
+
+            return null;
         }
     }
+
 }

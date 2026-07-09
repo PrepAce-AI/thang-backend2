@@ -58,4 +58,17 @@ public class EntryTestController {
     public ResponseEntity<Map<String, String>> ping() {
         return ResponseEntity.ok(Map.of("status", "Entry Test API is running"));
     }
+
+    @GetMapping("/quizzes")
+    public ResponseEntity<List<QuizResponse>> getQuizzes() {
+        return ResponseEntity.ok(entryTestService.getAllEntryTests());
+    }
+
+    @PostMapping("/start/{quizId}")
+    public ResponseEntity<?> startQuiz(
+            @PathVariable Integer quizId,
+            @RequestHeader("X-Student-Id") Integer studentId) {
+
+        return ResponseEntity.ok(entryTestService.startQuiz(quizId, studentId));
+    }
 }

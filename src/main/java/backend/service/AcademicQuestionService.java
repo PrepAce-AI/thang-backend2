@@ -126,7 +126,7 @@ public class AcademicQuestionService {
     // Hàm phụ chuyển đổi sang DTO cho Question
     private QuestionResponse mapToResponse(AcademicQuestion question) {
         QuestionResponse response = new QuestionResponse();
-        response.setId(question.getId());
+        response.setQuestionId(question.getId());
         response.setContent(question.getContent());
         response.setCreatedAt(question.getCreatedAt());
         response.setTimestampSeconds(question.getTimestampSeconds());
@@ -146,7 +146,7 @@ public class AcademicQuestionService {
     // Hàm phụ chuyển đổi sang Teacher DTO
     private backend.dto.response.TeacherQuestionResponse mapToTeacherResponse(AcademicQuestion question) {
         backend.dto.response.TeacherQuestionResponse response = new backend.dto.response.TeacherQuestionResponse();
-        response.setId(question.getId());
+        response.setQuestionId(question.getId());
         response.setContent(question.getContent());
         response.setCreatedAt(question.getCreatedAt());
         response.setTimestampSeconds(question.getTimestampSeconds());
@@ -162,7 +162,7 @@ public class AcademicQuestionService {
                 response.setChapterId(question.getLesson().getChapter().getId());
                 response.setChapterTitle(question.getLesson().getChapter().getTitle());
                 if (question.getLesson().getChapter().getCourse() != null) {
-                    response.setCourseId(question.getLesson().getChapter().getCourse().getId());
+                    response.setCourseId(question.getLesson().getChapter().getCourse().getCourseId());
                     response.setCourseTitle(question.getLesson().getChapter().getCourse().getTitle());
                 }
             }

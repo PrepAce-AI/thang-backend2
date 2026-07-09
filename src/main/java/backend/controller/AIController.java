@@ -1,8 +1,10 @@
 package backend.controller;
 
 import backend.dto.request.ChatRequest;
+import backend.dto.request.UniversityAdvisingRequest;
 import backend.dto.response.AdaptivePathResponse;
 import backend.dto.response.ChatResponse;
+import backend.dto.response.UniversityAdvisingResponse;
 import backend.service.AIService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -84,11 +86,23 @@ public class AIController {
      * Tư vấn ngành và trường đại học phù hợp.
      * Params: targetScore (điểm mục tiêu), preferredMajor (ngành yêu thích)
      */
-    @GetMapping("/university-advise")
-    public ResponseEntity<ChatResponse> adviseUniversity(
+    @GetMapping("/university-advising")
+    public ResponseEntity<UniversityAdvisingResponse> universityAdvising(
             @RequestHeader("X-Student-Id") Integer studentId,
-            @RequestParam(required = false) String targetScore,
-            @RequestParam(required = false) String preferredMajor) {
-        return ResponseEntity.ok(aiService.adviseUniversity(studentId, targetScore, preferredMajor));
+            @RequestParam String block){
+
+        return ResponseEntity.ok(
+                aiService.getUniversityAdvising(studentId, block)
+        );
+    }
+
+    @PostMapping("/university-advising")
+    public UniversityAdvisingResponse getUniversityAdvising(
+            @RequestBody UniversityAdvisingRequest request
+    ) {
+        return aiService.getUniversityAdvising(
+                request.getStudentId(),
+                request.getBlock()
+        );
     }
 }

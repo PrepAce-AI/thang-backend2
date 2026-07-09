@@ -1,21 +1,29 @@
 package backend.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.List;
 
 @Data
 @Entity
 @Table(name = "Courses")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Course {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "course_id")
-    private Integer id;
+    private int courseId;
+
+    @Column(name = "teacher_id", nullable = false)
+    private Integer teacherId;
 
     @Column(name = "course_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
@@ -32,13 +40,17 @@ public class Course {
     @Column(name = "is_published")
     private Boolean isPublished;
 
-    @Column(name = "teacher_id")
-    private Integer teacherId;
-
     @Column(name = "subject_id")
     private Integer subjectId;
 
-    @Column(name = "created_at")
+    // === FIELDS MỚI CHO ADMIN ===
+    @Column(name = "status")
+    private String status;           // PENDING, PUBLISHED, REJECTED
+
+    @Column(name = "review_note", columnDefinition = "NVARCHAR(MAX)")
+    private String reviewNote;
+
+    @Column(name = "reviewed_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 

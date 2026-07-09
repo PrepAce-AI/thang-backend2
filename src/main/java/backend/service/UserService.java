@@ -81,7 +81,7 @@ public class UserService {
         }
 
         // Tạo token mã hóa
-        String token = jwtService.generateToken(user.getEmail());
+        String token = jwtService.generateToken(user);
 
         // Gộp cả token và thông tin user trả về y hệt luồng Google Auth
         Map<String, Object> response = new HashMap<>();
@@ -137,7 +137,7 @@ public class UserService {
             user.setAccountStatus("ACTIVE");
             userRepository.save(user);
 
-            String token = jwtService.generateToken(user.getEmail());
+            String token = jwtService.generateToken(user);
 
             Map<String, Object> response = new HashMap<>();
             response.put("token", token);

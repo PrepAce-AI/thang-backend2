@@ -1,6 +1,7 @@
 package backend.service;
 
 import backend.dto.request.PurchaseRequest;
+import backend.dto.request.SePayWebhookRequest;
 import backend.dto.response.PaymentResponse;
 import backend.entity.Course;
 import backend.entity.Enrollment;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -64,7 +66,7 @@ public class PaymentService {
         // Lưu payment record
         Payment payment = new Payment();
         payment.setStudentId(studentId);
-        payment.setCourseId(course.getId());
+        payment.setCourseId(course.getCourseId());
         payment.setAmount(course.getPrice());
         payment.setPaymentMethod(request.getPaymentMethod().toUpperCase());
         payment.setPaymentStatus(status);
@@ -74,13 +76,13 @@ public class PaymentService {
 
         // Nếu SUCCESS → tự động enroll
         if ("SUCCESS".equals(status)) {
-            autoEnroll(studentId, course.getId());
-            log.info("Student {} purchased courseId={} via {} — enrolled", studentId, course.getId(), request.getPaymentMethod());
+            autoEnroll(studentId, course.getCourseId());
+            log.info("Student {} purchased courseId={} via {} — enrolled", studentId, course.getCourseId(), request.getPaymentMethod());
         }
 
         return PaymentResponse.builder()
                 .paymentId(saved.getPaymentId())
-                .courseId(course.getId())
+                .courseId(course.getCourseId())
                 .courseTitle(course.getTitle())
                 .amount(saved.getAmount())
                 .paymentMethod(saved.getPaymentMethod())
@@ -178,5 +180,75 @@ public class PaymentService {
             enrollment.setProgressPercent(0.0);
             enrollmentRepository.save(enrollment);
         }
+    }
+
+    public Map<String, Object> createBankPayment(Integer studentId, PurchaseRequest request) {
+
+        Course course = courseRepository.findById(request.getCourseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+
+        String transactionCode = "PAY-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        String amount = String.valueOf(course.getPrice().intValue());
+        String bankBin = "970436";           // Vietcombank
+        String accountNo = "9703391695";     // Số tài khoản của bạn
+        String accountName = "NGUYEN CUU THANG";
+        String content = "PAY " + transactionCode;
+
+        // Tạo QR động bằng VietQR
+        String qrUrl = "https://img.vietqr.io/image/"
+                + bankBin + "-" + accountNo + "-compact2.jpg"
+                + "?amount=" + amount
+                + "&addInfo=" + content
+                + "&accountName=" + accountName.replace(" ", "%20");
+
+        Payment payment = new Payment();
+        payment.setStudentId(studentId);
+        payment.setCourseId(course.getCourseId());
+        payment.setAmount(course.getPrice());
+        payment.setPaymentMethod("BANK");
+        payment.setPaymentStatus("PENDING");
+        payment.setTransactionCode(transactionCode);
+        payment.setPaidAt(new Date());
+        paymentRepository.save(payment);
+
+        return Map.of(
+                "transactionRef", transactionCode,
+                "qrUrl", qrUrl,
+                "amount", course.getPrice(),
+                "content", content,
+                "courseTitle", course.getTitle(),
+                "bankBin", bankBin,
+                "accountNo", accountNo,
+                "accountName", accountName
+        );
+    }
+
+    @Transactional
+    public void handleSePayWebhook(SePayWebhookRequest req) {
+
+        // 1. tìm payment theo transactionCode trong content
+        String content = req.getContent();
+
+        Payment payment = paymentRepository
+                .findByTransactionCodeContaining(content)
+                .orElse(null);
+
+        if (payment == null) {
+            return; // không match
+        }
+
+        // 2. check amount
+        if (!payment.getAmount().equals(req.getAmount())) {
+            return;
+        }
+
+        // 3. update SUCCESS
+        payment.setPaymentStatus("SUCCESS");
+        payment.setPaidAt(new Date());
+        paymentRepository.save(payment);
+
+        // 4. auto enroll
+        autoEnroll(payment.getStudentId(), payment.getCourseId());
     }
 }
