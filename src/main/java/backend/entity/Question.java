@@ -31,6 +31,10 @@ public class Question {
     @Column(name = "explanation", columnDefinition = "NVARCHAR(MAX)")
     private String explanation;
 
+    // 🌟 THÊM TRƯỜNG NÀY ĐỂ LƯU ĐÁP ÁN ĐIỀN/NGẮN CHO HỆ THỐNG TỰ SO KHỚP
+    @Column(name = "correct_answer", columnDefinition = "NVARCHAR(MAX)")
+    private String correctAnswer;
+
     @Column(name = "topic")
     private String topic;
 
@@ -50,6 +54,7 @@ public class Question {
 
     @OneToMany(mappedBy = "question")
     private List<StudentAnswer> studentAnswers = new ArrayList<>();
+
     @Column(name = "question_type", length = 50)
     private String questionType;
 }
