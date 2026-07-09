@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.*;
 
 @Entity
-@Table(name = "Quizzes")
+@Table(name = "quizzes")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -38,6 +38,12 @@ public class Quiz {
     /** Loại quiz: ENTRY_TEST | PRACTICE | MOCK_EXAM */
     @Column(name = "quiz_type", length = 50)
     private String quizType;
+
+    @Column(name = "subject", length = 50)
+    private String subject;
+
+    @Column(name = "is_entry_test")
+    private Boolean isEntryTest = false;
 
     @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<Question> questions = new ArrayList<>();

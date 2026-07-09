@@ -177,6 +177,48 @@ public class TestService {
             qr.setQuestionId(question.getQuestionId());
             qr.setContent(question.getQuestionContent());
             qr.setExplanation(question.getExplanation());
+
+            if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
+                String selectedContent =
+                        studentAnswer.getSelectedOption().getOptionContent();
+                qr.setSelectedAnswer(selectedContent);
+                QuestionOption correctOption =
+                        question.getOptions()
+                                .stream()
+                                .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                                .findFirst()
+                                .orElse(null);
+
+                boolean isCorrect =
+                        studentAnswer.getSelectedOption() != null
+                                && correctOption != null
+                                && Objects.equals(
+                                studentAnswer.getSelectedOption().getOptionId(),
+                                correctOption.getOptionId());
+
+                qr.setCorrectedAnswer(
+                        correctOption != null
+                                ? correctOption.getOptionContent()
+                                : null);
+
+                qr.setCorrect(isCorrect);
+
+                if (isCorrect) {
+                    correctCount++;
+                }
+            } else {
+                qr.setSelectedAnswer("Chưa trả lời");
+                QuestionOption correctOption =
+                        question.getOptions()
+                                .stream()
+                                .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                                .findFirst()
+                                .orElse(null);
+
+                qr.setCorrectedAnswer(
+                        correctOption != null
+                                ? correctOption.getOptionContent()
+                                : null);
             qr.setQuestionType(question.getQuestionType());
 
             // TRƯỜNG HỢP 1: CÂU HỎI ĐIỀN ĐÁP ÁN NGẮN (TỰ ĐỘNG SO KHỚP CHUỖI)
@@ -288,52 +330,42 @@ public class TestService {
             qr.setContent(question.getQuestionContent());
             qr.setExplanation(question.getExplanation());
 
-            qr.setCorrectedAnswer(question.getCorrectAnswer());
-            qr.setQuestionType(question.getQuestionType());
+            QuestionOption correctOption =
+                    question.getOptions()
+                            .stream()
+                            .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                            .findFirst()
+                            .orElse(null);
 
-            // 1. NẾU LÀ CÂU TỰ LUẬN DÀI
-            if ("ESSAY".equals(question.getQuestionType())) {
-                qr.setSelectedAnswer(studentAnswer != null ? studentAnswer.getEssayAnswer() : "Chưa trả lời");
-                boolean isCorrect = studentAnswer != null && studentAnswer.getScore() != null && studentAnswer.getScore() > 0;
+            qr.setCorrectedAnswer(
+                    correctOption != null
+                            ? correctOption.getOptionContent()
+                            : null);
+
+            if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
+
+                qr.setSelectedAnswer(
+                        studentAnswer.getSelectedOption().getOptionContent());
+
+                boolean isCorrect =
+                        correctOption != null &&
+                                Objects.equals(
+                                        studentAnswer.getSelectedOption().getOptionId(),
+                                        correctOption.getOptionId());
+
                 qr.setCorrect(isCorrect);
 
-                // 🔥 THÊM ĐOẠN KIỂM TRA NÀY: Nếu đạt thì kích hoạt cộng dồn vào tổng số câu đúng
                 if (isCorrect) {
                     correctAnswers++;
                 }
-                qr.setScore(studentAnswer != null ? studentAnswer.getScore() : null);
-                qr.setTeacherComment(studentAnswer != null ? studentAnswer.getTeacherComment() : null);
-            }
-            // 2. NẾU LÀ CÂU ĐÁP ÁN NGẮN (SHORT_ANSWER)
-            else if ("SHORT_ANSWER".equals(question.getQuestionType())) {
-                if (studentAnswer != null && studentAnswer.getEssayAnswer() != null && !studentAnswer.getEssayAnswer().trim().isEmpty()) {
-                    String studentText = studentAnswer.getEssayAnswer().trim();
-                    qr.setSelectedAnswer(studentText); // Đưa chuỗi câu trả lời của học sinh vào DTO trả về
 
-                    String correctAnswer = question.getCorrectAnswer() != null ? question.getCorrectAnswer().trim() : "";
-                    boolean isCorrect = correctAnswer.equalsIgnoreCase(studentText);
-                    qr.setCorrect(isCorrect);
-                    if (isCorrect) correctAnswers++;
-                } else {
-                    qr.setSelectedAnswer("Chưa trả lời");
-                    qr.setCorrect(false);
-                }
-            }
-            // 3. NẾU LÀ CÂU TRẮC NGHIỆM TRUYỀN THỐNG
-            else {
-                String correctAnswer = question.getCorrectAnswer() != null ? question.getCorrectAnswer().trim() : "";
-                if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
-                    String selectedContent = studentAnswer.getSelectedOption().getOptionContent().trim();
-                    qr.setSelectedAnswer(selectedContent);
+            } else {
 
-                    boolean isCorrect = correctAnswer.equalsIgnoreCase(selectedContent);
-                    qr.setCorrect(isCorrect);
-                    if (isCorrect) correctAnswers++;
-                } else {
-                    qr.setSelectedAnswer("Chưa trả lời");
-                    qr.setCorrect(false);
-                }
+                qr.setSelectedAnswer("Chưa trả lời");
+                qr.setCorrect(false);
             }
+
+
             questionResults.add(qr);
         }
 

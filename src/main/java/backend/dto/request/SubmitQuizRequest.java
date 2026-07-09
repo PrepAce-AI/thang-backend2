@@ -17,5 +17,5 @@ public class SubmitQuizRequest {
      * selectedAnswer là nội dung text của đáp án chọn
      */
     @NotEmpty(message = "answers must not be empty")
-    private Map<Integer, String> answers;
+    private Map<Integer, Integer> answers;
 }

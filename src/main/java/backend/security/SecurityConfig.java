@@ -52,7 +52,7 @@ public class SecurityConfig {
                         // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
                         .requestMatchers("/api/outlines/**").authenticated()
 
-                        .requestMatchers("/api/courses", "/api/courses/**").authenticated()
+                        .requestMatchers("/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )

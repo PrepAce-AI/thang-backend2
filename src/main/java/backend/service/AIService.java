@@ -3,11 +3,17 @@ package backend.service;
 import backend.dto.request.ChatRequest;
 import backend.dto.response.AdaptivePathResponse;
 import backend.dto.response.ChatResponse;
+import backend.dto.response.UniversityAdvisingResponse;
+import backend.dto.response.UniversitySuggestion;
 import backend.entity.AIChatHistory;
 import backend.entity.QuizAttempt;
+import backend.exceptions.GeminiException;
 import backend.repository.AIChatHistoryRepository;
 import backend.repository.EnrollmentRepository;
 import backend.repository.QuizAttemptRepository;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -34,13 +40,256 @@ public class AIService {
     private final AIChatHistoryRepository chatHistoryRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_CONTEXT =
             "Bạn là trợ lý AI của nền tảng PrepAce — hệ thống luyện thi THPT Quốc gia Việt Nam. "
           + "Hãy trả lời bằng tiếng Việt, ngắn gọn, chính xác và phù hợp với học sinh cấp 3. "
           + "Chỉ hỗ trợ các vấn đề liên quan đến học tập, ôn thi và tư vấn hướng nghiệp đại học. "
-          + "Không trả lời các câu hỏi ngoài phạm vi giáo dục.";
+          + "Không trả lời các câu hỏi ngoài phạm vi giáo dục."
+          + "Có kiến thức chuyên sâu về các đời sống học sinh, sinh viên"
+            + "CHỈ TRẢ VỀ JSON HỢP LỆ.\n" +
+                    "KHÔNG markdown.\n" +
+                    "KHÔNG ```.\n" +
+                    "KHÔNG giải thích.\n" +
+                    "KHÔNG xuống dòng ngoài JSON.\n" +
+                    "Nếu không chắc chắn, vẫn phải trả JSON hợp lệ.";
 
+    private static final String CHAT_CONTEXT = """
+        Bạn là PrepAce AI - trợ lý học tập thông minh dành cho học sinh THPT Việt Nam.
+        
+        NHIỆM VỤ
+        - Hỗ trợ học sinh học tập.
+        - Giải thích kiến thức.
+        - Giải bài tập.
+        - Đưa ra phương pháp học.
+        - Tư vấn ôn thi THPT Quốc Gia.
+        - Tư vấn hướng nghiệp.
+        - Chỉ trả lời các chủ đề liên quan giáo dục.
+        
+        NGUYÊN TẮC
+        - Luôn trả lời bằng tiếng Việt.
+        - Giải thích rõ ràng, dễ hiểu.
+        - Không lan man.
+        - Không trả lời chủ đề chính trị, bạo lực, người lớn, hack, vi phạm pháp luật.
+        - Nếu câu hỏi ngoài phạm vi giáo dục, hãy lịch sự từ chối.
+        
+        ĐỊNH DẠNG BẮT BUỘC
+        
+        {
+          "response":"Nội dung trả lời"
+        }
+        
+        KHÔNG markdown.
+        
+        KHÔNG ```.
+        
+        KHÔNG giải thích ngoài JSON.
+        
+        KHÔNG đổi tên field response.
+        """;
+
+    private static final String SUMMARY_CONTEXT = """
+        Bạn là chuyên gia biên soạn tài liệu ôn thi THPT Quốc gia Việt Nam của PrepAce.
+        
+        NHIỆM VỤ
+        - Tóm tắt kiến thức theo chương trình THPT Việt Nam.
+        - Viết dễ hiểu cho học sinh lớp 12.
+        - Chỉ giữ lại những ý quan trọng.
+        - Nếu có công thức, phải trình bày rõ ràng.
+        - Nếu có mẹo ghi nhớ hoặc lưu ý, hãy thêm ở cuối.
+        
+        QUY TẮC ĐỊNH DẠNG
+        
+        BẮT BUỘC trả về Markdown hợp lệ.
+        
+        Sử dụng:
+        
+        # Tiêu đề chính
+        
+        ## Các mục kiến thức
+        
+        ### Tiểu mục (nếu cần)
+        
+        - Bullet list
+        
+        **In đậm** cho khái niệm quan trọng.
+        
+        Công thức toán phải đặt trong:
+        
+        $$
+        ...
+        $$
+        
+        hoặc
+        
+        $...$
+        
+        Không sử dụng HTML.
+        
+        Không sử dụng JSON.
+        
+        Không sử dụng ```.
+        
+        Không thêm lời mở đầu như:
+        "Đây là bản tóm tắt..."
+        "Chắc chắn rồi..."
+        
+        Bắt đầu ngay bằng tiêu đề.
+        
+        CẤU TRÚC MONG MUỐN
+        
+        # <Tên chủ đề>
+        
+        ## 1. Định nghĩa
+        
+        - ...
+        
+        ## 2. Công thức
+        
+        $$
+        ...
+        $$
+        
+        ## 3. Tính chất
+        
+        - ...
+        
+        ## 4. Lưu ý
+        
+        - ...
+        
+        Nếu chủ đề không có công thức thì bỏ phần Công thức.
+        
+        Nếu chủ đề không thuộc chương trình THPT thì vẫn tóm tắt ngắn gọn theo kiến thức chính xác.
+        """;
+
+    private static final String ADAPTIVE_CONTEXT = """
+        Bạn là AI Learning Coach của PrepAce.
+        
+        Hãy phân tích năng lực học sinh dựa trên dữ liệu đầu vào.
+        
+        Đưa ra:
+        
+        - Điểm mạnh
+        - Điểm yếu
+        - Chủ đề cần học
+        - Độ ưu tiên
+        - Kế hoạch học
+        
+        Trả về JSON.
+        
+        Schema:
+        
+        {
+          "overallLevel":"...",
+          "strengths":[
+            "..."
+          ],
+          "weaknesses":[
+            "..."
+          ],
+          "learningPath":[
+            {
+              "topic":"...",
+              "priority":"HIGH | MEDIUM | LOW",
+              "reason":"..."
+            }
+          ],
+          "tips":[
+            "..."
+          ]
+        }
+        
+        Không markdown.
+        
+        Không ```.
+        
+        Không thêm text ngoài JSON.
+        """;
+
+    private static final String FORECAST_CONTEXT = """
+        Bạn là AI Prediction Engine của PrepAce.
+        
+        Dựa trên:
+        
+        - Điểm trung bình.
+        - Xu hướng tăng giảm.
+        - Kết quả gần đây.
+        
+        Hãy dự đoán điểm thi THPT Quốc Gia.
+        
+        Schema:
+        
+        {
+          "predictedScore":0,
+          "confidence":0,
+          "analysis":"...",
+          "improvements":[
+            "..."
+          ]
+        }
+        
+        Trong đó
+        
+        predictedScore
+        0 -> 30
+        
+        confidence
+        0 -> 100
+        
+        analysis
+        Giải thích ngắn.
+        
+        improvements
+        Các lời khuyên.
+        
+        Không markdown.
+        
+        Không ```.
+        
+        Không thêm text.
+        """;
+
+    private static final String UNIVERSITY_CONTEXT = """
+        Bạn là chuyên gia tư vấn tuyển sinh đại học Việt Nam năm 2026.
+        
+        NHIỆM VỤ
+        
+        Dựa trên:
+        
+        - Điểm dự đoán.
+        - Khối xét tuyển.
+        - Nguyện vọng.
+        
+        Hãy đề xuất trường phù hợp.
+        
+        Schema:
+        
+        {
+          "summary":"...",
+          "suggestions":[
+            {
+              "universityName":"...",
+              "major":"...",
+              "admissionScore":"...",
+              "matchScore":95,
+              "reason":"..."
+            }
+          ]
+        }
+        
+        QUY TẮC
+        
+        - MatchScore từ 0-100.
+        - Sắp xếp từ cao xuống thấp.
+        - Chỉ đề xuất trường có thật tại Việt Nam.
+        - Không bịa tên trường.
+        - Không markdown.
+        - Không ```.
+        
+        Chỉ trả JSON.
+        """;
     // ─── UC-26: AI Chatbot ───────────────────────────────────────────────────────
 
     @Transactional
@@ -53,13 +302,61 @@ public class AIService {
         String aiResponse;
 
         try {
-            aiResponse = geminiService.ask(SYSTEM_CONTEXT, contextualPrompt);
-
-            if (aiResponse == null || aiResponse.isBlank()) {
-                throw new RuntimeException("Empty AI response");
+            String question = request.getMessage().toLowerCase();
+            String context;
+            if (question.contains("tóm tắt")
+                    || question.contains("tóm lược")
+                    || question.contains("ghi chú")
+                    || question.contains("mindmap")) {
+                context = SYSTEM_CONTEXT + SUMMARY_CONTEXT;
+            } else {
+                context = SYSTEM_CONTEXT + CHAT_CONTEXT;
             }
 
-        } catch (Exception e) {
+            aiResponse = geminiService.ask(context, request.getMessage());
+
+            if (aiResponse == null || aiResponse.isBlank()) {
+                aiResponse = "Xin lỗi, AI hiện không phản hồi.";
+            }
+            else if (aiResponse.trim().startsWith("{")) {
+
+                JsonNode json = safeJsonParse(aiResponse);
+
+                if (json != null) {
+
+                    if (json.has("response"))
+                        aiResponse = json.get("response").asText();
+
+                    else if (json.has("answer"))
+                        aiResponse = json.get("answer").asText();
+
+                    else if (json.has("message"))
+                        aiResponse = json.get("message").asText();
+
+                    else if (json.has("text"))
+                        aiResponse = json.get("text").asText();
+                }
+            }
+
+        } catch (GeminiException e){
+            switch (e.getStatusCode()) {
+                case 429 ->
+                        aiResponse =
+                                "🚦 AI đang quá tải hoặc đã hết quota hôm nay. Vui lòng thử lại sau vài phút.";
+
+                case 403 ->
+                        aiResponse =
+                                "🔑 API Key của hệ thống AI không hợp lệ hoặc đã bị khóa.";
+
+                case 401 ->
+                        aiResponse =
+                                "🔒 Không thể xác thực với dịch vụ AI.";
+
+                default ->
+                        aiResponse =
+                                "❌ Không thể kết nối tới AI. Vui lòng thử lại sau.";
+            }
+        }catch (Exception e) {
             log.error("Gemini error", e);
 
             // KHÔNG ghi DB fallback im lặng
@@ -154,7 +451,7 @@ public class AIService {
         String prompt = "Dựa trên dữ liệu năng lực: điểm trung bình " + base.getAverageScore()
                 + "/10, mức độ: " + base.getOverallLevel()
                 + ". Hãy đề xuất lộ trình học tập 30 ngày chi tiết cho học sinh luyện thi THPT QG.";
-        String aiPath = geminiService.ask(SYSTEM_CONTEXT, prompt);
+        String aiPath = geminiService.ask(ADAPTIVE_CONTEXT, prompt);
 
         saveAIHistory(studentId, "Tạo lộ trình học thích ứng", aiPath, "ADAPTIVE_PATH");
 
@@ -180,7 +477,7 @@ public class AIService {
                 trend > 0 ? "tăng +" + String.format("%.1f", trend) : "giảm " + String.format("%.1f", trend)
         );
 
-        String forecast = geminiService.ask(SYSTEM_CONTEXT, prompt);
+        String forecast = geminiService.ask(FORECAST_CONTEXT, prompt);
         saveAIHistory(studentId, "Dự đoán điểm thi THPT QG", forecast, "SCORE_FORECAST");
 
         log.info("Score Forecast — studentId={}, avg={}", studentId, avgScore);
@@ -195,27 +492,89 @@ public class AIService {
     // ─── UC-30: AI University Advising ──────────────────────────────────────────
 
     @Transactional
-    public ChatResponse adviseUniversity(Integer studentId, String targetScore, String preferredMajor) {
-        Double avgScore = quizAttemptRepository.findAverageScoreByStudentId(studentId).orElse(0.0);
+    public UniversityAdvisingResponse getUniversityAdvising(Integer studentId, String block) {
 
-        String prompt = String.format(
-                "Học sinh điểm trung bình %s/10. Điểm mục tiêu: %s. Ngành yêu thích: %s. "
-              + "Hãy tư vấn các trường đại học phù hợp tại Việt Nam, điểm chuẩn tham khảo, "
-              + "và các bước chuẩn bị hồ sơ xét tuyển.",
-                String.format("%.1f", avgScore),
-                targetScore != null ? targetScore : "chưa xác định",
-                preferredMajor != null ? preferredMajor : "chưa xác định"
-        );
+        Double avgScore = quizAttemptRepository
+                .findAverageScoreByStudentId(studentId)
+                .orElse(0.0);
 
-        String advice = geminiService.ask(SYSTEM_CONTEXT, prompt);
-        saveAIHistory(studentId, "Tư vấn chọn trường ĐH - " + preferredMajor, advice, "UNIVERSITY_ADVISE");
+        boolean hasData = avgScore > 0;
 
-        log.info("University Advising — studentId={}, major={}", studentId, preferredMajor);
+        // ─────────────────────────────
+        // 1. AI PROMPT (structured JSON yêu cầu Gemini)
+        // ─────────────────────────────
+        String prompt = """
+            You are a JSON API.
+            
+            ABSOLUTE RULES:
+            - Output ONLY valid JSON
+            - No markdown
+            - No explanation
+            - No extra text
+            - Using Vietnamese
+            - Must be complete JSON (never cut)
+            - If unsure, still return valid JSON
+            
+            Return format exactly:
+            
+            {
+              "suggestions": [
+                {
+                  "universityName": "string",
+                  "major": "string",
+                  "admissionScore": "string",
+                  "reason": "string",
+                  "matchScore": 0.0
+                }
+              ],
+              "summary": "string"
+            }
+            
+            User data:
+            - avgScore: %.1f
+            - block: %s
+            """.formatted(avgScore, block);
 
-        return ChatResponse.builder()
-                .question("Tư vấn chọn trường đại học ngành: " + preferredMajor)
-                .aiResponse(advice)
-                .createdAt(new Date())
+        String aiResponse = geminiService.ask(UNIVERSITY_CONTEXT, prompt);
+        if (aiResponse == null || aiResponse.length() < 10) {
+            return UniversityAdvisingResponse.builder()
+                    .hasData(hasData)
+                    .block(block)
+                    .predictedScore(avgScore)
+                    .summary("AI không trả dữ liệu hợp lệ")
+                    .suggestions(List.of())
+                    .build();
+        }
+
+        saveAIHistory(studentId,
+                "AI University Advising",
+                aiResponse,
+                "UNIVERSITY_ADVISE");
+
+        // ─────────────────────────────
+        // 2. PARSE JSON (quan trọng)
+        // ─────────────────────────────
+        List<UniversitySuggestion> suggestions = parseSuggestions(aiResponse);
+
+        // ─────────────────────────────
+        // 3. SORT by matchScore (AI + backend hybrid)
+        // ─────────────────────────────
+        suggestions = suggestions.stream()
+                .sorted(Comparator.comparing(UniversitySuggestion::getMatchScore)
+                        .reversed())
+                .toList();
+
+        // ─────────────────────────────
+        // 4. SUMMARY extract
+        // ─────────────────────────────
+        String summary = extractSummary(aiResponse);
+
+        return UniversityAdvisingResponse.builder()
+                .hasData(hasData)
+                .block(block)
+                .predictedScore(avgScore)
+                .summary(summary)
+                .suggestions(suggestions)
                 .build();
     }
 
@@ -293,13 +652,11 @@ public class AIService {
     }
 
     public Page<ChatResponse> getChatHistory(Integer studentId, int page, int size) {
-
         Page<AIChatHistory> historyPage =
                 chatHistoryRepository.findByStudentIdOrderByCreatedAtDesc(
                         studentId,
                         PageRequest.of(page, size)
                 );
-
         return historyPage.map(h -> ChatResponse.builder()
                 .chatId(h.getChatId())
                 .question(h.getQuestion())
@@ -307,5 +664,95 @@ public class AIService {
                 .createdAt(h.getCreatedAt())
                 .build()
         );
+    }
+
+    // --------- Parse Json --------
+    private boolean isValidJson(String json) {
+        return json != null
+                && json.trim().startsWith("{")
+                && json.trim().endsWith("}");
+    }
+
+    private String cleanJson(String aiResponse) {
+        if (aiResponse == null) return "";
+
+        return aiResponse
+                .replaceAll("(?s)```json", "")
+                .replaceAll("(?s)```", "")
+                .replaceAll("[^\\x20-\\x7E\\n\\r\\t\u00A0-\\uFFFF]", "") // loại ký tự rác
+                .trim();
+    }
+
+    private String getText(JsonNode node, String field) {
+        return node.has(field) && !node.get(field).isNull()
+                ? node.get(field).asText()
+                : "";
+    }
+
+    private JsonNode safeParse(String json) {
+        try {
+            String cleaned = cleanJson(json);
+
+            if (!isValidJson(cleaned)) {
+                log.error("AI returned invalid JSON:\n{}", cleaned);
+                return null;
+            }
+
+            return new ObjectMapper().readTree(cleaned);
+
+        } catch (Exception e) {
+            log.error("Invalid JSON from AI:\n{}", json, e);
+            return null;
+        }
+    }
+
+    private JsonNode safeJsonParse(String aiResponse) {
+        try {
+            if (aiResponse == null) return null;
+
+            String cleaned = aiResponse
+                    .replaceAll("```json", "")
+                    .replaceAll("```", "")
+                    .trim();
+
+            return objectMapper.readTree(cleaned);
+
+        } catch (Exception e) {
+            log.error("JSON parse failed. Raw AI:\n{}", aiResponse, e);
+            return null;
+        }
+    }
+    private List<UniversitySuggestion> parseSuggestions(String aiResponse) {
+        try {
+            JsonNode root = safeJsonParse(aiResponse);
+
+            if (root == null || !root.has("suggestions")) {
+                return new ArrayList<>();
+            }
+
+            return objectMapper.convertValue(
+                    root.get("suggestions"),
+                    new com.fasterxml.jackson.core.type.TypeReference<List<UniversitySuggestion>>() {}
+            );
+
+        } catch (Exception e) {
+            log.error("parseSuggestions failed", e);
+            return new ArrayList<>();
+        }
+    }
+
+    // -------- SUMMARY EXTRACTOR -------
+    private String extractSummary(String aiResponse) {
+        try {
+            JsonNode root = safeJsonParse(aiResponse);
+            if (root == null) return "No AI summary";
+
+            return root.has("summary")
+                    ? root.get("summary").asText()
+                    : "No AI summary";
+
+        } catch (Exception e) {
+            return "No AI summary";
+        }
     }
 }
