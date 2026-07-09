@@ -40,11 +40,17 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/api/entry-test",
                                 "/api/entry-test/ping",
+                                "/api/entry-test/quizzes",
                                 "/api/entry-test/course/**",
                                 "/api/entry-test/submit",
                                 "/api/entry-test/history",
+                                "/api/entry-test/start/**",
+                                "/api/quizzes",
+                                "/api/quizzes/**",
                                 "/api/payments/**",
-                                "/api/ai/**"
+                                "/api/ai/**",
+                                // Luyện Đề: controller tự xác thực bằng JWT / X-Student-Id (giống entry-test)
+                                "/api/practice/**"
                         ).permitAll()
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)

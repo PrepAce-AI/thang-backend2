@@ -26,4 +26,18 @@ AND (q.course.courseId = :courseId OR :courseId IS NULL)
 
     @Query("SELECT q FROM Quiz q WHERE q.quizType = 'ENTRY_TEST'")
     List<Quiz> findAllEntryTests();
+
+    /**
+     * Trung tâm luyện thi: mọi quiz thuộc hệ thống thi
+     * (ENTRY_TEST bốc 20 câu, PRACTICE/MOCK_EXAM bốc 25 câu),
+     * tùy chọn lọc theo loại đề và môn học.
+     */
+    @Query("""
+SELECT q FROM Quiz q
+WHERE q.quizType IN ('ENTRY_TEST', 'PRACTICE', 'MOCK_EXAM')
+AND (:type IS NULL OR q.quizType = :type)
+AND (:subject IS NULL OR q.subject = :subject)
+ORDER BY q.quizType, q.subject
+""")
+    List<Quiz> findExamQuizzes(@Param("type") String type, @Param("subject") String subject);
 }

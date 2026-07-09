@@ -44,7 +44,7 @@ public class Course {
     private Integer subjectId;
 
     // === FIELDS MỚI CHO ADMIN ===
-    @Column(name = "status")
+    @Column(name = "status", columnDefinition = "NVARCHAR(20)")
     private String status;           // PENDING, PUBLISHED, REJECTED
 
     @Column(name = "review_note", columnDefinition = "NVARCHAR(MAX)")

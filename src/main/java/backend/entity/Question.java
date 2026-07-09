@@ -9,7 +9,7 @@ import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "questions")
+@Table(name = "Questions")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,7 +25,7 @@ public class Question {
     @JsonIgnore
     private Quiz quiz;
 
-    @Column(name = "content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
+    @Column(name = "question_content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
     private String questionContent;
 
     @Column(name = "explanation", columnDefinition = "NVARCHAR(MAX)")
