@@ -637,7 +637,7 @@ VALUES
 (
     3,
     'English Essay Writing',
-    'Write a short essay about education.',
+    'Write ScheduleInitializer.java short essay about education.',
     '2026-07-10'
 );
 
@@ -716,7 +716,7 @@ INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) V
 (@QuizToan, N'Tập nghiệm bất phương trình x² - 4x + 3 > 0 là?', 'x < 1 hoặc x > 3', NULL),
 (@QuizToan, N'log₃(27) bằng bao nhiêu?', '3', NULL),
 (@QuizToan, N'Diện tích hình chữ nhật dài 5, rộng 3 là?', '15', NULL),
-(@QuizToan, N'Đường chéo hình vuông cạnh a là?', 'a√2', NULL),
+(@QuizToan, N'Đường chéo hình vuông cạnh ScheduleInitializer.java là?', 'ScheduleInitializer.java√2', NULL),
 (@QuizToan, N'Giá trị nhỏ nhất của y = x² - 4x + 5 là?', '1', NULL),
 (@QuizToan, N'cos(60°) bằng bao nhiêu?', '0.5', NULL),
 (@QuizToan, N'Thể tích hình cầu bán kính r là?', '(4/3)πr³', NULL),
@@ -727,7 +727,7 @@ INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) V
 (@QuizToan, N'Diện tích tam giác đáy 6, cao 4 là?', '12', NULL),
 (@QuizToan, N'Giá trị 2^10 là?', '1024', NULL),
 (@QuizToan, N'Phương trình x² + 1 = 0 có nghiệm thực không?', 'Không', NULL),
-(@QuizToan, N'Phương trình parabol y = ax² + bx + c qua (1,3) và (2,7). Tìm a+b+c?', '5', NULL),
+(@QuizToan, N'Phương trình parabol y = ax² + bx + c qua (1,3) và (2,7). Tìm ScheduleInitializer.java+b+c?', '5', NULL),
 (@QuizToan, N'Tích hai nghiệm của x² - 7x + 12 = 0 là?', '12', NULL),
 (@QuizToan, N'Giá trị nhỏ nhất của hàm y = x² - 6x + 10 là?', '1', NULL);
 
@@ -735,7 +735,7 @@ INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) V
 -- DECLARE @QuizLy INT   = (SELECT MAX(quiz_id) - 2 FROM Quizzes)
 INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES
 (@QuizLy, N'Đơn vị SI của lực là gì?', 'Newton', NULL),
-(@QuizLy, N'Công thức tính gia tốc là?', 'a = F/m', NULL);
+(@QuizLy, N'Công thức tính gia tốc là?', 'ScheduleInitializer.java = F/m', NULL);
 
 -- ====================== 30 CÂU HỎI ANH ======================
 -- DECLARE @QuizAnh INT  = (SELECT MAX(quiz_id) - 3 FROM Quizzes)
@@ -757,7 +757,7 @@ INSERT INTO QuestionOptions VALUES
 
 -- Câu 3
 INSERT INTO QuestionOptions VALUES
-(3,N'Δ > 0'),(3,N'Δ = 0'),(3,N'Δ < 0'),(3,N'a = 0');
+(3,N'Δ > 0'),(3,N'Δ = 0'),(3,N'Δ < 0'),(3,N'ScheduleInitializer.java = 0');
 
 -- Câu 4
 INSERT INTO QuestionOptions VALUES
@@ -813,7 +813,7 @@ INSERT INTO QuestionOptions VALUES
 
 -- Câu 17
 INSERT INTO QuestionOptions VALUES
-(17,N'a√2'),(17,N'2a'),(17,N'a²'),(17,N'a/2');
+(17,N'ScheduleInitializer.java√2'),(17,N'2a'),(17,N'ScheduleInitializer.java²'),(17,N'ScheduleInitializer.java/2');
 
 -- Câu 18
 INSERT INTO QuestionOptions VALUES

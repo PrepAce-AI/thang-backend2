@@ -113,7 +113,7 @@ public class AdminController {
         String targetRole = request.get("targetRole"); // ALL, STUDENT, TEACHER
 
         Integer adminId = getCurrentAdminId(token);
-        Notification noti = notificationService.createNotification(title, content, targetRole, adminId);
+        Notification noti = notificationService.createNotification(title, content, targetRole, 1,null);
         return ResponseEntity.ok(noti);
     }
 
@@ -126,11 +126,22 @@ public class AdminController {
 
     // API đưa ra quyết định xử lý báo cáo vi phạm (RESOLVED_BAN, DISMISSED)
     @PutMapping("/violations/{id}")
-    public ResponseEntity<ViolationReport> handleViolation(
-            @PathVariable Integer id,
-            @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> handleViolation(@PathVariable Integer id, @RequestBody Map<String, String> body) {
         String status = body.get("status");
-        ViolationReport report = adminService.handleViolation(id, status);
-        return ResponseEntity.ok(report);
+        String adminNote = body.get("adminNote"); // Lấy nội dung ghi chú phản hồi
+
+        if (adminNote == null || adminNote.trim().isEmpty()) {
+            adminNote = "Đã xử lý theo quy chuẩn cộng đồng.";
+        }
+
+        ViolationReport updated = adminService.handleViolation(id, status, adminNote);
+        return ResponseEntity.ok(updated);
+    }
+
+    // 🔥 ENDPOINT MỚI: Cho phép tất cả người dùng gửi đơn tố cáo lên
+    @PostMapping("/violations/submit")
+    public ResponseEntity<?> submitViolation(@RequestBody ViolationReport report) {
+        ViolationReport saved = adminService.createViolationReport(report);
+        return ResponseEntity.ok(saved);
     }
 }

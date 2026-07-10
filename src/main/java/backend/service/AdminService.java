@@ -98,25 +98,65 @@ public class AdminService {
                 "publishedCourses", publishedCourses);
     }
 
-    // ==================== NOTIFICATIONS ====================
-    public List<Notification> getAllNotifications() {
-        return notificationRepository.findTop10ByOrderByCreatedAtDesc();
-    }
-
     // ==================== VIOLATIONS MANAGEMENT ====================
-    // Lấy danh sách toàn bộ báo cáo vi phạm học liệu từ người dùng gửi lên
     @Transactional(readOnly = true)
     public List<ViolationReport> getAllViolations() {
         return violationRepository.findAll();
     }
 
-    // Đưa ra quyết định xử lý hồ sơ báo cáo (RESOLVED_BAN hoặc DISMISSED)
     @Transactional
-    public ViolationReport handleViolation(Integer reportId, String status) {
+    public ViolationReport handleViolation(Integer reportId, String status, String adminNote) {
         ViolationReport report = violationRepository.findById(reportId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy báo cáo vi phạm với ID: " + reportId));
 
         report.setStatus(status);
-        return violationRepository.save(report);
+        report.setAdminNote(adminNote);
+        violationRepository.save(report);
+
+
+// 🔥 TỰ ĐỘNG GỬI THÔNG BÁO CHO USER GỬI ĐƠN (Đã bù đủ trường chống lỗi 500)
+        try {
+            Notification notification = new Notification();
+
+            // 1. Gán ID người nhận (Khớp với trường receiverId trong Entity của bạn)
+            notification.setReceiverId(report.getReporterId());
+
+            // 2. Gán tiêu đề công việc (Bắt buộc, không được để null)
+            notification.setTitle("Phản hồi đơn tố cáo vi phạm");
+
+            // 3. Gán vai trò đích nhận thông báo (Bắt buộc, không được để null)
+            notification.setTargetRole("STUDENT");
+
+            // 4. Gán thời gian tạo
+            notification.setCreatedAt(new Date());
+
+            // 5. Gán ID người tạo thông báo (Admin hệ thống - mặc định truyền ID là 1 hoặc lấy từ Token)
+            notification.setCreatedBy(1);
+
+            // Cấu trúc nội dung lời nhắn gửi đi
+            String msg = status.equalsIgnoreCase("RESOLVED_BAN")
+                    ? "Thành công: Đơn tố cáo của bạn về '" + report.getReportedTarget() + "' đã được xử lý. Đối tượng vi phạm đã bị xử phạt. Phản hồi từ Admin: " + adminNote
+                    : "Phản hồi đơn tố cáo: Đơn tố cáo của bạn về '" + report.getReportedTarget() + "' đã bị từ chối/bác bỏ do chưa đủ bằng chứng. Lý do: " + adminNote;
+
+            notification.setContent(msg);
+
+            // Thực thi lưu xuống Database
+            notificationRepository.save(notification);
+            System.out.println("✅ Tự động bắn thông báo phản hồi vi phạm thành công tới User #" + report.getReporterId());
+        } catch (Exception e) {
+            // Nếu có lỗi ngầm phát sinh ở tầng DB, log ra để theo dõi tránh làm gãy luồng xử lý chính
+            System.err.println("❌ Lỗi nghiêm trọng khi lưu thông báo vi phạm: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return report;
+    }
+
+    // 🔥 THÊM HÀM CHO NGƯỜI DÙNG GỬI ĐƠN TỐ CÁO MỚI
+    @Transactional
+    public ViolationReport createViolationReport(ViolationReport newReport) {
+        newReport.setStatus("PENDING");
+        newReport.setCreatedAt(new Date());
+        return violationRepository.save(newReport);
     }
 }
