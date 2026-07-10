@@ -150,6 +150,15 @@ public class UserService {
         }
     }
 
+    //Logout
+    public void logout(String token){
+        String jwt = token.replace("Bearer ", "");
+        String email = jwtService.extractUsername(jwt);
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found"));
+        System.out.println(user.getEmail() + " logged out");
+    }
+
     //-----------------------------------------------------------------------------------------------------------
 
     //Change Password
