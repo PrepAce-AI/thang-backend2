@@ -59,4 +59,13 @@ public class User {
 
     @Column(name = "role_name")
     private String roleName;
+
+    @Column(name = "teacher_request_status")
+    private String teacherRequestStatus; // Giá trị: NULL (Bình thường), "PENDING" (Đang chờ duyệt), "APPROVED", "REJECTED"
+
+    @Column(name = "education")
+    private String education;
+
+    @Column(name = "experience")
+    private String experience;
 }

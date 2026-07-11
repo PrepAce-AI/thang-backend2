@@ -8,6 +8,8 @@ import backend.service.JwtService;
 import backend.service.NotificationService;
 import backend.entity.ViolationReport;
 
+// 🔥 ĐÃ THÊM: Import thư viện HttpStatus để giải quyết lỗi biên dịch màu đỏ ở cuối file
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -118,17 +120,15 @@ public class AdminController {
     }
 
     // ====================== VIOLATIONS MANAGEMENT (TASK 43) ======================
-    // API lấy toàn bộ danh sách báo cáo vi phạm học liệu để Admin kiểm tra
     @GetMapping("/violations")
     public ResponseEntity<List<ViolationReport>> getAllViolations() {
         return ResponseEntity.ok(adminService.getAllViolations());
     }
 
-    // API đưa ra quyết định xử lý báo cáo vi phạm (RESOLVED_BAN, DISMISSED)
     @PutMapping("/violations/{id}")
     public ResponseEntity<?> handleViolation(@PathVariable Integer id, @RequestBody Map<String, String> body) {
         String status = body.get("status");
-        String adminNote = body.get("adminNote"); // Lấy nội dung ghi chú phản hồi
+        String adminNote = body.get("adminNote");
 
         if (adminNote == null || adminNote.trim().isEmpty()) {
             adminNote = "Đã xử lý theo quy chuẩn cộng đồng.";
@@ -138,10 +138,60 @@ public class AdminController {
         return ResponseEntity.ok(updated);
     }
 
-    // 🔥 ENDPOINT MỚI: Cho phép tất cả người dùng gửi đơn tố cáo lên
     @PostMapping("/violations/submit")
     public ResponseEntity<?> submitViolation(@RequestBody ViolationReport report) {
         ViolationReport saved = adminService.createViolationReport(report);
         return ResponseEntity.ok(saved);
+    }
+
+    // ====================== TEACHER REQUESTS & ROLES ======================
+
+    // 🔥 CẬP NHẬT: Tiếp nhận thông tin học vấn và kinh nghiệm từ `@RequestBody` của học sinh gửi lên
+    @PostMapping("/users/{id}/request-teacher")
+    public ResponseEntity<?> requestTeacher(@PathVariable Integer id, @RequestBody Map<String, String> body) {
+        String education = body.get("education");
+        String experience = body.get("experience");
+        return ResponseEntity.ok(adminService.requestToBecomeTeacher(id, education, experience));
+    }
+
+    // Admin xử lý duyệt đơn ứng tuyển giáo viên
+    @PutMapping("/users/{id}/review-teacher")
+    public ResponseEntity<?> reviewTeacher(@PathVariable Integer id, @RequestBody Map<String, String> body) {
+        String decision = body.get("decision"); // "APPROVE" hoặc "REJECT"
+        return ResponseEntity.ok(adminService.handleTeacherRequest(id, decision));
+    }
+
+    // Admin chủ động đổi vai trò trực tiếp của User từ Select-Box
+    @PutMapping("/users/{id}/change-role")
+    public ResponseEntity<?> changeRole(@PathVariable Integer id, @RequestBody Map<String, Integer> body) {
+        Integer newRoleId = body.get("roleId"); // 1: ADMIN, 2: TEACHER, 3: STUDENT
+        return ResponseEntity.ok(adminService.changeUserRole(id, newRoleId));
+    }
+
+    // 🔥 Lấy thông tin chi tiết kèm danh sách nhật ký log hoạt động của người dùng
+    @GetMapping("/users/{id}/activity")
+    public ResponseEntity<?> getUserActivityLog(@PathVariable Integer id) {
+        try {
+            Map<String, Object> data = adminService.getUserDetailWithLogs(id);
+            return ResponseEntity.ok(data);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Lỗi khi lấy nhật ký hoạt động: " + e.getMessage()));
+        }
+    }
+    // 🔥 API MỚI: Tiếp nhận và lưu lại hoạt động thực tế của người dùng
+    @PostMapping("/users/{id}/activity")
+    public ResponseEntity<?> saveUserActivity(@PathVariable Integer id, @RequestBody Map<String, String> body) {
+        try {
+            String actionText = body.get("action");
+
+            // Gọi qua Service xử lý thay vì gọi trực tiếp Repository
+            adminService.saveUserActivity(id, actionText);
+
+            return ResponseEntity.ok(Map.of("message", "Ghi nhận hoạt động thành công!"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Lỗi lưu log: " + e.getMessage()));
+        }
     }
 }
