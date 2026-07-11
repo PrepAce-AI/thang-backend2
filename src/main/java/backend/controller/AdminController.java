@@ -194,4 +194,31 @@ public class AdminController {
                     .body(Map.of("message", "Lỗi lưu log: " + e.getMessage()));
         }
     }
+    // 🔥 THÊM User
+    @PostMapping("/users")
+    public ResponseEntity<?> addNewUser(@RequestBody backend.entity.User userRequest) {
+        try {
+            // 1. Lưu người dùng mới vào database
+            backend.entity.User savedUser = adminService.createUser(userRequest);
+
+            // 2. Ghi nhận hoạt động hệ thống (Log) tự động bằng cơ chế đã làm
+            try {
+                adminService.saveUserActivity(savedUser.getId(),
+                        "Admin khởi tạo tài khoản mới: " + savedUser.getFullName() + " (" + savedUser.getRoleName() + ")");
+            } catch (Exception logErr) {
+                System.out.println("Lỗi ghi nhận log tự động: " + logErr.getMessage());
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Thêm người dùng mới thành công!",
+                    "user", savedUser
+            ));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Lỗi máy chủ hệ thống: " + e.getMessage()));
+        }
+    }
 }

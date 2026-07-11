@@ -239,4 +239,24 @@ public class AdminService {
 
         userActivityRepository.save(log);
     }
+
+    // 🔥 THÊM user
+    @Transactional
+    public backend.entity.User createUser(backend.entity.User newUser) {
+        // Kiểm tra trùng lặp Email trước khi tạo
+        if (userRepository.existsByEmail(newUser.getEmail())) {
+            throw new RuntimeException("Email này đã được sử dụng trên hệ thống!");
+        }
+
+        // Đồng bộ role_name tương ứng với role_id truyền lên từ Form cho khớp DB cũ của Hưng
+        if (newUser.getRoleId() == 1) newUser.setRoleName("ADMIN");
+        else if (newUser.getRoleId() == 2) newUser.setRoleName("TEACHER");
+        else newUser.setRoleName("STUDENT");
+
+        newUser.setAccountStatus("ACTIVE");
+        newUser.setCreatedAt(new java.util.Date());
+
+        // Lưu xuống Database thông qua UserRepository hiện tại của bạn
+        return userRepository.save(newUser);
+    }
 }

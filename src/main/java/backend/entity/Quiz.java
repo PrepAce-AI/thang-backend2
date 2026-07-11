@@ -20,12 +20,18 @@ public class Quiz {
     @Column(name = "quiz_id")
     private Integer quizId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+
+
+    @ManyToOne(fetch = FetchType.EAGER) // Đổi sang EAGER để lấy được thông tin Course
     @JoinColumn(name = "course_id", nullable = false)
-    @JsonIgnore
+// Không dùng @JsonIgnore ở đây để Frontend đọc được object course
     private Course course;
 
-    @Column(name = "quiz_title")
+    @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonManagedReference // Quét dữ liệu xuôi xuống Question khi xem chi tiết đề
+    private List<Question> questions = new ArrayList<>();
+
+    @Column(name = "quiz_title", columnDefinition = "NVARCHAR(255)")
     private String quizTitle;
 
     @Column(name = "duration_minutes")
@@ -45,6 +51,6 @@ public class Quiz {
     @Column(name = "is_entry_test")
     private Boolean isEntryTest = false;
 
-    @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private List<Question> questions = new ArrayList<>();
+
+
 }

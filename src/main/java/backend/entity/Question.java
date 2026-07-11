@@ -1,5 +1,6 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -22,7 +23,7 @@ public class Question {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "quiz_id", nullable = false)
-    @JsonIgnore
+    @JsonBackReference // Thay cho @JsonIgnore để phối hợp đồng bộ với @JsonManagedReference từ Quiz
     private Quiz quiz;
 
     @Column(name = "question_content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
