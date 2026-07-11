@@ -125,45 +125,35 @@ public class GeminiService {
 
         try {
 
-            if (body == null)
-                return null;
+            if (body == null) return null;
 
-            List<?> candidates =
-                    (List<?>) body.get("candidates");
+            List<?> candidates = (List<?>) body.get("candidates");
+            if (candidates == null || candidates.isEmpty()) return null;
 
-            if (candidates == null || candidates.isEmpty())
-                return null;
+            Map<?, ?> candidate = (Map<?, ?>) candidates.get(0);
 
-            Map<?, ?> candidate =
-                    (Map<?, ?>) candidates.get(0);
+            Map<?, ?> content = (Map<?, ?>) candidate.get("content");
+            if (content == null) return null;
 
-            Map<?, ?> content =
-                    (Map<?, ?>) candidate.get("content");
+            List<?> parts = (List<?>) content.get("parts");
+            if (parts == null || parts.isEmpty()) return null;
 
-            if (content == null)
-                return null;
+            StringBuilder sb = new StringBuilder();
 
-            List<?> parts =
-                    (List<?>) content.get("parts");
+            for (Object obj : parts) {
+                Map<?, ?> part = (Map<?, ?>) obj;
 
-            if (parts == null || parts.isEmpty())
-                return null;
+                Object text = part.get("text");
+                if (text != null) {
+                    sb.append(text);
+                }
+            }
 
-            Map<?, ?> part =
-                    (Map<?, ?>) parts.get(0);
+            return sb.toString();
 
-            Object text = part.get("text");
-
-            return text == null
-                    ? null
-                    : text.toString();
-
-        }
-
-        catch (Exception e) {
+        } catch (Exception e) {
 
             log.error("Parse Gemini response failed", e);
-
             return null;
         }
     }
