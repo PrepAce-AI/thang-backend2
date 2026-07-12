@@ -1,0 +1,268 @@
+package backend.service;
+
+import backend.dto.request.SubmitQuizRequest;
+import backend.dto.response.QuizResponse;
+import backend.dto.response.QuizResultResponse;
+import backend.entity.*;
+import backend.dto.response.StartQuizResponse;
+import backend.exceptions.BadRequestException;
+import backend.exceptions.ResourceNotFoundException;
+import backend.repository.QuestionRepository;
+import backend.repository.QuizAttemptRepository;
+import backend.repository.QuizRepository;
+import backend.repository.TestSessionRepository;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * UC-13: Attempt Entry Test
+ * Học sinh làm bài kiểm tra đầu vào để hệ thống đánh giá năng lực ban đầu.
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class EntryTestService {
+
+    private final QuizRepository quizRepository;
+    private final QuestionRepository questionRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+
+    // ─── Lấy danh sách đề Entry Test ───────────────────────────────────────────
+
+    /** Số câu bốc ngẫu nhiên cho mỗi lượt Entry Test */
+    private static final int QUESTIONS_PER_ENTRY_TEST = 20;
+
+    public List<QuizResponse> getAllEntryTests() {
+        // Chỉ trả metadata — KHÔNG kèm câu hỏi (kho 250 câu/đề, trả hết vừa nặng vừa lộ đề)
+        return quizRepository.findAllEntryTests().stream()
+                .map(quiz -> QuizResponse.builder()
+                        .quizId(quiz.getQuizId())
+                        .quizTitle(quiz.getQuizTitle())
+                        .durationMinutes(quiz.getDurationMinutes())
+                        .quizType(quiz.getQuizType())
+                        .totalQuestions((int) questionRepository.countByQuiz_QuizId(quiz.getQuizId()))
+                        .build())
+                .toList();
+    }
+
+    /**
+     * Lấy đề Entry Test theo courseId.
+     * Nếu courseId = null → lấy đề tổng quát (standalone).
+     */
+    public QuizResponse getEntryTestByCourse(Integer courseId) {
+        Quiz quiz = quizRepository.findEntryTestByCourseId(courseId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy Entry Test cho courseId: " + courseId));
+        return mapToQuizResponse(quiz);
+    }
+
+    // ─── Nộp bài Entry Test ─────────────────────────────────────────────────────
+
+    @Transactional
+    public QuizResultResponse submitEntryTest(Integer studentId, SubmitQuizRequest request) {
+        // Lấy quiz: ưu tiên từ sessionsId (attemptId) rồi fallback quizId
+        Quiz quiz;
+        if (request.getSessionsId() != null) {
+            QuizAttempt existing = quizAttemptRepository.findById(request.getSessionsId()).orElse(null);
+            if (existing != null) {
+                quiz = existing.getQuiz();
+            } else {
+                quiz = quizRepository.findById(request.getQuizId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại"));
+            }
+        } else {
+            quiz = quizRepository.findById(request.getQuizId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại: " + request.getQuizId()));
+        }
+
+        // Cập nhật attempt đã tồn tại (từ startQuiz) hoặc tạo mới
+        QuizAttempt attempt;
+        if (request.getSessionsId() != null) {
+            attempt = quizAttemptRepository.findById(request.getSessionsId()).orElse(new QuizAttempt());
+        } else {
+            attempt = new QuizAttempt();
+        }
+
+        // Chỉ chấm những câu học sinh ĐÃ ĐƯỢC PHÁT và trả lời — KHÔNG lấy cả kho 250 câu
+        // (kho lớn mà chấm cả quiz thì 230 câu chưa phát sẽ bị tính là sai).
+        Map<Integer, String> answers = request.getAnswers();
+        List<Question> questions = (answers == null || answers.isEmpty())
+                ? new ArrayList<>()
+                : questionRepository.findWithOptionsByIds(new ArrayList<>(answers.keySet()));
+
+        int correctCount = 0;
+        List<QuizResultResponse.QuestionResultDetail> details = new ArrayList<>();
+
+        for (Question q : questions) {
+            String selectedText = answers.get(q.getQuestionId());
+
+            QuestionOption correctOption = q.getOptions().stream()
+                    .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                    .findFirst()
+                    .orElse(null);
+
+            // So sánh theo nội dung text (FE cũ gửi text đáp án thay vì optionId)
+            boolean isCorrect = correctOption != null
+                    && selectedText != null
+                    && correctOption.getOptionContent().equals(selectedText);
+            if (isCorrect) correctCount++;
+
+            details.add(QuizResultResponse.QuestionResultDetail.builder()
+                    .questionId(q.getQuestionId())
+                    .questionContent(q.getQuestionContent())
+                    .selectedAnswer(selectedText)
+                    .correctAnswer(correctOption != null ? correctOption.getOptionContent() : null)
+                    .isCorrect(isCorrect)
+                    .explanation(q.getExplanation())
+                    .topic(q.getTopic())
+                    .build());
+        }
+
+        // Mẫu số = số câu ĐÃ PHÁT khi start (câu bỏ trống vẫn tính là sai),
+        // fallback = số câu đã trả lời (trường hợp attempt cũ không có total)
+        int total = (attempt.getTotalQuestions() != null && attempt.getTotalQuestions() > 0)
+                ? attempt.getTotalQuestions()
+                : Math.max(questions.size(), 1);
+        double score = Math.round(((double) correctCount / total) * 100.0) / 10.0;
+        double percentage = (double) correctCount / total * 100;
+        attempt.setQuiz(quiz);
+        attempt.setStudentId(studentId);
+        attempt.setScore(score);
+        attempt.setTotalQuestions(total);
+        attempt.setCorrectCount(correctCount);
+        if (attempt.getStartedAt() == null) attempt.setStartedAt(new Date());
+        attempt.setSubmittedAt(new Date());
+        QuizAttempt saved = quizAttemptRepository.save(attempt);
+
+        log.info("Student {} submitted Entry Test quizId={}, score={}", studentId, quiz.getQuizId(), score);
+
+        return QuizResultResponse.builder()
+                .attemptId(saved.getAttemptId())
+                .quizId(quiz.getQuizId())
+                .quizTitle(quiz.getQuizTitle())
+                .score(score)
+                .totalQuestions(total)
+                .correctCount(correctCount)
+                .percentage(percentage)
+                .level(classifyLevel(percentage))
+                .details(details)
+                .build();
+    }
+
+    // ─── Lịch sử Entry Test của student ────────────────────────────────────────
+
+    public List<QuizResultResponse> getEntryTestHistory(Integer studentId) {
+        return quizAttemptRepository.findEntryTestAttemptsByStudent(studentId)
+                .stream()
+                .map(a -> QuizResultResponse.builder()
+                        .attemptId(a.getAttemptId())
+                        .quizId(a.getQuiz().getQuizId())
+                        .quizTitle(a.getQuiz().getQuizTitle())
+                        .score(a.getScore())
+                        .totalQuestions(a.getTotalQuestions())
+                        .correctCount(a.getCorrectCount())
+                        .percentage(a.getTotalQuestions() != null && a.getTotalQuestions() > 0
+                                ? (double) a.getCorrectCount() / a.getTotalQuestions() * 100 : 0)
+                        .level(classifyLevel(a.getTotalQuestions() != null && a.getTotalQuestions() > 0
+                                ? (double) a.getCorrectCount() / a.getTotalQuestions() * 100 : 0))
+                        .build())
+                .toList();
+    }
+
+    // ─── Helper ─────────────────────────────────────────────────────────────────
+
+    private QuizResponse mapToQuizResponse(Quiz quiz) {
+        List<Question> questions = questionRepository.findByQuizId(quiz.getQuizId());
+
+        List<QuizResponse.QuestionResponse> questionResponses = questions.stream()
+                .map(q -> QuizResponse.QuestionResponse.builder()
+                        .questionId(q.getQuestionId())
+                        .questionContent(q.getQuestionContent())
+                        .options(q.getOptions().stream()
+                                .map(o -> QuizResponse.OptionResponse.builder()
+                                        .optionId(o.getOptionId())
+                                        .optionContent(o.getOptionContent())
+                                        .build())
+                                .toList())
+                        .build())
+                .toList();
+
+        return QuizResponse.builder()
+                .quizId(quiz.getQuizId())
+                .quizTitle(quiz.getQuizTitle())
+                .durationMinutes(quiz.getDurationMinutes())
+                .quizType(quiz.getQuizType())
+                .totalQuestions(questions.size())
+                .questions(questionResponses)
+                .build();
+    }
+
+    /** Phân loại năng lực theo % đúng */
+    private String classifyLevel(double percentage) {
+        if (percentage >= 80) return "Giỏi";
+        if (percentage >= 65) return "Khá";
+        if (percentage >= 50) return "Trung bình";
+        return "Yếu";
+    }
+
+    // ─── START QUIZ ─────────────────────────────────────────────────────────────────
+    public StartQuizResponse startQuiz(Integer quizId, Integer studentId) {
+
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại: " + quizId));
+
+        if (!"ENTRY_TEST".equals(quiz.getQuizType()) && !"PRACTICE".equals(quiz.getQuizType()) && !"MOCK_EXAM".equals(quiz.getQuizType())) {
+            throw new BadRequestException("Quiz này không hợp lệ để thi thử/kiểm tra");
+        }
+
+        // Bốc ngẫu nhiên đúng 20 câu cho ENTRY_TEST và 25 câu cho PRACTICE/MOCK_EXAM
+        int numQuestions = "ENTRY_TEST".equals(quiz.getQuizType()) ? 20 : 25;
+        List<Integer> randomIds = questionRepository.findRandomQuestionIds(quizId, numQuestions);
+        if (randomIds.isEmpty()) {
+            throw new BadRequestException("Đề thi này chưa có câu hỏi trong kho");
+        }
+        List<Question> questions = questionRepository.findWithOptionsByIds(randomIds);
+
+        // Tạo attempt (session làm bài) — lưu số câu đã phát để submit chấm đúng mẫu số
+        QuizAttempt attempt = new QuizAttempt();
+        attempt.setQuiz(quiz);
+        attempt.setStudentId(studentId);
+        attempt.setStartedAt(new Date());
+        attempt.setTotalQuestions(questions.size());
+
+        QuizAttempt saved = quizAttemptRepository.save(attempt);
+
+        // Map question
+        List<QuizResponse.QuestionResponse> questionResponses =
+                questions.stream().map(q ->
+                        QuizResponse.QuestionResponse.builder()
+                                .questionId(q.getQuestionId())
+                                .questionContent(q.getQuestionContent())
+                                .options(q.getOptions().stream()
+                                        .map(o -> QuizResponse.OptionResponse.builder()
+                                                .optionId(o.getOptionId())
+                                                .optionContent(o.getOptionContent())
+                                                .build())
+                                        .toList())
+                                .build()
+                ).toList();
+
+        return StartQuizResponse.builder()
+                .sessionsId(saved.getAttemptId())   // FE dùng sessionsId
+                .attemptId(saved.getAttemptId())
+                .quizId(quiz.getQuizId())
+                .quizTitle(quiz.getQuizTitle())
+                .durationMinutes(quiz.getDurationMinutes())
+                .remainingTime((quiz.getDurationMinutes() != null ? quiz.getDurationMinutes() : 20) * 60)
+                .questions(questionResponses)
+                .build();
+    }
+}

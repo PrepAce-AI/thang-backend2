@@ -21,12 +21,11 @@ public class TestService {
     private final QuestionRepository questionRepository;
     private final QuestionOptionRepository questionOptionRepository;
 
-    //Bat Dau Bai Thi
+    // Bắt đầu bài thi
     @Transactional
     public TestSessionResponse startTest(StartTestRequest request, Integer studentId, String ipAddress, String userAgent){
-        Quiz quiz = quizRepository.findById(request.getQuizId()).orElseThrow(() ->  new RuntimeException("Khong tim thay quiz"));
-        //Xu ly ngoai le thoi gian theo mon hoc (Toan va Van)
-        int durationMinutes = calculateDuration(quiz);
+        Quiz quiz = quizRepository.findById(request.getQuizId()).orElseThrow(() -> new RuntimeException("Không tìm thấy bài trắc nghiệm"));
+
         TestSession session = new TestSession();
         session.setQuiz(quiz);
 
@@ -35,7 +34,7 @@ public class TestService {
         session.setStudent(student);
 
         session.setStartedAt(new Date());
-        session.setRemainingTime(quiz.getDurationMinutes() * 60); //Chuyen sang giay
+        session.setRemainingTime(quiz.getDurationMinutes() * 60); // Chuyển sang giây
         session.setStatus("IN_PROGRESS");
         session.setIpAddress(ipAddress);
         session.setUserAgent(userAgent);
@@ -53,38 +52,13 @@ public class TestService {
         return response;
     }
 
-    //Lay cau hoi
+    // Lấy câu hỏi
     public List<QuestionResponse> getQuestions (int sessionsId, Integer studentId){
         TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId)
-                .orElseThrow(() -> new RuntimeException("Phiên Thi Không Tồn Tại"));
+                .orElseThrow(() -> new RuntimeException("Phiên thi không tồn tại"));
 
         Integer quizId = session.getQuiz().getQuizId();
-
-        // Force load questions + options
-        List<Question> questions =
-                questionRepository.findByQuizId(quizId);
-
-        for (Question q : questions) {
-            System.out.println(
-                    "Question "
-                            + q.getQuestionId()
-                            + " options = "
-                            + q.getOptions().size()
-            );
-        }
-
-        // ===== DEBUG =====
-        System.out.println("Quiz ID = " + quizId);
-
-        for (Question q : questions) {
-            System.out.println(
-                    "Question ID = "
-                            + q.getQuestionId()
-                            + ", options = "
-                            + q.getOptions().size()
-            );
-        }
-        // =================
+        List<Question> questions = questionRepository.findByQuizId(quizId);
 
         List<QuestionResponse> responses = new ArrayList<>();
 
@@ -93,12 +67,9 @@ public class TestService {
             qr.setQuestionId(q.getQuestionId());
             qr.setContent(q.getQuestionContent());
             qr.setExplanation(q.getExplanation() != null ? q.getExplanation() : "");
+            qr.setQuestionType(q.getQuestionType());
 
             List<OptionResponse> options = new ArrayList<>();
-
-            // Debug
-            System.out.println("Câu " + q.getQuestionId() + " có " + (q.getOptions() != null ? q.getOptions().size() : 0) + " options");
-
             if (q.getOptions() != null) {
                 for (QuestionOption opt : q.getOptions()) {
                     options.add(new OptionResponse(opt.getOptionId(), opt.getOptionContent()));
@@ -112,98 +83,132 @@ public class TestService {
         return responses;
     }
 
-    //Nop dap an
+    // Nộp từng đáp án (Auto-save khi làm bài)
     @Transactional
     public void submitAnswer(int sessionsId, SubmitAnswerRequest requests, int studentId){
-        TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId).orElseThrow(() -> new RuntimeException("Phien thi khong ton tai"));
-        Question question = questionRepository.findById(requests.getQuestionId()).orElseThrow(() -> new RuntimeException("Cau hoi khong ton tai"));
+        TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId)
+                .orElseThrow(() -> new RuntimeException("Phiên thi không tồn tại"));
+        Question question = questionRepository.findById(requests.getQuestionId())
+                .orElseThrow(() -> new RuntimeException("Câu hỏi không tồn tại"));
 
-        QuestionOption selectedOption = null;
-        if (requests.getSelectedOptionId() != null){
-            selectedOption = questionOptionRepository.findById(requests.getSelectedOptionId()).orElseThrow(() -> new RuntimeException("Lua chon khong ton tai"));
-        }
+        StudentAnswer answer = studentAnswerRepository
+                .findBySessionSessionsIdAndQuestionQuestionId(sessionsId, question.getQuestionId())
+                .orElse(new StudentAnswer());
 
-        StudentAnswer answer = new StudentAnswer();
         answer.setSession(session);
         answer.setQuestion(question);
-        answer.setSelectedOption(selectedOption);
         answer.setAnsweredAt(new Date());
+
+        if ("ESSAY".equals(question.getQuestionType()) || "SHORT_ANSWER".equals(question.getQuestionType())) {
+            answer.setEssayAnswer(requests.getEssayAnswer());
+            answer.setSelectedOption(null);
+        } else {
+            if (requests.getSelectedOptionId() != null){
+                QuestionOption selectedOption = questionOptionRepository.findById(requests.getSelectedOptionId())
+                        .orElseThrow(() -> new RuntimeException("Lựa chọn không tồn tại"));
+                answer.setSelectedOption(selectedOption);
+                answer.setEssayAnswer(null);
+            }
+        }
 
         studentAnswerRepository.save(answer);
     }
 
+    // Nộp toàn bộ bài thi
     @Transactional
     public TestResultResponse submitTest(int sessionsId, int studentId) {
-        TestSession session = testSessionRepository
-                .findBySessionsIdAndStudentId(sessionsId, studentId)
+        TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId)
                 .orElseThrow(() -> new RuntimeException("Phiên thi không tồn tại"));
-        if ("SUBMITTED".equals(session.getStatus())) {
-            throw new RuntimeException("Bài thi đã được nộp");
+
+        if ("SUBMITTED".equals(session.getStatus()) || "PENDING_GRADING".equals(session.getStatus())) {
+            throw new RuntimeException("Bài thi đã được nộp trước đó");
         }
-        // Lấy tất cả đáp án của thí sinh
-        List<StudentAnswer> studentAnswers =
-                studentAnswerRepository.findBySessionSessionsId(sessionsId);
-        // Lấy toàn bộ câu hỏi của quiz
+
+        List<StudentAnswer> studentAnswers = studentAnswerRepository.findBySessionSessionsId(sessionsId);
         List<Question> questions = session.getQuiz().getQuestions();
+
         int totalQuestions = questions.size();
         int correctCount = 0;
+        boolean hasEssay = false;
         List<QuestionResult> resultDetails = new ArrayList<>();
 
         for (Question question : questions) {
+            if ("ESSAY".equals(question.getQuestionType())) {
+                hasEssay = true;
+            }
 
             StudentAnswer studentAnswer = studentAnswers.stream()
-                    .filter(sa -> sa.getQuestion().getQuestionId()
-                            == question.getQuestionId())
-                    .findFirst()
-                    .orElse(null);
+                    .filter(sa -> sa.getQuestion().getQuestionId().equals(question.getQuestionId()))
+                    .findFirst().orElse(null);
 
             QuestionResult qr = new QuestionResult();
             qr.setQuestionId(question.getQuestionId());
             qr.setContent(question.getQuestionContent());
             qr.setExplanation(question.getExplanation());
+            qr.setQuestionType(question.getQuestionType());
 
-            if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
-                String selectedContent =
-                        studentAnswer.getSelectedOption().getOptionContent();
-                qr.setSelectedAnswer(selectedContent);
-                boolean isCorrect =
-                        question.getCorrectAnswer() != null
-                                && question.getCorrectAnswer()
-                                .trim()
-                                .equalsIgnoreCase(selectedContent.trim());
-                qr.setCorrectedAnswer(question.getCorrectAnswer());
-                qr.setCorrect(isCorrect);
-                if (isCorrect) {
-                    correctCount++;
+            // THÀNH PHẦN KIỂM TRA LOGIC TỪNG LOẠI CÂU HỎI RÕ RÀNG:
+            if ("SHORT_ANSWER".equals(question.getQuestionType())) {
+                if (studentAnswer != null && studentAnswer.getEssayAnswer() != null && !studentAnswer.getEssayAnswer().trim().isEmpty()) {
+                    String studentText = studentAnswer.getEssayAnswer().trim();
+                    qr.setSelectedAnswer(studentText);
+
+                    boolean isCorrect = question.getCorrectAnswer() != null
+                            && question.getCorrectAnswer().trim().equalsIgnoreCase(studentText);
+                    qr.setCorrectedAnswer(question.getCorrectAnswer());
+                    qr.setCorrect(isCorrect);
+                    if (isCorrect) correctCount++;
+                } else {
+                    qr.setSelectedAnswer("Chưa trả lời");
+                    qr.setCorrectedAnswer(question.getCorrectAnswer());
+                    qr.setCorrect(false);
                 }
-            } else {
-                qr.setSelectedAnswer("Chưa trả lời");
-                qr.setCorrectedAnswer(question.getCorrectAnswer());
+            }
+            else if ("ESSAY".equals(question.getQuestionType())) {
+                qr.setSelectedAnswer(studentAnswer != null && studentAnswer.getEssayAnswer() != null ? studentAnswer.getEssayAnswer() : "Chưa trả lời");
+                qr.setCorrectedAnswer("Chờ giáo viên chấm điểm");
                 qr.setCorrect(false);
+                qr.setScore(studentAnswer != null ? studentAnswer.getScore() : null);
+                qr.setTeacherComment(studentAnswer != null ? studentAnswer.getTeacherComment() : null);
+            }
+            // TRƯỜNG HỢP CÂU HỎI TRẮC NGHIỆM (CHOICE)
+            else {
+                QuestionOption correctOption = question.getOptions().stream()
+                        .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                        .findFirst().orElse(null);
+
+                qr.setCorrectedAnswer(correctOption != null ? correctOption.getOptionContent() : null);
+
+                if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
+                    qr.setSelectedAnswer(studentAnswer.getSelectedOption().getOptionContent());
+                    boolean isCorrect = correctOption != null && Objects.equals(studentAnswer.getSelectedOption().getOptionId(), correctOption.getOptionId());
+                    qr.setCorrect(isCorrect);
+                    if (isCorrect) correctCount++;
+                } else {
+                    qr.setSelectedAnswer("Chưa trả lời");
+                    qr.setCorrect(false);
+                }
             }
             resultDetails.add(qr);
         }
 
-        // Điểm thang 10
-        float score = totalQuestions > 0
-                ? ((float) correctCount / totalQuestions) * 10
-                : 0;
-
-        // Làm tròn 2 chữ số
-        score = Math.round(score * 100) / 100.0f;
-
-        // Cập nhật session
         session.setSubmittedAt(new Date());
-        session.setScore(score);
-        session.setStatus("SUBMITTED");
+
+        if (hasEssay) {
+            session.setStatus("PENDING_GRADING");
+            session.setScore(null);
+        } else {
+            float score = totalQuestions > 0 ? ((float) correctCount / totalQuestions) * 10 : 0;
+            score = Math.round(score * 100) / 100.0f;
+            session.setScore(score);
+            session.setStatus("SUBMITTED");
+        }
 
         testSessionRepository.save(session);
 
-        // Tạo response
         TestResultResponse response = new TestResultResponse();
-
         response.setSessionsId(session.getSessionsId());
-        response.setScore(score);
+        response.setScore(session.getScore() != null ? session.getScore() : 0.0f);
         response.setTotalQuestions(totalQuestions);
         response.setCorrectAnswers(correctCount);
         response.setTimeSpent(calculateTimeSpent(session));
@@ -213,15 +218,14 @@ public class TestService {
         return response;
     }
 
-    // === THAY THẾ TOÀN BỘ PHẦN getResult() ===
+    // Xem lại kết quả bài thi
     @Transactional
     public TestResultResponse getResult(int sessionsId, int userId) {
-
         TestSession session = testSessionRepository.findById(sessionsId)
-                .orElseThrow(() -> new RuntimeException("Session not found"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiên thi"));
 
         if (session.getStudent().getId() != userId) {
-            throw new RuntimeException("Access denied");
+            throw new RuntimeException("Không có quyền truy cập");
         }
 
         TestResultResponse response = new TestResultResponse();
@@ -239,106 +243,171 @@ public class TestService {
 
         for (Question question : allQuestions) {
             StudentAnswer studentAnswer = answers.stream()
-                    .filter(sa -> sa.getQuestion().getQuestionId() == question.getQuestionId())
-                    .findFirst()
-                    .orElse(null);
+                    .filter(sa -> sa.getQuestion().getQuestionId().equals(question.getQuestionId()))
+                    .findFirst().orElse(null);
 
             QuestionResult qr = new QuestionResult();
             qr.setQuestionId(question.getQuestionId());
             qr.setContent(question.getQuestionContent());
             qr.setExplanation(question.getExplanation());
-            qr.setCorrectedAnswer(question.getCorrectAnswer());
+            qr.setQuestionType(question.getQuestionType());
 
-            String correctAnswer = question.getCorrectAnswer() != null
-                    ? question.getCorrectAnswer().trim() : "";
-
-            if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
-                String selectedContent = studentAnswer.getSelectedOption().getOptionContent().trim();
-
-                qr.setSelectedAnswer(selectedContent);
-
-                // === LOGIC SO SÁNH MẠNH HƠN ===
-                boolean isCorrect = false;
-
-                if (correctAnswer.equalsIgnoreCase(selectedContent)) {
-                    isCorrect = true;
+            if ("SHORT_ANSWER".equals(question.getQuestionType())) {
+                qr.setCorrectedAnswer(question.getCorrectAnswer());
+                if (studentAnswer != null && studentAnswer.getEssayAnswer() != null) {
+                    qr.setSelectedAnswer(studentAnswer.getEssayAnswer());
+                    boolean isCorrect = question.getCorrectAnswer() != null && question.getCorrectAnswer().trim().equalsIgnoreCase(studentAnswer.getEssayAnswer().trim());
+                    qr.setCorrect(isCorrect);
+                    if (isCorrect) correctAnswers++;
                 } else {
-                    // Xử lý trường hợp đáp án đúng là "x=2 hoặc x=3" nhưng option là "x=2 hoặc x=3"
-                    String normalizedCorrect = correctAnswer.replace("hoặc", "hoặc").trim();
-                    String normalizedSelected = selectedContent.replace("hoặc", "hoặc").trim();
-                    isCorrect = normalizedCorrect.equalsIgnoreCase(normalizedSelected);
+                    qr.setSelectedAnswer("Chưa trả lời");
+                    qr.setCorrect(false);
                 }
-
-                qr.setCorrect(isCorrect);
-                if (isCorrect) correctAnswers++;
-
-            } else {
-                qr.setSelectedAnswer("Chưa trả lời");
+            } else if ("ESSAY".equals(question.getQuestionType())) {
+                qr.setSelectedAnswer(studentAnswer != null && studentAnswer.getEssayAnswer() != null ? studentAnswer.getEssayAnswer() : "Chưa trả lời");
+                qr.setCorrectedAnswer("Chờ giáo viên chấm điểm");
                 qr.setCorrect(false);
-            }
+                qr.setScore(studentAnswer != null ? studentAnswer.getScore() : null);
+                qr.setTeacherComment(studentAnswer != null ? studentAnswer.getTeacherComment() : null);
+            } else {
+                QuestionOption correctOption = question.getOptions().stream()
+                        .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                        .findFirst().orElse(null);
+                qr.setCorrectedAnswer(correctOption != null ? correctOption.getOptionContent() : null);
 
+                if (studentAnswer != null && studentAnswer.getSelectedOption() != null) {
+                    qr.setSelectedAnswer(studentAnswer.getSelectedOption().getOptionContent());
+                    boolean isCorrect = correctOption != null && Objects.equals(studentAnswer.getSelectedOption().getOptionId(), correctOption.getOptionId());
+                    qr.setCorrect(isCorrect);
+                    if (isCorrect) correctAnswers++;
+                } else {
+                    qr.setSelectedAnswer("Chưa trả lời");
+                    qr.setCorrect(false);
+                }
+            }
             questionResults.add(qr);
         }
 
         response.setCorrectAnswers(correctAnswers);
         response.setQuestions(questionResults);
-
-        // Tính thời gian
-        int timeSpent = 0;
-        if (session.getStartedAt() != null && session.getSubmittedAt() != null) {
-            long seconds = (session.getSubmittedAt().getTime() - session.getStartedAt().getTime()) / 1000;
-            timeSpent = (int) seconds;
-        }
-        response.setTimeSpent(timeSpent);
+        response.setTimeSpent(calculateTimeSpent(session));
 
         return response;
     }
 
-    /**
-     * Tính thời gian thi theo quy tắc thi Việt Nam
-     * - Ngữ Văn: 120 phút
-     * - Toán: 90 phút
-     * - Các môn khác: 50 phút
-     */
+    /* ============================= PHẦN CHẤM ĐIỂM CỦA GIÁO VIÊN =============================*/
 
-    /* ============================= TÍNH TOÁN THỜI GIAN =============================*/
-    private int calculateDuration(Quiz quiz){
-        String title = quiz.getQuizTitle() != null? quiz.getQuizTitle().toLowerCase() : "";
+    // Lấy danh sách các session đang chờ chấm điểm
+    public List<Map<String, Object>> getPendingGradingSessions() {
+        List<TestSession> sessions = testSessionRepository.findByStatus("PENDING_GRADING");
+        List<Map<String, Object>> result = new ArrayList<>();
 
-        //Uu tien kiem tra theo ten quiz
-        if (title.contains("ngữ văn") || title.contains("văn") || title.contains("nguvan")){
-            return 120;
+        for (TestSession s : sessions) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("sessionsId", s.getSessionsId());
+            map.put("quizTitle", s.getQuiz().getQuizTitle());
+            result.add(map);
         }
+        return result;
+    }
 
-        if (title.contains("toán") || title.contains("math") || title.contains("toan")){
-            return 90;
-        }
+    // Lấy chi tiết câu trả lời tự luận để giáo viên chấm điểm
+    public List<Map<String, Object>> getEssayAnswersForTeacher(int sessionId) {
+        List<StudentAnswer> answers = studentAnswerRepository.findBySessionSessionsId(sessionId);
+        List<Map<String, Object>> result = new ArrayList<>();
 
-        //Kiem tra theo mon hoc
-        Integer subjectId = null;
-        if (quiz.getCourse() != null){
-            subjectId = quiz.getCourse().getSubjectId();
-        }
-
-        if (subjectId != null){
-            // Bạn có thể chỉnh lại các mã subjectId cho đúng với database của mình
-            if (subjectId == 4 || subjectId == 2) {           // Ngữ Văn / Literature
-                return 120;
-            }
-            if (subjectId == 1) {                             // Toán / Mathematics
-                return 90;
+        for (StudentAnswer sa : answers) {
+            if ("ESSAY".equals(sa.getQuestion().getQuestionType())) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("answerId", sa.getAnswerId());
+                map.put("questionId", sa.getQuestion().getQuestionId());
+                map.put("content", sa.getQuestion().getQuestionContent());
+                map.put("selectedAnswer", sa.getEssayAnswer());
+                map.put("score", sa.getScore());
+                map.put("comment", sa.getTeacherComment());
+                result.add(map);
             }
         }
+        return result;
+    }
 
-        return 50;
+    // Giáo viên chấm điểm từng câu tự luận và tự động tính lại tổng điểm Thang 10 của toàn bài
+    @Transactional
+    public void teacherGradeAnswer(int answerId, float score, String comment) {
+        StudentAnswer sa = studentAnswerRepository.findById(answerId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy câu trả lời"));
+        sa.setScore(score);
+        sa.setTeacherComment(comment);
+        studentAnswerRepository.save(sa);
+
+        int sessionId = sa.getSession().getSessionsId();
+        List<StudentAnswer> allAnswers = studentAnswerRepository.findBySessionSessionsId(sessionId);
+
+        // Kiểm tra xem tất cả các câu tự luận (ESSAY) của bài này đã được chấm điểm chưa
+        boolean isAllGraded = allAnswers.stream()
+                .filter(a -> "ESSAY".equals(a.getQuestion().getQuestionType()))
+                .allMatch(a -> a.getScore() != null);
+
+        if (isAllGraded) {
+            TestSession session = sa.getSession();
+            int totalQuestions = session.getQuiz().getQuestions().size();
+
+            // 1. Số câu trắc nghiệm đúng
+            long correctChoices = allAnswers.stream()
+                    .filter(a -> !"ESSAY".equals(a.getQuestion().getQuestionType()) && !"SHORT_ANSWER".equals(a.getQuestion().getQuestionType()))
+                    .filter(a -> {
+                        QuestionOption correctOption = a.getQuestion().getOptions().stream()
+                                .filter(o -> Boolean.TRUE.equals(o.getIsCorrect())).findFirst().orElse(null);
+                        return a.getSelectedOption() != null && correctOption != null
+                                && Objects.equals(a.getSelectedOption().getOptionId(), correctOption.getOptionId());
+                    }).count();
+
+            // 2. Số câu đáp án ngắn đúng (Hệ thống tự chấm trước đó)
+            long correctShortAnswers = allAnswers.stream()
+                    .filter(a -> "SHORT_ANSWER".equals(a.getQuestion().getQuestionType()))
+                    .filter(a -> {
+                        String correct = a.getQuestion().getCorrectAnswer();
+                        String typed = a.getEssayAnswer();
+                        return correct != null && typed != null && correct.trim().equalsIgnoreCase(typed.trim());
+                    }).count();
+
+            // 3. Tổng số câu đúng (Trắc nghiệm + Đáp án ngắn)
+            long totalAutoCorrectAnswers = correctChoices + correctShortAnswers;
+
+            // 4. Giả sử mỗi câu hỏi trong đề có trọng số điểm bằng nhau (Ví dụ đề có 40 câu thì mỗi câu 10/40 = 0.25 điểm)
+            // Điểm của phần tự động chấm quy về thang 10:
+            float autoGradeScore = totalQuestions > 0 ? ((float) totalAutoCorrectAnswers / totalQuestions) * 10 : 0;
+
+            // Điểm tự luận của giáo viên chấm (giả sử giáo viên nhập điểm câu tự luận trực tiếp trên thang 10 quy đổi của câu đó)
+            double totalEssayScore = allAnswers.stream()
+                    .filter(a -> "ESSAY".equals(a.getQuestion().getQuestionType()))
+                    .mapToDouble(a -> a.getScore() != null ? a.getScore() : 0.0)
+                    .sum();
+
+            // Tổng điểm cuối cùng (Giới hạn tối đa là 10)
+            float finalScore = (float) (autoGradeScore + totalEssayScore);
+            if (finalScore > 10.0f) finalScore = 10.0f;
+            finalScore = Math.round(finalScore * 100) / 100.0f;
+
+            session.setScore(finalScore);
+            session.setStatus("SUBMITTED");
+            testSessionRepository.save(session);
+        }
     }
 
     private int calculateTimeSpent(TestSession session){
         if (session.getSubmittedAt() == null || session.getStartedAt() == null){
-            return session.getQuiz().getDurationMinutes() * 60; //Doi ra giay
+            return 0;
         }
+        long diffInMs = session.getSubmittedAt().getTime() - session.getStartedAt().getTime();
+        return (int) (diffInMs / 1000); // Trả về giây
+    }
+    @org.springframework.transaction.annotation.Transactional
+    public void gradeEssayAnswer(int sessionId, int questionId, float score, String comment) {
+        StudentAnswer sa = studentAnswerRepository
+                .findBySessionSessionsIdAndQuestionQuestionId(sessionId, questionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy câu trả lời tự luận để chấm điểm"));
 
-        long diffInMinutes = session.getSubmittedAt().getTime() - session.getStartedAt().getTime();
-        return (int) (diffInMinutes / 1000);
+        this.teacherGradeAnswer(sa.getAnswerId(), score, comment);
     }
 }

@@ -1,5 +1,6 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -17,23 +18,39 @@ public class Quiz {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "quiz_id")
-    private int quizId;
+    private Integer quizId;
 
-    @ManyToOne
+
+
+    @ManyToOne(fetch = FetchType.EAGER) // Đổi sang EAGER để lấy được thông tin Course
     @JoinColumn(name = "course_id", nullable = false)
+// Không dùng @JsonIgnore ở đây để Frontend đọc được object course
     private Course course;
 
-    @Column(name = "quiz_title", nullable = false)
+    @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JsonManagedReference // Quét dữ liệu xuôi xuống Question khi xem chi tiết đề
+    private List<Question> questions = new ArrayList<>();
+
+    @Column(name = "quiz_title", columnDefinition = "NVARCHAR(255)")
     private String quizTitle;
 
     @Column(name = "duration_minutes")
-    private int durationMinutes;
+    private Integer durationMinutes;
 
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 
-    // Relationship với Questions
-    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    private List<Question> questions = new ArrayList<>();
+    /** Loại quiz: ENTRY_TEST | PRACTICE | MOCK_EXAM */
+    @Column(name = "quiz_type", length = 50)
+    private String quizType;
+
+    @Column(name = "subject", length = 50)
+    private String subject;
+
+    @Column(name = "is_entry_test")
+    private Boolean isEntryTest = false;
+
+
+
 }
