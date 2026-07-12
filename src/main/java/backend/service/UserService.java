@@ -25,126 +25,74 @@ public class UserService {
     private final JwtService jwtService;
     private final BCryptPasswordEncoder passwordEncoder;
     private final EmailService emailService;
-    private final TokenBlacklistService tokenBlacklistService;
 
     @Value("${google.client.id}")
     private String googleClientId;
 
-    public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtService jwtService, EmailService emailService, TokenBlacklistService tokenBlacklistService){
+    public UserService(UserRepository userRepository, BCryptPasswordEncoder passwordEncoder, JwtService jwtService, EmailService emailService){
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
-        this.tokenBlacklistService = tokenBlacklistService;
     }
 
-    //Normal Register - ĐÃ NÂNG CẤP (UC-03)
-    public User register(RegisterRequest request) {
+    //Normal Register
+    public User register(RegisterRequest request){
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("Email already exists");
         }
-
-        // Kiểm tra định dạng số điện thoại Việt Nam
-        if (request.getPhone() != null && !request.getPhone().trim().isEmpty()) {
-            if (!request.getPhone().matches("^(0[3|5|7|8|9])+([0-9]{8})$")) {
-                throw new RuntimeException("Số điện thoại không đúng định dạng Việt Nam.");
-            }
-        }
-
-        // Kiểm tra độ mạnh mật khẩu (BR-UC03-03)
-        String password = request.getPassword();
-        if (password == null || !password.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
-            throw new RuntimeException("Mật khẩu tối thiểu 8 ký tự, bao gồm cả chữ hoa, chữ thường và ít nhất 1 chữ số.");
-        }
-
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
-        
-        // HASH PASSWORD (Mã hóa với cost factor >= 12 cấu hình trong SecurityConfig)
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone());
-        
-        // Cấu hình vai trò
-        int roleId = 3; // Mặc định STUDENT
-        String roleName = "STUDENT";
-        String status = "PENDING";
-
-        if ("TEACHER".equalsIgnoreCase(request.getRole())) {
-            roleId = 2;
-            roleName = "TEACHER";
-            status = "PENDING_APPROVAL"; // Giáo viên cần Admin phê duyệt
-        }
-
-        user.setRoleId(roleId);
-        user.setRoleName(roleName);
-        user.setAccountStatus(status);
+        user.setRoleId(3); // STUDENT default
+        user.setAccountStatus("PENDING");
         user.setCreatedAt(new Date());
-        user.setTokenVersion(1);
-        user.setFailedAttempts(0);
-        user.setOtpFailedAttempts(0);
-        user.setOtpResendCount(0);
 
-        String otp = generateOTP(); // OTP 6 chữ số
+        String otp = generateOTP();
         user.setVerificationCode(otp);
-        user.setVerificationExpiry(new Date(System.currentTimeMillis() + 10 * 60 * 1000)); // Hiệu lực 10 phút
+        user.setVerificationExpiry(new Date(System.currentTimeMillis() + 5 * 60 * 1000));
 
         User savedUser = userRepository.save(user);
         emailService.sendVerificationEmail(user.getEmail(), otp);
 
         System.out.println("OTP Code: " + otp);
+
         return savedUser;
     }
 
-    //Normal Login - ĐÃ NÂNG CẤP (UC-01)
-    public Map<String, Object> login(String email, String password, boolean rememberMe) {
+    //Normal Login
+    public Map<String, Object> login(String email, String password){
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email not found"));
 
-        // Kiểm tra tài khoản bị khóa tạm thời (BR-UC01-01)
-        if (user.getLockoutExpiry() != null && user.getLockoutExpiry().after(new Date())) {
-            long minutesLeft = (user.getLockoutExpiry().getTime() - System.currentTimeMillis()) / 60000;
-            throw new RuntimeException("Tài khoản đang bị khóa tạm thời. Vui lòng thử lại sau " + (minutesLeft > 0 ? minutesLeft : 1) + " phút.");
+        // 🛡️ ĐÃ SỬA: Chặn tài khoản BANNED lên đầu quy trình xử lý đăng nhập
+        if ("BANNED".equalsIgnoreCase(user.getAccountStatus())) {
+            throw new RuntimeException("⚠️ Tài khoản của bạn đã bị khóa do vi phạm tiêu chuẩn cộng đồng! Vui lòng liên hệ support@learnifyfuture.com để được hỗ trợ.");
         }
 
-        boolean isMatch = passwordEncoder.matches(password, user.getPasswordHash());
+        boolean isMatch = password.equals(user.getPasswordHash()) || passwordEncoder.matches(password, user.getPasswordHash());
 
-        if (!user.getAccountStatus().equals("ACTIVE") && !user.getAccountStatus().equals("PENDING_APPROVAL")) {
+        if (!isMatch) {
+            throw new RuntimeException("Wrong password");
+        }
+
+        // Kiểm tra kích hoạt Email (Dành cho tài khoản mới đăng ký ở trạng thái PENDING)
+        if (!"ACTIVE".equalsIgnoreCase(user.getAccountStatus())){
             throw new RuntimeException("Please verify your email first !!!");
         }
 
-        if (!isMatch) {
-            // Tăng số lần nhập sai
-            int attempts = user.getFailedAttempts() + 1;
-            user.setFailedAttempts(attempts);
-            if (attempts >= 5) {
-                user.setLockoutExpiry(new Date(System.currentTimeMillis() + 15 * 60 * 1000)); // Khóa 15 phút
-                userRepository.save(user);
-                emailService.sendLockoutWarningEmail(user.getEmail());
-                throw new RuntimeException("Tài khoản bị khóa tạm thời 15 phút do nhập sai mật khẩu quá 5 lần.");
-            }
-            userRepository.save(user);
-            throw new RuntimeException("Mật khẩu không chính xác.");
-        }
-
-        // Đăng nhập thành công -> Reset bộ đếm sai
-        user.setFailedAttempts(0);
-        user.setLockoutExpiry(null);
-        userRepository.save(user);
-
-        // Tạo cặp token Access Token & Refresh Token (BR-UC01-02)
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user, rememberMe);
+        String token = jwtService.generateToken(user);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("accessToken", accessToken);
-        response.put("refreshToken", refreshToken);
+        response.put("token", token);
         response.put("user", user);
 
         return response;
     }
 
-    //GOOGLE LOGIN + REGISTER - ĐÃ NÂNG CẤP
+    //GOOGLE LOGIN + REGISTER
     public Map<String, Object> googleAuth(String idTokenString) {
         try {
             System.out.println("GOOGLE ID TOKEN: " + idTokenString);
@@ -159,6 +107,8 @@ public class UserService {
                             .build();
 
             GoogleIdToken idToken = verifier.verify(idTokenString);
+            System.out.println("VERIFY RESULT: " + idToken);
+
             if (idToken == null) {
                 throw new RuntimeException("Invalid Google Token");
             }
@@ -174,182 +124,95 @@ public class UserService {
                         newUser.setEmail(email);
                         newUser.setFullName(name);
                         newUser.setAvatarUrl(picture);
-                        newUser.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString())); // google user
+                        newUser.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
                         newUser.setRoleId(3);
-                        newUser.setRoleName("STUDENT");
                         newUser.setAccountStatus("ACTIVE");
                         newUser.setCreatedAt(new Date());
-                        newUser.setTokenVersion(1);
-                        newUser.setFailedAttempts(0);
-                        newUser.setOtpFailedAttempts(0);
-                        newUser.setOtpResendCount(0);
                         return userRepository.save(newUser);
                     });
 
-            if (!"ACTIVE".equals(user.getAccountStatus())) {
-                user.setAccountStatus("ACTIVE");
-                userRepository.save(user);
+            // 🛡️ ĐÃ SỬA: Chặn không cho tài khoản Google tự động vượt ngục nếu trạng thái đang là BANNED
+            if ("BANNED".equalsIgnoreCase(user.getAccountStatus())) {
+                throw new RuntimeException("⚠️ Tài khoản Google này đã bị khóa đăng nhập trên hệ thống!");
             }
 
-            String accessToken = jwtService.generateAccessToken(user);
-            String refreshToken = jwtService.generateRefreshToken(user, true); // Mặc định remember me cho Google
+            user.setAccountStatus("ACTIVE");
+            userRepository.save(user);
+
+            String token = jwtService.generateToken(user);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("accessToken", accessToken);
-            response.put("refreshToken", refreshToken);
+            response.put("token", token);
             response.put("user", user);
 
             return response;
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Google Auth Failed");
+            throw new RuntimeException(e.getMessage() != null ? e.getMessage() : "Google Auth Failed");
         }
     }
 
-    //Logout - ĐÃ NÂNG CẤP (UC-02)
-    public void logout(String token) {
-        if (token == null) return;
+    //Logout
+    public void logout(String token){
         String jwt = token.replace("Bearer ", "");
-        try {
-            Date expiration = jwtService.extractExpiration(jwt);
-            // Đưa token vào blacklist (sử dụng in-memory thread-safe)
-            tokenBlacklistService.blacklistToken(jwt, expiration.getTime());
-            System.out.println("Token blacklisted successfully");
-        } catch (Exception e) {
-            // Token hết hạn sẵn hoặc bị lỗi phân tích -> Bỏ qua
-        }
+        String email = jwtService.extractUsername(jwt);
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found"));
+        System.out.println(user.getEmail() + " logged out");
     }
 
-    //Change Password - ĐÃ NÂNG CẤP (UC-06)
-    public void changePassword(String email, ChangePasswordRequest req) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User Not Found!!!"));
-
-        // Kiểm tra khóa đổi mật khẩu tạm thời
-        if (user.getChangePwLockoutExpiry() != null && user.getChangePwLockoutExpiry().after(new Date())) {
-            long minutesLeft = (user.getChangePwLockoutExpiry().getTime() - System.currentTimeMillis()) / 60000;
-            throw new RuntimeException("Tính năng đổi mật khẩu đang bị khóa tạm thời. Thử lại sau " + (minutesLeft > 0 ? minutesLeft : 1) + " phút.");
+    //Change Password
+    public void changePassword(String email, ChangePasswordRequest req){
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found!!!"));
+        if(!passwordEncoder.matches(req.getOldPassword(), user.getPasswordHash())){
+            throw new RuntimeException("Old Password Is Incorrect!!!");
         }
-
-        // Kiểm tra mật khẩu cũ
-        if (!passwordEncoder.matches(req.getOldPassword(), user.getPasswordHash())) {
-            int attempts = user.getChangePwFailedAttempts() + 1;
-            user.setChangePwFailedAttempts(attempts);
-            if (attempts >= 5) {
-                user.setChangePwLockoutExpiry(new Date(System.currentTimeMillis() + 15 * 60 * 1000)); // Khóa 15 phút
-                userRepository.save(user);
-                throw new RuntimeException("Nhập sai mật khẩu hiện tại quá 5 lần. Tính năng đổi mật khẩu bị khóa 15 phút.");
-            }
-            userRepository.save(user);
-            throw new RuntimeException("Mật khẩu hiện tại không chính xác.");
-        }
-
-        // Kiểm tra trùng mật khẩu cũ (BR-UC06-02)
-        if (passwordEncoder.matches(req.getNewPassword(), user.getPasswordHash())) {
-            throw new RuntimeException("Mật khẩu mới không được trùng với mật khẩu hiện tại.");
-        }
-
-        // Kiểm tra độ mạnh mật khẩu mới
-        if (req.getNewPassword() == null || !req.getNewPassword().matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
-            throw new RuntimeException("Mật khẩu mới tối thiểu 8 ký tự, bao gồm cả chữ hoa, chữ thường và chữ số.");
-        }
-
-        // Thành công -> Đổi mật khẩu
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
-        user.setChangePwFailedAttempts(0);
-        user.setChangePwLockoutExpiry(null);
         userRepository.save(user);
-
-        // Gửi email thông báo
-        emailService.sendPasswordChangeNotification(user.getEmail());
     }
 
-    //Forgot Password - ĐÃ NÂNG CẤP (UC-05)
-    public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(email).orElse(null);
-        if (user == null) {
-            // Hiển thị thành công giả lập để tránh dò quét tài khoản (UC-05.1)
-            System.out.println("Forgot password request: Email not found (silenced): " + email);
-            return;
-        }
+    //Forgot Password
+    public void forgotPassword(String email){
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Email Not Found"));
+        String resetToken = jwtService.generateResetToken(email);
+        String link = "http://localhost:5173/reset-password?token=" + resetToken;
 
-        // Tạo Secure Token (UUID) lưu vào DB (BR-UC05-01)
-        String resetUuid = UUID.randomUUID().toString();
-        user.setResetToken(resetUuid);
-        user.setResetTokenExpiry(new Date(System.currentTimeMillis() + 15 * 60 * 1000)); // Hạn 15 phút
-        userRepository.save(user);
-
-        String link = "http://localhost:5173/reset-password?token=" + resetUuid;
-        emailService.sendOtp(email, link); // Gửi mail link reset
+        emailService.sendOtp(email, link);
         System.out.println("RESET LINK: " + link);
     }
 
-    //Reset Password - ĐÃ NÂNG CẤP (UC-05)
-    public void resetPassword(String token, String newPassword) {
-        // Tìm User theo resetToken dạng UUID trong DB (đảm bảo chỉ dùng 1 lần)
-        User user = userRepository.findByResetToken(token)
-                .orElseThrow(() -> new RuntimeException("Đường dẫn khôi phục mật khẩu không hợp lệ hoặc đã được sử dụng."));
+    //Reset Password
+    public void resetPassword(String token, String newPassword){
+        Claims claims = (Claims) Jwts.parserBuilder().setSigningKey(jwtService.getSignKey()).build().parseClaimsJws(token).getBody();
+        String email = claims.getSubject();
+        String type = (String) claims.get("type", String.class);
 
-        // Kiểm tra hết hạn token
-        if (user.getResetTokenExpiry() == null || user.getResetTokenExpiry().before(new Date())) {
-            throw new RuntimeException("Đường dẫn khôi phục mật khẩu đã hết hạn (15 phút). Vui lòng yêu cầu lại.");
+        if (!"RESET_PASSWORD".equals(type)){
+            throw new RuntimeException("Invalid Token Type");
         }
 
-        // Kiểm tra độ mạnh mật khẩu mới
-        if (newPassword == null || !newPassword.matches("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).{8,}$")) {
-            throw new RuntimeException("Mật khẩu mới tối thiểu 8 ký tự, bao gồm cả chữ hoa, chữ thường và chữ số.");
+        if (claims.getExpiration().before(new Date())){
+            throw new RuntimeException("Token Het Han !!!");
         }
 
-        // Cập nhật mật khẩu mới
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found"));
         user.setPasswordHash(passwordEncoder.encode(newPassword));
-        
-        // Vô hiệu hóa toàn bộ Token cũ bằng cách tăng tokenVersion lên 1 đơn vị (BR-UC05-02)
-        user.setTokenVersion(user.getTokenVersion() + 1);
-
-        // Hủy liên kết reset token để không cho sử dụng lần thứ 2
-        user.setResetToken(null);
-        user.setResetTokenExpiry(null);
         userRepository.save(user);
-
-        // Gửi email xác nhận thành công
-        emailService.sendResetConfirmationEmail(user.getEmail());
     }
 
-    //-----------------------------------------------------------------------------------------------------------
-
-    //GENERATE OTP
     private String generateOTP() {
         return String.valueOf((int)(Math.random() * 900000) + 100000);
     }
 
-    //Gửi lại OTP (Đọc yêu cầu bổ sung UC-03)
-    public void resendOtp(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User Not Found !!!"));
-
-        if ("ACTIVE".equals(user.getAccountStatus())) {
-            throw new RuntimeException("Tài khoản đã kích hoạt.");
-        }
-
-        // Giới hạn tối đa 3 lần resend OTP (BR-UC03-02)
-        if (user.getOtpResendCount() >= 3) {
-            throw new RuntimeException("Bạn đã vượt quá giới hạn gửi lại mã OTP (tối đa 3 lần).");
-        }
-
-        String newOtp = generateOTP();
-        user.setVerificationCode(newOtp);
-        user.setVerificationExpiry(new Date(System.currentTimeMillis() + 10 * 60 * 1000)); // 10 phút
-        user.setOtpResendCount(user.getOtpResendCount() + 1);
-        userRepository.save(user);
-
-        emailService.sendVerificationEmail(user.getEmail(), newOtp);
-        System.out.println("Gửi lại OTP: " + newOtp);
-    }
-
-    //VERIFY EMAIL - ĐÃ NÂNG CẤP (UC-03)
-    public User verifyEmail(VerifyEmailRequest request) {
+    //VERIFY EMAIL
+    public String verifyEmail(VerifyEmailRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User Not Found !!!"));
+
+        // 🛡️ ĐÃ SỬA: Nếu trạng thái hiện tại đang bị Admin khóa (BANNED), chặn ngay không cho phép verify đổi lại trạng thái bừa bãi
+        if ("BANNED".equalsIgnoreCase(user.getAccountStatus())) {
+            throw new RuntimeException("Tài khoản đã bị khóa vĩnh viễn do vi phạm chính sách, không thể xác thực Email.");
+        }
 
         if ("ACTIVE".equals(user.getAccountStatus())) {
             throw new RuntimeException("Account Already Verified");
@@ -359,45 +222,26 @@ public class UserService {
             throw new RuntimeException("OTP Not Found");
         }
 
-        // Check OTP hết hạn
-        if (user.getVerificationExpiry().before(new Date())) {
-            throw new RuntimeException("Mã OTP đã hết hiệu lực. Vui lòng bấm gửi lại mã.");
-        }
-
-        // Check OTP nhập sai
         if (!user.getVerificationCode().equals(request.getOtp())) {
-            int attempts = user.getOtpFailedAttempts() + 1;
-            user.setOtpFailedAttempts(attempts);
-            if (attempts >= 5) {
-                // Hủy phiên đăng ký nếu sai quá 5 lần (BR-UC03-02)
-                user.setVerificationCode(null);
-                user.setVerificationExpiry(null);
-                user.setOtpFailedAttempts(0);
-                user.setOtpResendCount(0);
-                userRepository.save(user);
-                throw new RuntimeException("Nhập sai OTP quá 5 lần. Phiên đăng ký của bạn đã bị hủy bỏ. Vui lòng thực hiện đăng ký lại.");
-            }
-            userRepository.save(user);
-            throw new RuntimeException("Mã OTP không chính xác. Bạn còn " + (5 - attempts) + " lần thử.");
+            throw new RuntimeException("Invalid OTP");
         }
 
-        // ACTIVE ACCOUNT
+        if (user.getVerificationExpiry().before(new Date())) {
+            throw new RuntimeException("OTP Expired");
+        }
+
         user.setAccountStatus("ACTIVE");
         user.setVerificationCode(null);
         user.setVerificationExpiry(null);
-        user.setOtpFailedAttempts(0);
-        user.setOtpResendCount(0);
 
-        return userRepository.save(user);
+        userRepository.save(user);
+
+        return "Verify Successfully";
     }
 
-    //-----------------------------------------------------------------------------------------------------------
-                                                            //AVATAR
     //UPDATE AVATAR
     public void updateAvatar(String token, String avatarUrl){
-        //Bo cai "Bearer "
         String jwt = token.replace("Bearer ", "");
-
         String email = jwtService.extractUsername(jwt);
 
         User user = userRepository.findByEmail(email).orElseThrow(() ->  new RuntimeException("User Not Found !!!"));

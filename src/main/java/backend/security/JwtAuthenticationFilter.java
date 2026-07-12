@@ -1,10 +1,8 @@
 package backend.security;
 
 import backend.service.JwtService;
-import backend.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -22,93 +21,70 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private JwtService jwtService;
 
+    // 🔥 ĐÃ THÊM: Tiêm UserRepository vào để tìm kiếm User dưới DB bằng email
     @Autowired
     private backend.repository.UserRepository userRepository;
-
-    @Autowired
-    private TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String jwt = null;
+        final String authHeader = request.getHeader("Authorization");
+        final String jwt;
+        final String userEmail;
 
-        // 1. Đọc token từ Cookie accessToken
-        if (request.getCookies() != null) {
-            for (Cookie cookie : request.getCookies()) {
-                if ("accessToken".equals(cookie.getName())) {
-                    jwt = cookie.getValue();
-                    break;
-                }
-            }
-        }
-
-        // 2. Dự phòng: Nếu không có Cookie, đọc từ Header Authorization
-        if (jwt == null) {
-            final String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                jwt = authHeader.substring(7);
-            }
-        }
-
-        // Nếu không tìm thấy token, cho request đi qua (Spring Security sẽ chặn nếu endpoint yêu cầu auth)
-        if (jwt == null) {
+        // 1. Nếu không có token, cho đi qua (Spring Security sẽ tự chặn lại sau vì thiếu quyền)
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        // 2. Tách lấy token (Bỏ 7 ký tự "Bearer ")
+        jwt = authHeader.substring(7);
+
         try {
-            // 3. Kiểm tra xem token có nằm trong Blacklist (đã đăng xuất) hay không
-            if (tokenBlacklistService.isBlacklisted(jwt)) {
-                filterChain.doFilter(request, response);
-                return;
-            }
+            // 3. Giải mã token để lấy email
+            userEmail = jwtService.extractUsername(jwt);
 
-            // 4. Giải mã token để lấy email
-            String userEmail = jwtService.extractUsername(jwt);
-
-            // 5. Nếu email hợp lệ và chưa được cấu hình Authentication
+            // 4. Nếu hợp lệ và chưa được phân quyền trong hệ thống
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
 
+                // 🔥 ĐÃ SỬA: Truy vấn DB và phân quyền động tinh gọn bằng cấu hình if-else chốt chặn STUDENT
                 var userEntity = userRepository.findByEmail(userEmail).orElse(null);
+                java.util.List<org.springframework.security.core.authority.SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
 
                 if (userEntity != null) {
-                    // 6. Kiểm tra tokenVersion để chống việc dùng lại token cũ sau khi đổi/quên mật khẩu
-                    Integer tokenVersionInJwt = jwtService.extractTokenVersion(jwt);
-                    if (tokenVersionInJwt != null && tokenVersionInJwt == userEntity.getTokenVersion()) {
+                    int roleId = userEntity.getRoleId();
+                    String roleName;
 
-                        int roleId = userEntity.getRoleId();
-                        String roleName;
-
-                        if (roleId == 1) {
-                            roleName = "ADMIN";
-                        } else if (roleId == 2) {
-                            roleName = "TEACHER";
-                        } else {
-                            roleName = "STUDENT";
-                        }
-
-                        java.util.List<org.springframework.security.core.authority.SimpleGrantedAuthority> authorities = new java.util.ArrayList<>();
-                        authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + roleName));
-
-                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                                userEmail,
-                                null,
-                                authorities
-                        );
-                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
-                        // Đóng mộc xác thực
-                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    if (roleId == 1) {
+                        roleName = "ADMIN";
+                    } else if (roleId == 2) {
+                        roleName = "TEACHER";
+                    } else {
+                        roleName = "STUDENT"; // Thỏa mãn điều kiện Java, an toàn phòng thủ tuyệt đối
                     }
+
+                    // Đóng mộc quyền chuẩn (Ví dụ: ROLE_STUDENT)
+                    authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + roleName));
                 }
+
+                // Báo cho Spring Security biết user này là ai
+                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                        userEmail,
+                        null,
+                        authorities // 🔥 ĐÃ SỬA: Thay thế mảng rỗng bằng danh sách quyền động dịch từ DB
+                );
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                // Đóng mộc "Đã đăng nhập thành công"
+                SecurityContextHolder.getContext().setAuthentication(authToken);
             }
         } catch (Exception e) {
             System.out.println("Lỗi xác thực Token: " + e.getMessage());
-            SecurityContextHolder.clearContext();
         }
 
+        // 5. Cho request đi tiếp vào Controller
         filterChain.doFilter(request, response);
     }
 }

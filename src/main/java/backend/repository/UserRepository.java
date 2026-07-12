@@ -7,8 +7,9 @@ import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Integer>{
     Optional<User> findByEmail(String email);
-    Optional<User> findByResetToken(String resetToken);
-
-    // Thêm method này
+    boolean existsByEmail(String email);
     List<User> findByRoleName(String roleName);
+
+    // 🔥 THÊM ĐÚNG METHOD NÀY ĐỂ ĐẾM HỌC SINH THEO TÊN ROLE
+    long countByRoleName(String roleName);
 }

@@ -60,30 +60,12 @@ public class User {
     @Column(name = "role_name")
     private String roleName;
 
-    @Column(name = "failed_attempts")
-    private int failedAttempts;
+    @Column(name = "teacher_request_status")
+    private String teacherRequestStatus; // Giá trị: NULL (Bình thường), "PENDING" (Đang chờ duyệt), "APPROVED", "REJECTED"
 
-    @Column(name = "lockout_expiry")
-    private Date lockoutExpiry;
+    @Column(name = "education")
+    private String education;
 
-    @Column(name = "otp_resend_count")
-    private int otpResendCount;
-
-    @Column(name = "otp_failed_attempts")
-    private int otpFailedAttempts;
-
-    @Column(name = "change_pw_failed_attempts")
-    private int changePwFailedAttempts;
-
-    @Column(name = "change_pw_lockout_expiry")
-    private Date changePwLockoutExpiry;
-
-    @Column(name = "token_version")
-    private int tokenVersion = 1;
-
-    @Column(name = "reset_token")
-    private String resetToken;
-
-    @Column(name = "reset_token_expiry")
-    private Date resetTokenExpiry;
+    @Column(name = "experience")
+    private String experience;
 }
