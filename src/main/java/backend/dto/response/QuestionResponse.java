@@ -17,10 +17,15 @@ public class QuestionResponse {
     private String userAvatarUrl;
     private Integer userRoleId;
     private List<AnswerResponse> answers;
+
+    // 1. THÊM THUỘC TÍNH NÀY ĐỂ TRẢ VỀ LOẠI CÂU HỎI Cho FRONTEND
+    private String questionType;
+
     public QuestionResponse() {
     }
 
-    public QuestionResponse(Integer questionId, String content, List<OptionResponse> options, String explanation, Date createdAt, Integer timestampSeconds, String userFullName, String userAvatarUrl, Integer userRoleId, List<AnswerResponse> answers) {
+    // 2. CẬP NHẬT CONSTRUCTOR ĐẦY ĐỦ THAM SỐ
+    public QuestionResponse(Integer questionId, String content, List<OptionResponse> options, String explanation, Date createdAt, Integer timestampSeconds, String userFullName, String userAvatarUrl, Integer userRoleId, List<AnswerResponse> answers, String questionType) {
         this.questionId = questionId;
         this.content = content;
         this.options = options;
@@ -31,6 +36,7 @@ public class QuestionResponse {
         this.userAvatarUrl = userAvatarUrl;
         this.userRoleId = userRoleId;
         this.answers = answers;
+        this.questionType = questionType; // Gán giá trị ở đây
     }
 
     public Integer getQuestionId() {
@@ -111,5 +117,14 @@ public class QuestionResponse {
 
     public void setAnswers(List<AnswerResponse> answers) {
         this.answers = answers;
+    }
+
+    // 3. THÊM GETTER VÀ SETTER CHO QUESTION_TYPE Ở ĐÂY
+    public String getQuestionType() {
+        return questionType;
+    }
+
+    public void setQuestionType(String questionType) {
+        this.questionType = questionType;
     }
 }

@@ -26,5 +26,9 @@ public class QuizResultResponse {
         private String selectedAnswer;
         private String correctAnswer;
         private Boolean isCorrect;
+        /** Lời giải chi tiết — hiển thị box "Giải thích chi tiết" trên trang kết quả */
+        private String explanation;
+        /** Chủ đề của câu hỏi — dùng cho AI phân tích lỗ hổng theo topic */
+        private String topic;
     }
 }

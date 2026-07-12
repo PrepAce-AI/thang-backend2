@@ -1,5 +1,6 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -9,7 +10,7 @@ import java.util.Date;
 import java.util.List;
 
 @Entity
-@Table(name = "questions")
+@Table(name = "Questions")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,14 +23,18 @@ public class Question {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "quiz_id", nullable = false)
-    @JsonIgnore
+    @JsonBackReference // Thay cho @JsonIgnore để phối hợp đồng bộ với @JsonManagedReference từ Quiz
     private Quiz quiz;
 
-    @Column(name = "content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
+    @Column(name = "question_content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
     private String questionContent;
 
     @Column(name = "explanation", columnDefinition = "NVARCHAR(MAX)")
     private String explanation;
+
+    // 🌟 THÊM TRƯỜNG NÀY ĐỂ LƯU ĐÁP ÁN ĐIỀN/NGẮN CHO HỆ THỐNG TỰ SO KHỚP
+    @Column(name = "correct_answer", columnDefinition = "NVARCHAR(MAX)")
+    private String correctAnswer;
 
     @Column(name = "topic")
     private String topic;
@@ -50,4 +55,7 @@ public class Question {
 
     @OneToMany(mappedBy = "question")
     private List<StudentAnswer> studentAnswers = new ArrayList<>();
+
+    @Column(name = "question_type", length = 50)
+    private String questionType;
 }

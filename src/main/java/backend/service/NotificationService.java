@@ -3,18 +3,14 @@ import backend.entity.Notification;
 import backend.repository.NotificationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.Date;
 import java.util.List;
-
 @Service
 public class NotificationService {
     private final NotificationRepository notificationRepository;
-
     public NotificationService(NotificationRepository notificationRepository) {
         this.notificationRepository = notificationRepository;
     }
-
     public List<Notification> getAllNotifications() {
         return notificationRepository.findTop10ByOrderByCreatedAtDesc();
     }

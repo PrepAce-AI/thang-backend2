@@ -12,6 +12,7 @@ public class QuizResponse {
     private String quizTitle;
     private Integer durationMinutes;
     private String quizType;
+    private Integer totalQuestions;   // tổng số câu trong kho đề
     private List<QuestionResponse> questions;
 
     @Data
