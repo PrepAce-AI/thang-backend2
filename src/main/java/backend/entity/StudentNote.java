@@ -12,6 +12,7 @@ public class StudentNote {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "note_id")
     private Integer id;
 
     @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
