@@ -25,7 +25,7 @@ public class Lesson {
     @Column(name = "video_url")
     private String videoUrl;
 
-    @Column(name = "duration")
+    @Column(name = "duration", length = 50)
     private String duration;
 
     @Column(name = "lesson_order")
@@ -41,4 +41,14 @@ public class Lesson {
 
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<InVideoQuestion> inVideoQuestions;
+
+    // 🔥 ĐÃ SỬA: Thêm CascadeType.ALL để khi XÓA bài học sẽ tự động xóa hết các tiến độ, ghi chú, và hỏi đáp liên quan
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<StudentProgress> studentProgresses;
+
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<StudentNote> studentNotes;
+
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<AcademicQuestion> academicQuestions;
 }
