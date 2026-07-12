@@ -9,6 +9,7 @@ import backend.repository.AcademicQuestionRepository;
 import backend.repository.UserRepository;
 import backend.repository.CourseRepository;
 import backend.repository.AcademicAnswerRepository;
+import backend.repository.LessonRepository;
 import backend.dto.request.AnswerRequest;
 import backend.dto.response.AnswerResponse;
 import backend.entity.AcademicAnswer;
@@ -32,6 +33,9 @@ public class AcademicQuestionService {
     @Autowired
     private AcademicAnswerRepository answerRepository;
 
+    @Autowired
+    private LessonRepository lessonRepository;
+
     // 1. Logic Đăng câu hỏi mới
     @Transactional
     public QuestionResponse createQuestion(QuestionRequest request) {
@@ -46,9 +50,9 @@ public class AcademicQuestionService {
         question.setTimestampSeconds(request.getTimestampSeconds());
         question.setUser(user);
 
-        // Thiết lập liên kết tạm thời cho Lesson qua ID
-        Lesson lesson = new Lesson();
-        lesson.setId(request.getLessonId());
+        // Lấy Lesson từ DB để tránh lỗi TransientPropertyValueException
+        Lesson lesson = lessonRepository.findById(request.getLessonId())
+                .orElseThrow(() -> new RuntimeException("Bài học không tồn tại"));
         question.setLesson(lesson);
 
         AcademicQuestion savedQuestion = questionRepository.save(question);
