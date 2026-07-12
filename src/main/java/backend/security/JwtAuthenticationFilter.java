@@ -69,6 +69,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authorities.add(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + roleName));
                 }
 
+                System.out.println("JWT EMAIL = " + userEmail);
+                System.out.println("ROLE_ID = " + userEntity.getRoleId());
+                System.out.println("AUTHORITIES = " + authorities);
+
                 // Báo cho Spring Security biết user này là ai
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userEmail,

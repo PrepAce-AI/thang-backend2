@@ -38,11 +38,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/courses/delete-seed").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/entry-test",
-                                "/api/entry-test/ping",
-                                "/api/entry-test/course/**",
-                                "/api/entry-test/submit",
-                                "/api/entry-test/history",
+//                                "/api/entry-test",
+//                                "/api/entry-test/ping",
+//                                "/api/entry-test/course/**",
+//                                "/api/entry-test/submit",
+//                                "/api/entry-test/history",
                                 "/api/payments/**",
                                 "/api/ai/**",
                                 "/uploads/**"
@@ -52,7 +52,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/materials/**").authenticated()
                         // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
                         .requestMatchers("/api/outlines/**").authenticated()
-
+                        .requestMatchers("/api/entry-test/**").authenticated()
                         .requestMatchers("/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()

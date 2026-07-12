@@ -17,10 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * UC-13: Attempt Entry Test
@@ -93,7 +90,8 @@ public class EntryTestService {
 
         // Chỉ chấm những câu học sinh ĐÃ ĐƯỢC PHÁT và trả lời — KHÔNG lấy cả kho 250 câu
         // (kho lớn mà chấm cả quiz thì 230 câu chưa phát sẽ bị tính là sai).
-        Map<Integer, String> answers = request.getAnswers();
+        Map<Integer, String> answers = request.getAnswers() == null ? new HashMap<>() : request.getAnswers();
+
         List<Question> questions = (answers == null || answers.isEmpty())
                 ? new ArrayList<>()
                 : questionRepository.findWithOptionsByIds(new ArrayList<>(answers.keySet()));
@@ -144,15 +142,41 @@ public class EntryTestService {
 
         log.info("Student {} submitted Entry Test quizId={}, score={}", studentId, quiz.getQuizId(), score);
 
+        String level = classifyLevel(percentage);
+
+        String color = switch (level) {
+            case "Giỏi" -> "#22c55e";
+            case "Khá" -> "#3b82f6";
+            case "Trung bình" -> "#f59e0b";
+            default -> "#ef4444";
+        };
+
         return QuizResultResponse.builder()
                 .attemptId(saved.getAttemptId())
                 .quizId(quiz.getQuizId())
                 .quizTitle(quiz.getQuizTitle())
+
                 .score(score)
                 .totalQuestions(total)
                 .correctCount(correctCount)
+                .correctAnswers(correctCount)
+
                 .percentage(percentage)
-                .level(classifyLevel(percentage))
+                .accuracyPercent(percentage)
+
+                .level(level)
+                .levelColor(color)
+
+                .summary("Bạn đạt mức " + level + ". Hệ thống khuyến nghị tiếp tục ôn tập các chủ đề còn yếu.")
+
+                .recommendedStartLevel(level)
+
+                .recommendations(List.of(
+                        "Ôn tập các câu làm sai",
+                        "Luyện thêm câu hỏi cùng chủ đề",
+                        "Làm lại bài kiểm tra sau khi học"
+                ))
+
                 .details(details)
                 .build();
     }
@@ -213,6 +237,47 @@ public class EntryTestService {
         return "Yếu";
     }
 
+    private String generateSummary(String level, double percentage) {
+        return switch (level) {
+            case "Giỏi" ->
+                    "Bạn có nền tảng kiến thức rất tốt (" + String.format("%.1f", percentage)
+                            + "%). Có thể bắt đầu ngay với các khóa học nâng cao.";
+            case "Khá" ->
+                    "Bạn đã có nền tảng khá vững (" + String.format("%.1f", percentage)
+                            + "%). Nên củng cố thêm một số chuyên đề trước khi học nâng cao.";
+            case "Trung bình" ->
+                    "Bạn cần ôn lại các kiến thức nền (" + String.format("%.1f", percentage)
+                            + "%) trước khi bắt đầu lộ trình chính.";
+            default ->
+                    "Ngu dốt ! Bạn nên học lại các kiến thức cơ bản để xây dựng nền tảng vững chắc trước khi tiếp tục.";
+        };
+    }
+
+    private List<String> generateRecommendations(String level) {
+        return switch (level) {
+            case "Giỏi" -> List.of(
+                    "Bắt đầu từ Level Nâng cao",
+                    "Làm thêm Mock Test",
+                    "Luyện đề theo thời gian thực"
+            );
+            case "Khá" -> List.of(
+                    "Ôn tập các chuyên đề còn yếu",
+                    "Làm thêm bài Practice",
+                    "Hoàn thành khóa học Intermediate"
+            );
+            case "Trung bình" -> List.of(
+                    "Học lại các kiến thức nền",
+                    "Làm Practice sau mỗi chương",
+                    "Thực hiện Adaptive Path"
+            );
+            default -> List.of(
+                    "Bắt đầu từ khóa Foundation",
+                    "Luyện tập mỗi ngày",
+                    "Làm lại Entry Test sau khi hoàn thành khóa học"
+            );
+        };
+    }
+
     // ─── START QUIZ ─────────────────────────────────────────────────────────────────
     public StartQuizResponse startQuiz(Integer quizId, Integer studentId) {
 
@@ -263,6 +328,58 @@ public class EntryTestService {
                 .durationMinutes(quiz.getDurationMinutes())
                 .remainingTime((quiz.getDurationMinutes() != null ? quiz.getDurationMinutes() : 20) * 60)
                 .questions(questionResponses)
+                .build();
+    }
+
+    //
+    @Transactional(readOnly = true)
+    public QuizResultResponse getAssessment(Integer attemptId) {
+
+        QuizAttempt attempt = quizAttemptRepository.findById(attemptId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Không tìm thấy bài làm"));
+
+        Quiz quiz = attempt.getQuiz();
+
+        int total = attempt.getTotalQuestions() == null ? 0 : attempt.getTotalQuestions();
+        int correct = attempt.getCorrectCount() == null ? 0 : attempt.getCorrectCount();
+
+        double percentage = total == 0 ? 0 : ((double) correct / total) * 100;
+
+        String level = classifyLevel(percentage);
+
+        String levelColor = switch (level) {
+            case "Giỏi" -> "#22c55e";
+            case "Khá" -> "#3b82f6";
+            case "Trung bình" -> "#f59e0b";
+            default -> "#ef4444";
+        };
+
+        return QuizResultResponse.builder()
+                .attemptId(attempt.getAttemptId())
+                .quizId(quiz.getQuizId())
+                .quizTitle(quiz.getQuizTitle())
+
+                .score(attempt.getScore())
+
+                .totalQuestions(total)
+                .correctCount(correct)
+                .correctAnswers(correct)
+
+                .percentage(percentage)
+                .accuracyPercent(percentage)
+
+                .level(level)
+                .levelColor(levelColor)
+
+                .summary(generateSummary(level, percentage))
+                .recommendedStartLevel(level)
+
+                .recommendations(generateRecommendations(level))
+
+                // Chưa lưu chi tiết từng câu vào DB nên tạm thời trả rỗng
+                .details(Collections.emptyList())
+
                 .build();
     }
 }

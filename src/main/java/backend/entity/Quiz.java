@@ -50,7 +50,4 @@ public class Quiz {
 
     @Column(name = "is_entry_test")
     private Boolean isEntryTest = false;
-
-
-
 }

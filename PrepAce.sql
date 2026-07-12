@@ -38,15 +38,10 @@ CREATE TABLE Users (
 	school NVARCHAR(255),
 	bio NVARCHAR(MAX),
 	role_name NVARCHAR(50),
-	failed_attempts INT DEFAULT 0,
-	lockout_expiry DATETIME NULL,
-	otp_resend_count INT DEFAULT 0,
-	otp_failed_attempts INT DEFAULT 0,
-	change_pw_failed_attempts INT DEFAULT 0,
-	change_pw_lockout_expiry DATETIME NULL,
-	token_version INT DEFAULT 1,
-	reset_token NVARCHAR(255) NULL,
-	reset_token_expiry DATETIME NULL,
+	education nvarchar(max) null,
+	experience nvarchar(max) null,
+	teacherRequestStatus nvarchar (50) null,
+	lock_reason nvarchar(max) null,
 
     FOREIGN KEY (role_id) REFERENCES Roles(role_id)
 );
@@ -73,10 +68,16 @@ CREATE TABLE Categories (
     category_name NVARCHAR(100) NOT NULL
 );
 
+CREATE TABLE SystemConfig(
+    config_key varchar(100) NOT NULL PRIMARY KEY,
+    config_value nvarchar(max) NOT NULL
+);
+
 CREATE TABLE Subjects (
     subject_id INT PRIMARY KEY IDENTITY(1,1),
     subject_name NVARCHAR(100) NOT NULL,
     category_id INT,
+	is_hidden bit not null default (0),
     FOREIGN KEY (category_id) REFERENCES Categories(category_id)
 );
 
@@ -93,8 +94,12 @@ CREATE TABLE Courses (
     status NVARCHAR(20) DEFAULT 'PENDING',
     review_note NVARCHAR(MAX),
     reviewed_at DATETIME,
+	description nvarchar(max) null,
+	note nvarchar(max) null,
+	category_id int null,
     FOREIGN KEY (teacher_id) REFERENCES Users(user_id),
-    FOREIGN KEY (subject_id) REFERENCES Subjects(subject_id)
+    FOREIGN KEY (subject_id) REFERENCES Subjects(subject_id),
+	FOREIGN KEY (category_id) REFERENCES Categories(category_id)
 );
 
 CREATE TABLE Chapters (
@@ -181,6 +186,17 @@ CREATE TABLE LessonProgress (
     FOREIGN KEY (lesson_id) REFERENCES Lessons(lesson_id)
 );
 
+CREATE TABLE StudentProgress(
+    id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    is_completed bit NOT NULL,
+    last_accessed datetime2(6) NULL,
+    score float NULL,
+    lesson_id int NOT NULL,
+    user_id int NOT NULL,
+    FOREIGN KEY(lesson_id) REFERENCES Lessons (lesson_id),
+    FOREIGN KEY(user_id) REFERENCES Users (user_id)
+);
+
 CREATE TABLE Assignments (
     assignment_id INT PRIMARY KEY IDENTITY(1,1),
     course_id INT NOT NULL,
@@ -226,6 +242,7 @@ CREATE TABLE Questions (
     topic NVARCHAR(200),
     subject VARCHAR(50),
     created_at DATETIME DEFAULT GETDATE(),
+	question_type varchar(50) null,
     FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id)
 );
 
@@ -246,8 +263,27 @@ CREATE TABLE QuizAttempts (
     submitted_at DATETIME,
     time_spent INT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS' CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'ABANDONED')),
-    FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id),
+    correct_count int null,
+	total_questions int null
+
+	FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id),
     FOREIGN KEY (student_id) REFERENCES Users(user_id)
+);
+
+CREATE TABLE test_sessions(
+    sessions_id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    ip_address varchar(255) NULL,
+    remaining_time int NULL,
+    score real NULL,
+    started_at datetime2(6) NULL,
+    status varchar(255) NULL,
+    submitted_at datetime2(6) NULL,
+    user_agent varchar(255) NULL,
+    quiz_id int NOT NULL,
+    user_id int NOT NULL,
+
+	FOREIGN KEY (user_id) REFERENCES Users(user_id),
+	FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id)
 );
 
 CREATE TABLE StudentAnswers (
@@ -256,9 +292,25 @@ CREATE TABLE StudentAnswers (
     question_id INT NOT NULL,
     selected_option_id INT NULL,
     answered_at DATETIME DEFAULT GETDATE(),
+	essay_answer nvarchar(max) null,
+	score float null,
+	teacher_comment nvarchar(max) null,
+
     FOREIGN KEY (attempt_id) REFERENCES QuizAttempts(attempt_id),
+	FOREIGN KEY (attempt_id) REFERENCES test_sessions(sessions_id),
     FOREIGN KEY (question_id) REFERENCES Questions(question_id),
     FOREIGN KEY (selected_option_id) REFERENCES QuestionOptions(option_id)
+);
+
+CREATE TABLE PracticeAnswers(
+    practice_answer_id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    is_correct bit NULL,
+    question_order int NOT NULL,
+    selected_option_id int NULL,
+    attempt_id int NOT NULL,
+    question_id int NOT NULL,
+    FOREIGN KEY(attempt_id) REFERENCES QuizAttempts(attempt_id),
+    FOREIGN KEY(question_id) REFERENCES Questions(question_id)
 );
 
 CREATE TABLE Payments (
@@ -281,8 +333,11 @@ CREATE TABLE CourseReviews (
     rating INT CHECK (rating BETWEEN 1 AND 5),
     comment NVARCHAR(MAX),
     reviewed_at DATETIME DEFAULT GETDATE(),
+	created_at DATETIME2(6) NULL,
+	user_id int not null,
     FOREIGN KEY (student_id) REFERENCES Users(user_id),
-    FOREIGN KEY (course_id) REFERENCES Courses(course_id)
+    FOREIGN KEY (course_id) REFERENCES Courses(course_id),
+	FOREIGN KEY (user_id) REFERENCES Users(user_id)
 );
 
 CREATE TABLE AIChatHistory (
@@ -306,6 +361,20 @@ CREATE TABLE AcademicQuestions (
     FOREIGN KEY (lesson_id) REFERENCES Lessons(lesson_id)
 );
 
+CREATE TABLE StudySchedules(
+	schedule_id INT PRIMARY KEY IDENTITY(1,1) NOT NULL,
+	user_id int not null,
+	title nvarchar(255) not null,
+	schedule_date date NOT NULL,
+    schedule_time varchar(10) NOT NULL,
+    schedule_type varchar(20) NOT NULL DEFAULT ('math'),
+    created_at datetime NOT NULL DEFAULT (getdate()),
+    reminder_sent bit NOT NULL DEFAULT ((0)),
+
+	FOREIGN KEY (user_id) REFERENCES Users(user_id),
+);
+
+
 CREATE TABLE AcademicAnswers (
     answer_id INT PRIMARY KEY IDENTITY(1,1),
     question_id INT NOT NULL,
@@ -314,6 +383,16 @@ CREATE TABLE AcademicAnswers (
     created_at DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (question_id) REFERENCES AcademicQuestions(question_id),
     FOREIGN KEY (user_id) REFERENCES Users(user_id)
+);
+
+CREATE TABLE ViolationReports(
+    id int IDENTITY(1,1) NOT NULL PRIMARY KEY,
+    reporter_id int NULL,
+    reported_target nvarchar(255) NULL,
+    reason nvarchar(1000) NULL,
+    status varchar(255) NULL,
+    admin_note nvarchar(1000) NULL,
+    created_at datetime NOT NULL DEFAULT (getdate())
 );
 
 CREATE TABLE student_notes (
@@ -334,6 +413,11 @@ GO
 -- ===========================================================================
 
 INSERT INTO Roles(role_name) VALUES ('ADMIN'), ('TEACHER'), ('STUDENT');
+
+INSERT INTO SystemConfig (config_key, config_value) VALUES
+('banner_title', N'Bứt phá điểm số cùng PrepAce AI'),
+('banner_subtitle', N'Hệ thống học tập thông minh sử dụng AI để phân tích năng lực, xây dựng lộ trình cá nhân và tối ưu kết quả kỳ thi THPT Quốc Gia.'),
+('banner_btn_text', N'Bắt đầu ngay');
 
 INSERT INTO Users
 (
@@ -369,49 +453,47 @@ UPDATE Users SET role_name = 'ADMIN' WHERE role_id = 1;
 UPDATE Users SET role_name = 'TEACHER' WHERE role_id = 2;
 UPDATE Users SET role_name = 'STUDENT' WHERE role_id = 3;
 
+
+SELECT * FROM Users
 INSERT INTO Categories(category_name) VALUES ('Natural Sciences'), ('Social Sciences'), ('Languages'), ('University Preparation');
 
 INSERT INTO Subjects(subject_name, category_id) VALUES
 ('Mathematics', 1), ('Physics', 1), ('Chemistry', 1), ('Literature', 2), ('English', 3), ('History', 2), ('Geography', 2);
 
-INSERT INTO Courses (teacher_id, subject_id, course_title, course_description, thumbnail_url, price, is_published, status) VALUES
-(2, 1, 'Mastering Mathematics 12', 'Complete mathematics course for National High School Exam preparation.', '/uploads/thumbnails/math-course.jpg', 599000, 1, 'PUBLISHED'),
-(3, 2, 'Physics Problem Solving Techniques', 'Advanced physics lessons and mock exam strategies.', '/uploads/thumbnails/physics-course.jpg', 499000, 1, 'PUBLISHED'),
-(4, 5, 'English Vocabulary & Grammar', 'Comprehensive English preparation for university entrance exam.', '/uploads/thumbnails/english-course.jpg', 399000, 1, 'PUBLISHED'),
-(2, 1, N'Tuyệt đỉnh Casio - Giải nhanh trắc nghiệm Toán', 'Bí kíp sử dụng máy tính Casio Fx-580VNX & Fx-880BTG cho kỳ thi THPT.', '/uploads/thumbnails/casio-course.jpg', 299000, 0, 'PENDING');
+SET IDENTITY_INSERT Courses ON
 
+INSERT Courses (course_id, teacher_id, subject_id, course_title, course_description, thumbnail_url, price, is_published, created_at, status, review_note, reviewed_at) VALUES (1, 2, 1, N'Toán Học 12', N'Complete mathematics course for National High School Exam preparation.', N'/uploads/thumbnails/math-course.jpg', CAST(599000.00 AS Decimal(10, 2)), 1, CAST(N'2026-07-11T21:29:40.457' AS DateTime), N'PUBLISHED', NULL, NULL)
+INSERT Courses (course_id, teacher_id, subject_id, course_title, course_description, thumbnail_url, price, is_published, created_at, status, review_note, reviewed_at) VALUES (2, 3, 2, N'Ngữ Văn 12', N'Advanced physics lessons and mock exam strategies.', N'/uploads/thumbnails/physics-course.jpg', CAST(499000.00 AS Decimal(10, 2)), 1, CAST(N'2026-07-11T21:29:40.457' AS DateTime), N'PUBLISHED', NULL, NULL)
+INSERT Courses (course_id, teacher_id, subject_id, course_title, course_description, thumbnail_url, price, is_published, created_at, status, review_note, reviewed_at) VALUES (3, 4, 5, N'Tiếng Anh 12', N'Comprehensive English preparation for university entrance exam.', N'/uploads/thumbnails/english-course.jpg', CAST(399000.00 AS Decimal(10, 2)), 1, CAST(N'2026-07-11T21:29:40.457' AS DateTime), N'PUBLISHED', NULL, NULL)
+SET IDENTITY_INSERT Courses OFF
 -- ===========================================================================
 -- 3. INSERT CHAPTERS & LESSONS
 -- ===========================================================================
 
 SET IDENTITY_INSERT Chapters ON;
-INSERT Chapters (chapter_id, chapter_order, chapter_title, course_id) VALUES 
-(1, 1, N'Chapter 1: Derivatives & Integrals', 1),
-(2, 1, N'Chapter 1: Mechanics', 2),
-(3, 1, N'Chapter 1: Foundations', 3),
-(14, 3, N'Chapter 3: Hàm số luỹ thừa', 1),
-(16, 4, N'Chapter3: Xác xuất thống kê', 1);
+INSERT Chapters (chapter_id, chapter_order, chapter_title, course_id, created_at) VALUES (17, 1, N'CHƯƠNG I. ỨNG DỤNG ĐẠO HÀM ĐỂ KHẢO SÁT VÀ VẼ ĐỒ THỊ HÀM SỐ', 1, CAST(N'2026-07-12T00:34:11.830' AS DateTime))
+INSERT Chapters (chapter_id, chapter_order, chapter_title, course_id, created_at) VALUES (18, 2, N'CHƯƠNG II. VECTƠ VÀ HỆ TRỤC TOẠ ĐỘ TRONG KHÔNG GIAN.', 1, CAST(N'2026-07-12T00:54:34.513' AS DateTime))
+INSERT Chapters (chapter_id, chapter_order, chapter_title, course_id, created_at) VALUES (19, 1, N'Phân Tích Tác Phẩm', 2, CAST(N'2026-07-12T18:53:46.457' AS DateTime))
+INSERT Chapters (chapter_id, chapter_order, chapter_title, course_id, created_at) VALUES (20, 1, N'Unit 1: Life stories we admire', 3, CAST(N'2026-07-12T19:00:58.553' AS DateTime))
+INSERT Chapters (chapter_id, chapter_order, chapter_title, course_id, created_at) VALUES (21, 2, N'Unit 2: A multicultural world', 3, CAST(N'2026-07-12T19:03:38.020' AS DateTime))
+
 SET IDENTITY_INSERT Chapters OFF;
 
-SET IDENTITY_INSERT Lessons ON;
-INSERT INTO Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, chapter_id, course_id, duration) VALUES 
-(1, N'Derivative Basics', N'Introduction to derivatives and formulas.', N'https://www.youtube.com/watch?v=hiWjWvba1Kc', N'/uploads/subtitles/math/derivative-basics.vtt', 1, 1, 1, N'11:38'),
-(2, N'Applications of Derivatives', N'Optimization and graph analysis.', N'https://www.youtube.com/watch?v=Oa-mVxGS4cw', N'/uploads/subtitles/math/applications-derivatives.vtt', 2, 1, 1, N'22:44'),
-(3, N'Integral Fundamentals', N'Basic integration techniques.', N'https://www.youtube.com/watch?v=ndIRu-bUBx0', N'/uploads/subtitles/math/integral-fundamentals.vtt', 3, 1, 1, N'03:42'),
-(4, N'Newton Laws of Motion', N'Force and motion concepts.', N'/uploads/videos/physics/newton-laws.mp4', N'/uploads/subtitles/physics/newton-laws.vtt', 1, 2, 2, N'15:30'),
-(5, N'Circular Motion', N'Uniform circular motion formulas.', N'/uploads/videos/physics/circular-motion.mp4', N'/uploads/subtitles/physics/circular-motion.vtt', 2, 2, 2, N'20:00'),
-(6, N'Grammar Basics', N'English grammar foundation.', N'/uploads/videos/english/grammar-basics.mp4', N'/uploads/subtitles/english/grammar-basics.vtt', 1, 3, 3, N'15:30'),
-(7, N'Vocabulary Building', N'Vocabulary improvement methods.', N'/uploads/videos/english/vocabulary-building.mp4', N'/uploads/subtitles/english/vocabulary-building.vtt', 2, 3, 3, N'20:00');
-SET IDENTITY_INSERT Lessons OFF;
+SET IDENTITY_INSERT Lessons ON
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (15, N'Bài 1 - Tính đơn điệu và cực trị của hàm số - Tiết 2', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783855488/videos/22b1a857-8d30-494a-ab97-7fdb5689bd3a.mp4', NULL, 2, CAST(N'2026-07-12T18:24:50.420' AS DateTime), 17, NULL, N'31:24', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (16, N'Bài 6 - Vectơ trong không gian - Tiết 1', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783856454/videos/6a3956c0-e030-4ca7-b54e-69da6ba03e86.mp4', NULL, 1, CAST(N'2026-07-12T18:40:55.970' AS DateTime), 18, NULL, N'22:56', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (17, N'Xuân Tóc Đỏ cứu quốc', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783857353/videos/f86d21cd-1fea-4d04-b7dc-687926dba685.mp4', NULL, 1, CAST(N'2026-07-12T18:55:53.797' AS DateTime), 19, NULL, N'25:06', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (18, N' Nỗi buồn chiến tranh', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783857436/videos/b3380ea4-c483-4dd1-a8e8-2782652a4c5a.mp4', NULL, 2, CAST(N'2026-07-12T18:57:16.963' AS DateTime), 19, NULL, N'28:31', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (19, N'Getting started', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783857681/videos/0b1be488-3f8c-4ea9-8861-21d2bbaa09cd.mp4', NULL, 1, CAST(N'2026-07-12T19:01:21.873' AS DateTime), 20, NULL, N'15:54', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (20, N'Language', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783857773/videos/74ed9ea3-65f1-4daf-a54a-c022e119c000.mp4', NULL, 2, CAST(N'2026-07-12T19:02:53.110' AS DateTime), 20, NULL, N'20:22', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (21, N'Getting started', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783858243/videos/c6a9d48b-bc98-4f93-ab62-f4142240a9a5.mp4', NULL, 1, CAST(N'2026-07-12T19:10:44.530' AS DateTime), 21, NULL, N'17:58', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (22, N'Language', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783858592/videos/23140843-2f15-467f-8d06-56208ad5838f.mp4', NULL, 2, CAST(N'2026-07-12T19:16:34.230' AS DateTime), 21, NULL, N'20:35', 0)
+INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (14, N' Bài 1 - Tính đơn điệu và cực trị của hàm số - Tiết 1', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783855379/videos/ea767ddf-c07f-4f09-92cb-fc27ce521e1c.mp4', NULL, 1, CAST(N'2026-07-12T18:23:01.080' AS DateTime), 17, NULL, N'35:33', 0)
+SET IDENTITY_INSERT Lessons OFF
 
-INSERT INTO LearningMaterials (lesson_id, material_title, file_url) VALUES
-(1, 'Derivative Formula Summary', '/uploads/documents/math/derivative-summary.pdf'),
-(2, 'Optimization Exercises', '/uploads/documents/math/optimization.docx'),
-(3, 'Integral Practice Sheet', '/uploads/documents/math/integral-practice.pdf'),
-(4, 'Newton Laws Summary', '/uploads/documents/physics/newton-summary.pdf'),
-(5, 'Circular Motion Exercises', '/uploads/documents/physics/circular-motion.pdf'),
-(6, 'Grammar Handbook', '/uploads/documents/english/grammar-handbook.pdf'),
-(7, 'Vocabulary Workbook', '/uploads/documents/english/vocabulary-workbook.pdf');
+SET IDENTITY_INSERT LearningMaterials ON
+INSERT LearningMaterials (material_id, lesson_id, material_title, file_url, uploaded_at) VALUES (8, 14, N'Trắc nghiệm Tính đơn điệu và cực trị của hàm số', N'https://res.cloudinary.com/desnyjgxp/raw/upload/v1783859873/materials/bfea7dd9-cd88-4e37-bb8e-56364eea4d98', CAST(N'2026-07-12T19:37:54.277' AS DateTime))
+SET IDENTITY_INSERT LearningMaterials OFF
 
 -- ===========================================================================
 -- 4. ENROLLMENTS & ASSIGNMENTS
@@ -444,12 +526,18 @@ INSERT INTO Quizzes (quiz_id, course_id, quiz_title, duration_minutes, quiz_type
 (6, 3, N'Bài kiểm tra từ vựng và cấu trúc câu', 40, 'PRACTICE', 'english', 0);
 SET IDENTITY_INSERT Quizzes OFF;
 
+--TỰ LUẬN
+DECLARE @ValidCourseId INT = (SELECT TOP 1 course_id FROM Courses);
+
+INSERT INTO Quizzes (course_id, quiz_title, duration_minutes, quiz_type, created_at)
+VALUES (@ValidCourseId, N'Đề Test Toàn Diện Hệ Thống Chấm Điểm 2026', 90, 'MOCK_TEST', GETDATE());
+----------------------------
 -- ===========================================================================
 -- 6. CÂU HỎI & ĐÁP ÁN (Dùng Variables tránh lỗi trùng ID)
 -- ===========================================================================
 GO
---DECLARE @QuizId INT;
---DECLARE @QId INT;
+DECLARE @QuizId INT;
+DECLARE @QId INT;
 
 -- ---------------------------------------------------------
 -- QUIZ 1: Đề thi thử Toán Đề 1
@@ -489,8 +577,6 @@ INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'5'), (
 -- ---------------------------------------------------------
 -- QUIZ 3: Đề thi thử Vật Lý
 -- ---------------------------------------------------------
-DECLARE @QuizId INT;
-DECLARE @QId INT;
 SET @QuizId = 3;
 
 INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Một con lắc lò xo gồm lò xo có độ cứng k và vật nhỏ có khối lượng m. Chu kỳ dao động điều hòa của con lắc được tính bằng công thức nào?', 'T = 2*pi*căn(m/k)', N'Chu kỳ dao động của con lắc lò xo là T = 2*pi*căn(m/k).'); SET @QId = SCOPE_IDENTITY();
@@ -681,6 +767,13 @@ INSERT INTO Notifications (title, content, target_role, created_by) VALUES
 ('✅ Kết quả chấm bài', 'Giáo viên Nguyễn Minh Quân đã chấm xong bài tập "Derivative Homework" của bạn. Điểm: 8.5/10.', 'STUDENT', 2),
 ('❌ Khóa học bị từ chối xuất bản', 'Admin đã từ chối xuất bản khóa học của bạn. Lý do: Thiếu video giới thiệu chương 2. Vui lòng kiểm tra và chỉnh sửa lại.', 'TEACHER', 1),
 ('🎉 Khóa học mới được duyệt', 'Khóa học "Tuyệt đỉnh Casio" của bạn đã được Admin duyệt và xuất bản thành công!', 'TEACHER', 1);
+
+--StudySchedule
+INSERT INTO StudySchedules (user_id, title, schedule_date, schedule_time, schedule_type)
+VALUES
+(5, N'Luyện đề Toán số 1', '2026-07-15', '19:00', 'math'),
+(5, N'Kiểm tra Lý 45p', '2026-07-20', '14:00', 'physics'),
+(5, N'Livestream Tiếng Anh', '2026-07-25', '20:00', 'english');
 
 -- Kiểm tra lại schema
 PRINT '=== Hoàn tất quá trình tạo Data (Merged SQL) ===';
