@@ -3,6 +3,7 @@ import backend.entity.Course;
 import backend.entity.User;
 import backend.service.AdminService;
 import backend.entity.Notification;
+import backend.entity.ViolationReport;
 import backend.service.JwtService;
 import backend.service.NotificationService;
 
@@ -137,13 +138,13 @@ public class AdminController {
     }
 
     @PostMapping("/notifications")
-    public ResponseEntity<Notification> createNotification(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Notification> createNotification(@RequestBody Map<String, String> request, @RequestHeader(value = "Authorization", required = false) String token) {
         String title = request.get("title");
         String content = request.get("content");
         String targetRole = request.get("targetRole");
 
         Integer adminId = getCurrentAdminId(token);
-        Notification noti = notificationService.createNotification(title, content, targetRole, 1, null);
+        Notification noti = notificationService.createNotification(title, content, targetRole, adminId, null);
         return ResponseEntity.ok(noti);
     }
 

@@ -53,7 +53,7 @@ public class SecurityConfig {
                         // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
                         .requestMatchers("/api/outlines/**").authenticated()
                         .requestMatchers("/api/entry-test/**").authenticated()
-                        .requestMatchers("/api/courses", "/api/courses/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )

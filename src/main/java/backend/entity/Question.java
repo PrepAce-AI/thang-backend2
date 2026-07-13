@@ -36,10 +36,10 @@ public class Question {
     @Column(name = "correct_answer", columnDefinition = "NVARCHAR(MAX)")
     private String correctAnswer;
 
-    @Column(name = "topic")
+    @Column(name = "topic", columnDefinition = "NVARCHAR(255)")
     private String topic;
 
-    @Column(name = "subject")
+    @Column(name = "subject", columnDefinition = "NVARCHAR(255)")
     private String subject;
 
     @Column(name = "created_at", insertable = false, updatable = true)
