@@ -11,7 +11,7 @@ import backend.service.JwtService;
 import backend.service.TestService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import backend.service.PracticeTestService;
 import java.util.*;
 
 @RestController
@@ -22,11 +22,13 @@ public class TestController {
     private final TestService testService;
     private final JwtService jwtService;
     private final UserRepository userRepository;
-
-    public TestController(TestService testService, JwtService jwtService, UserRepository userRepository) {
+    private final PracticeTestService practiceTestService;
+    // 🔥 CHÈN THÊM DÒNG NÀY VÀO ĐÂY
+    public TestController(TestService testService, JwtService jwtService, UserRepository userRepository, PracticeTestService practiceTestService) {
         this.testService = testService;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.practiceTestService = practiceTestService; // 🔥 GÁN GIÁ TRỊ VÀO ĐÂY
     }
 
     @PostMapping("/start")
@@ -87,8 +89,9 @@ public class TestController {
     }
 
     @PostMapping("/{sessionsId}/submit")
-    public ResponseEntity<String> submitTest(
+    public ResponseEntity<?> submitTest(
             @PathVariable int sessionsId,
+            @RequestBody(required = false) Map<Long, String> answers, // Nhận cục Map đáp án gộp từ TestDoingPage
             @RequestHeader("Authorization") String token) {
 
         try {
@@ -96,10 +99,14 @@ public class TestController {
             String email = jwtService.extractUsername(jwt);
             User user = userRepository.findByEmail(email).orElseThrow();
 
-            testService.submitTest(sessionsId, user.getId());
-            return ResponseEntity.ok("Nộp Bài Thành Công !!!");
+            // Gọi hàm Service phiên bản mới (truyền thêm cục answers vào cuối)
+            TestResultResponse response = testService.submitTest(sessionsId, user.getId(), answers);
+
+            // Trả về Object kết quả thi thay vì String thô để Frontend xử lý logic hiển thị
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Lỗi khi nộp bài");
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body("Lỗi khi nộp bài: " + e.getMessage());
         }
     }
 
@@ -121,14 +128,17 @@ public class TestController {
 
     @PutMapping("/{sessionsId}/questions/{questionId}/grade")
     public ResponseEntity<String> gradeEssay(
-            @PathVariable int sessionsId,
+            @PathVariable int sessionsId, // Lúc này Frontend đang truyền attemptId vào đây
             @PathVariable int questionId,
             @RequestBody Map<String, Object> body) {
         try {
-            float score = Float.parseFloat(body.get("score").toString());
+            double score = Double.parseDouble(body.get("score").toString());
             String comment = (String) body.get("comment");
 
-            testService.gradeEssayAnswer(sessionsId, questionId, score, comment);
+            // 🔥 ĐỔI DÒNG NÀY: Gọi sang bộ dịch vụ mới đã vá ở Bước 2
+            // Ông nhớ @Autowired thêm private final PracticeTestService practiceTestService ở đầu file Controller nhé
+            practiceTestService.teacherGradeAttemptAnswer(sessionsId, questionId, score, comment);
+
             return ResponseEntity.ok("Chấm điểm câu tự luận thành công!");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Lỗi khi chấm điểm: " + e.getMessage());
