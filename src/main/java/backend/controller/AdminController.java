@@ -139,13 +139,24 @@ public class AdminController {
     }
 
     @PostMapping("/notifications")
-    public ResponseEntity<Notification> createNotification(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Notification> createNotification(
+            @RequestHeader("Authorization") String token,
+            @RequestBody Map<String, String> request) {
+
         String title = request.get("title");
         String content = request.get("content");
         String targetRole = request.get("targetRole");
 
         Integer adminId = getCurrentAdminId(token);
-        Notification noti = notificationService.createNotification(title, content, targetRole, 1, null);
+
+        Notification noti = notificationService.createNotification(
+                title,
+                content,
+                targetRole,
+                adminId,
+                null
+        );
+
         return ResponseEntity.ok(noti);
     }
 
