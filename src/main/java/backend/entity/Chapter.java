@@ -23,6 +23,7 @@ public class Chapter {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id")
+    @com.fasterxml.jackson.annotation.JsonBackReference(value = "course-chapters") // 🔥 THÊM DÒNG NÀY
     private Course course;
 
     @JsonManagedReference(value = "chapter-lessons")

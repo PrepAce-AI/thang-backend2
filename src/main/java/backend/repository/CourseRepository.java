@@ -7,6 +7,10 @@ import java.util.List;
 
 @Repository
 public interface CourseRepository extends JpaRepository<Course, Integer> {
-    List<Course> findByIsPublishedTrue();
+
+    // Tìm kiếm các khóa học theo trạng thái chuỗi hệ thống
+    List<Course> findByStatus(String status);
+
+    // Tìm kiếm danh sách khóa học dựa theo ID của giáo viên phụ trách
     List<Course> findByTeacherId(Integer teacherId);
 }
