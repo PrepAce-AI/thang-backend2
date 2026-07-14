@@ -46,6 +46,10 @@ public class Course {
     @JoinColumn(name = "subject_id", insertable = false, updatable = false)
     private Subject subject;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "teacher_id", insertable = false, updatable = false)
+    private backend.entity.User teacher;
+
     @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "course_id")
     @org.hibernate.annotations.BatchSize(size = 50)
@@ -57,7 +61,9 @@ public class Course {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id", insertable = false, updatable = false)
     
-    private Category category; // Thực thể Category quản lý tên danh mục
+    private Category category;
+
+    // Thực thể Category quản lý tên danh mục
     // ==================== GETTERS AND SETTERS ====================
 
     public Integer getCourseId() { return courseId; }
@@ -105,7 +111,8 @@ public class Course {
     public void setChapters(List<backend.entity.Chapter> chapters) { this.chapters = chapters; }
 
 
-
+    public backend.entity.User getTeacher() { return teacher; }
+    public void setTeacher(backend.entity.User teacher) { this.teacher = teacher; }
 
     // --- Thêm Getter và Setter cho thuộc tính mới ---
     public Integer getCategoryId() { return categoryId; }

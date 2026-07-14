@@ -263,6 +263,7 @@ public class AdminController {
     }
     // Thêm các REST API Endpoint này vào cuối file AdminController.java của bạn
 
+
     // Lấy toàn bộ danh mục (Dành cho màn hình Admin)
     @GetMapping("/categories/all")
     public ResponseEntity<List<backend.entity.Category>> getAllCategoriesForAdmin() {
@@ -326,6 +327,7 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("message", "Đã xóa hoàn toàn danh mục trống thành công!"));
     }
     // ====================== UI CONFIGURATION ENDPOINTS ======================
+
 
     // 1. API công khai bốc dữ liệu Banner lên Trang chủ
 
