@@ -42,10 +42,25 @@ public class GeminiService {
         }
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(15000);
-        factory.setReadTimeout(45000);
+        factory.setConnectTimeout(5000);
+        factory.setReadTimeout(45000); // 45s to allow parallel queueing
 
         this.restTemplate = new RestTemplate(factory);
+        
+        // Asynchronously fetch and log available models to diagnose 404 errors
+        new Thread(this::listModels).start();
+    }
+
+    private void listModels() {
+        if (apiKeys.isEmpty()) return;
+        try {
+            String currentKey = apiKeys.get(0);
+            String url = "https://generativelanguage.googleapis.com/v1beta/models?key=" + currentKey;
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            log.info("AVAILABLE GEMINI MODELS:\n{}", response.getBody());
+        } catch (Exception e) {
+            log.error("Failed to list models", e);
+        }
     }
 
     public String ask(String systemContext, String userPrompt) {
@@ -68,51 +83,62 @@ public class GeminiService {
                 )
         );
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        String model = "gemini-2.0-flash";
-        int maxRetries = Math.max(1, apiKeys.size());
+        String model = "gemini-flash-latest";
         
-        for (int i = 0; i < maxRetries; i++) {
-            String currentKey = apiKeys.isEmpty() ? "" : apiKeys.get(Math.abs(currentKeyIndex.getAndIncrement()) % apiKeys.size());
-            String url = apiUrl + model + ":generateContent?key=" + currentKey;
-
-            try {
-                ResponseEntity<Map> response = restTemplate.exchange(
-                        url,
-                        HttpMethod.POST,
-                        new HttpEntity<>(body, headers),
-                        Map.class
-                );
-
-                String text = extractTextSafe(response.getBody());
-
-                if (text == null || text.isBlank()) {
-                    throw new GeminiException(500, "Gemini returned empty response.");
-                }
-
-                return text.trim();
-
-            } catch (HttpStatusCodeException e) {
-                int status = e.getStatusCode().value();
-                
-                // If it's 429 Too Many Requests and we have more keys to try, continue to next iteration
-                if (status == 429 && i < maxRetries - 1) {
-                    log.warn("Gemini API Key overloaded (429). Retrying with another key...");
-                    continue;
-                }
-
-                log.error("Gemini HTTP {}:\n{}", status, e.getResponseBodyAsString());
-                throw new GeminiException(status, e.getResponseBodyAsString());
-
-            } catch (Exception e) {
-                log.error("Gemini API failed", e);
-                throw new GeminiException(500, e.getMessage());
-            }
+        if (apiKeys.isEmpty()) {
+            throw new GeminiException(500, "No API keys configured");
         }
         
-        throw new GeminiException(500, "All Gemini API keys failed or overloaded.");
+        String url = apiUrl + model + ":generateContent";
+
+        // To make it ultra-fast and bypass Google's queue, we blast ALL keys in parallel
+        // and just take the answer from whichever one finishes FIRST.
+        java.util.List<java.util.concurrent.CompletableFuture<String>> futures = new java.util.ArrayList<>();
+        
+        for (String key : apiKeys) {
+            futures.add(java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                if (!key.isEmpty()) {
+                    headers.set("x-goog-api-key", key);
+                }
+
+                try {
+                    ResponseEntity<Map> response = restTemplate.exchange(
+                            url, HttpMethod.POST, new HttpEntity<>(body, headers), Map.class
+                    );
+                    String text = extractTextSafe(response.getBody());
+                    if (text == null || text.isBlank()) throw new RuntimeException("Empty response");
+                    return text.trim();
+                } catch (org.springframework.web.client.HttpStatusCodeException e) {
+                    log.error("Gemini HTTP Error (Parallel): {}", e.getResponseBodyAsString());
+                    throw new RuntimeException("HTTP Error: " + e.getStatusCode());
+                } catch (Exception e) {
+                    log.error("Gemini Generic Error (Parallel): {}", e.getMessage());
+                    throw new RuntimeException(e);
+                }
+            }));
+        }
+
+        try {
+            // We need the first SUCCESSFUL future, not just the first to complete (which might be an error).
+            // A simple way to get first success: wait for all, but return as soon as one succeeds.
+            java.util.concurrent.CompletableFuture<String> firstSuccess = new java.util.concurrent.CompletableFuture<>();
+            for (java.util.concurrent.CompletableFuture<String> f : futures) {
+                f.thenAccept(result -> firstSuccess.complete(result));
+            }
+            // If all fail, complete exceptionally
+            java.util.concurrent.CompletableFuture.allOf(futures.toArray(new java.util.concurrent.CompletableFuture[0]))
+                .exceptionally(ex -> {
+                    if (!firstSuccess.isDone()) firstSuccess.completeExceptionally(new GeminiException(500, "All keys failed or overloaded"));
+                    return null;
+                });
+                
+            return firstSuccess.join();
+        } catch (Exception e) {
+            log.error("All Gemini API keys failed", e);
+            throw new GeminiException(500, "All Gemini API keys failed or overloaded.");
+        }
     }
 
     /**
