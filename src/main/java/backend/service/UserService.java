@@ -44,54 +44,53 @@ public class UserService {
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
-        //  HASH PASSWORD
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setPhone(request.getPhone());
         user.setRoleId(3); // STUDENT default
-        user.setAccountStatus("PENDING"); //Chua ACTIVE
+        user.setAccountStatus("PENDING");
         user.setCreatedAt(new Date());
 
-        String otp = generateOTP(); //OTP
+        String otp = generateOTP();
         user.setVerificationCode(otp);
         user.setVerificationExpiry(new Date(System.currentTimeMillis() + 5 * 60 * 1000));
 
         User savedUser = userRepository.save(user);
         emailService.sendVerificationEmail(user.getEmail(), otp);
 
-        System.out.println("OTP Code: " +otp);
+        System.out.println("OTP Code: " + otp);
 
         return savedUser;
     }
 
-
-
     //Normal Login
-    // Đổi kiểu trả về từ String thành Map<String, Object>
     public Map<String, Object> login(String email, String password){
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email not found"));
 
+        // 🛡️ ĐÃ SỬA: Chặn tài khoản BANNED lên đầu quy trình xử lý đăng nhập
+        if ("BANNED".equalsIgnoreCase(user.getAccountStatus())) {
+            throw new RuntimeException("⚠️ Tài khoản của bạn đã bị khóa do vi phạm tiêu chuẩn cộng đồng! Vui lòng liên hệ support@learnifyfuture.com để được hỗ trợ.");
+        }
+
         boolean isMatch = password.equals(user.getPasswordHash()) || passwordEncoder.matches(password, user.getPasswordHash());
 
-        if (!user.getAccountStatus().equals("ACTIVE")){
-            throw new RuntimeException("Please verify your email first !!!");
-        }
         if (!isMatch) {
             throw new RuntimeException("Wrong password");
         }
 
-        // Tạo token mã hóa
+        // Kiểm tra kích hoạt Email (Dành cho tài khoản mới đăng ký ở trạng thái PENDING)
+        if (!"ACTIVE".equalsIgnoreCase(user.getAccountStatus())){
+            throw new RuntimeException("Please verify your email first !!!");
+        }
+
         String token = jwtService.generateToken(user);
 
-        // Gộp cả token và thông tin user trả về y hệt luồng Google Auth
         Map<String, Object> response = new HashMap<>();
         response.put("token", token);
         response.put("user", user);
 
         return response;
     }
-
-
 
     //GOOGLE LOGIN + REGISTER
     public Map<String, Object> googleAuth(String idTokenString) {
@@ -114,8 +113,6 @@ public class UserService {
                 throw new RuntimeException("Invalid Google Token");
             }
             GoogleIdToken.Payload payload = idToken.getPayload();
-            System.out.println("TOKEN RAW: " + idTokenString);
-            System.out.println("TOKEN LENGTH: " + (idTokenString == null ? "NULL" : idTokenString.length()));
 
             String email = payload.getEmail();
             String name = (String) payload.get("name");
@@ -127,12 +124,17 @@ public class UserService {
                         newUser.setEmail(email);
                         newUser.setFullName(name);
                         newUser.setAvatarUrl(picture);
-                        newUser.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString())); // google user --“đánh dấu account này không dùng password thường”
+                        newUser.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
                         newUser.setRoleId(3);
                         newUser.setAccountStatus("ACTIVE");
                         newUser.setCreatedAt(new Date());
                         return userRepository.save(newUser);
                     });
+
+            // 🛡️ ĐÃ SỬA: Chặn không cho tài khoản Google tự động vượt ngục nếu trạng thái đang là BANNED
+            if ("BANNED".equalsIgnoreCase(user.getAccountStatus())) {
+                throw new RuntimeException("⚠️ Tài khoản Google này đã bị khóa đăng nhập trên hệ thống!");
+            }
 
             user.setAccountStatus("ACTIVE");
             userRepository.save(user);
@@ -146,29 +148,33 @@ public class UserService {
             return response;
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("Google Auth Failed");
+            throw new RuntimeException(e.getMessage() != null ? e.getMessage() : "Google Auth Failed");
         }
     }
 
-    //-----------------------------------------------------------------------------------------------------------
+    //Logout
+    public void logout(String token){
+        String jwt = token.replace("Bearer ", "");
+        String email = jwtService.extractUsername(jwt);
+
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found"));
+        System.out.println(user.getEmail() + " logged out");
+    }
 
     //Change Password
     public void changePassword(String email, ChangePasswordRequest req){
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User Not Found!!!"));
-        //Check Old Password
         if(!passwordEncoder.matches(req.getOldPassword(), user.getPasswordHash())){
             throw new RuntimeException("Old Password Is Incorrect!!!");
         }
-        //Set new password
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
-
         userRepository.save(user);
     }
 
     //Forgot Password
     public void forgotPassword(String email){
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Email Not Found"));
-        String resetToken = jwtService.generateResetToken(email); //Cap ma token TAM THOI
+        String resetToken = jwtService.generateResetToken(email);
         String link = "http://localhost:5173/reset-password?token=" + resetToken;
 
         emailService.sendOtp(email, link);
@@ -194,9 +200,6 @@ public class UserService {
         userRepository.save(user);
     }
 
-    //-----------------------------------------------------------------------------------------------------------
-
-    //GENERATE OTP
     private String generateOTP() {
         return String.valueOf((int)(Math.random() * 900000) + 100000);
     }
@@ -204,33 +207,30 @@ public class UserService {
     //VERIFY EMAIL
     public String verifyEmail(VerifyEmailRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() ->
-                        new RuntimeException("User Not Found !!!")
-                );
-        // Check account already verified
+                .orElseThrow(() -> new RuntimeException("User Not Found !!!"));
+
+        // 🛡️ ĐÃ SỬA: Nếu trạng thái hiện tại đang bị Admin khóa (BANNED), chặn ngay không cho phép verify đổi lại trạng thái bừa bãi
+        if ("BANNED".equalsIgnoreCase(user.getAccountStatus())) {
+            throw new RuntimeException("Tài khoản đã bị khóa vĩnh viễn do vi phạm chính sách, không thể xác thực Email.");
+        }
+
         if ("ACTIVE".equals(user.getAccountStatus())) {
             throw new RuntimeException("Account Already Verified");
         }
 
-        // Check OTP null
         if (user.getVerificationCode() == null) {
             throw new RuntimeException("OTP Not Found");
         }
 
-        // Check OTP
         if (!user.getVerificationCode().equals(request.getOtp())) {
             throw new RuntimeException("Invalid OTP");
         }
 
-        // Check OTP expired
         if (user.getVerificationExpiry().before(new Date())) {
             throw new RuntimeException("OTP Expired");
         }
 
-        // ACTIVE ACCOUNT
         user.setAccountStatus("ACTIVE");
-
-        // Clear OTP
         user.setVerificationCode(null);
         user.setVerificationExpiry(null);
 
@@ -239,13 +239,9 @@ public class UserService {
         return "Verify Successfully";
     }
 
-    //-----------------------------------------------------------------------------------------------------------
-                                                            //AVATAR
     //UPDATE AVATAR
     public void updateAvatar(String token, String avatarUrl){
-        //Bo cai "Bearer "
         String jwt = token.replace("Bearer ", "");
-
         String email = jwtService.extractUsername(jwt);
 
         User user = userRepository.findByEmail(email).orElseThrow(() ->  new RuntimeException("User Not Found !!!"));

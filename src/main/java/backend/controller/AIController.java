@@ -2,8 +2,10 @@ package backend.controller;
 
 import backend.dto.request.ChatRequest;
 import backend.dto.request.UniversityAdvisingRequest;
-import backend.dto.response.AdaptivePathResponse;
+import backend.dto.response.AdaptivePathViewResponse;
 import backend.dto.response.ChatResponse;
+import backend.dto.response.GapDiagnosisResponse;
+import backend.dto.response.ScoreForecastResponse;
 import backend.dto.response.UniversityAdvisingResponse;
 import backend.service.AIService;
 import jakarta.validation.Valid;
@@ -54,7 +56,7 @@ public class AIController {
      * Trả về: điểm trung bình, biểu đồ cognitive, danh sách gap.
      */
     @GetMapping("/gap-diagnosis")
-    public ResponseEntity<AdaptivePathResponse> diagnoseGaps(
+    public ResponseEntity<GapDiagnosisResponse> diagnoseGaps(
             @RequestHeader("X-Student-Id") Integer studentId) {
         return ResponseEntity.ok(aiService.diagnoseGaps(studentId));
     }
@@ -66,7 +68,7 @@ public class AIController {
      * Trả về: biểu đồ năng lực + danh sách bài học ưu tiên.
      */
     @GetMapping("/adaptive-path")
-    public ResponseEntity<AdaptivePathResponse> generatePath(
+    public ResponseEntity<AdaptivePathViewResponse> generatePath(
             @RequestHeader("X-Student-Id") Integer studentId) {
         return ResponseEntity.ok(aiService.generateAdaptivePath(studentId));
     }
@@ -75,7 +77,7 @@ public class AIController {
 
     /** Dự đoán điểm thi THPT QG dựa trên phong độ học sinh */
     @GetMapping("/score-forecast")
-    public ResponseEntity<ChatResponse> forecastScore(
+    public ResponseEntity<ScoreForecastResponse> forecastScore(
             @RequestHeader("X-Student-Id") Integer studentId) {
         return ResponseEntity.ok(aiService.forecastScore(studentId));
     }
@@ -83,13 +85,12 @@ public class AIController {
     // ─── UC-30: University Advising ──────────────────────────────────────────────
 
     /**
-     * Tư vấn ngành và trường đại học phù hợp.
-     * Params: targetScore (điểm mục tiêu), preferredMajor (ngành yêu thích)
+     * Tư vấn ngành và trường đại học phù hợp theo khối thi (A00/A01/B00/C00/D01).
      */
     @GetMapping("/university-advising")
     public ResponseEntity<UniversityAdvisingResponse> universityAdvising(
             @RequestHeader("X-Student-Id") Integer studentId,
-            @RequestParam String block){
+            @RequestParam(defaultValue = "A00") String block){
 
         return ResponseEntity.ok(
                 aiService.getUniversityAdvising(studentId, block)

@@ -25,7 +25,7 @@ public class Lesson {
     @Column(name = "video_url")
     private String videoUrl;
 
-    @Column(name = "duration")
+    @Column(name = "duration", columnDefinition = "NVARCHAR(20)")
     private String duration;
 
     @Column(name = "lesson_order")

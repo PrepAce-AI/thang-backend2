@@ -6,7 +6,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Integer>{
     List<Notification> findByTargetRoleOrTargetRole(String target1, String target2);

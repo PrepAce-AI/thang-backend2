@@ -37,9 +37,20 @@ public class EntryTestService {
 
     // ─── Lấy danh sách đề Entry Test ───────────────────────────────────────────
 
+    /** Số câu bốc ngẫu nhiên cho mỗi lượt Entry Test */
+    private static final int QUESTIONS_PER_ENTRY_TEST = 20;
+
     public List<QuizResponse> getAllEntryTests() {
-        List<Quiz> tests = quizRepository.findAllEntryTests();
-        return tests.stream().map(this::mapToQuizResponse).toList();
+        // Chỉ trả metadata — KHÔNG kèm câu hỏi (kho 250 câu/đề, trả hết vừa nặng vừa lộ đề)
+        return quizRepository.findAllEntryTests().stream()
+                .map(quiz -> QuizResponse.builder()
+                        .quizId(quiz.getQuizId())
+                        .quizTitle(quiz.getQuizTitle())
+                        .durationMinutes(quiz.getDurationMinutes())
+                        .quizType(quiz.getQuizType())
+                        .totalQuestions((int) questionRepository.countByQuiz_QuizId(quiz.getQuizId()))
+                        .build())
+                .toList();
     }
 
     /**
@@ -57,71 +68,77 @@ public class EntryTestService {
 
     @Transactional
     public QuizResultResponse submitEntryTest(Integer studentId, SubmitQuizRequest request) {
-        Quiz quiz = quizRepository.findById(request.getQuizId())
-                .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại: " + request.getQuizId()));
-
-        if (!"ENTRY_TEST".equals(quiz.getQuizType())) {
-            throw new BadRequestException("Quiz này không phải Entry Test");
+        // Lấy quiz: ưu tiên từ sessionsId (attemptId) rồi fallback quizId
+        Quiz quiz;
+        if (request.getSessionsId() != null) {
+            QuizAttempt existing = quizAttemptRepository.findById(request.getSessionsId()).orElse(null);
+            if (existing != null) {
+                quiz = existing.getQuiz();
+            } else {
+                quiz = quizRepository.findById(request.getQuizId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại"));
+            }
+        } else {
+            quiz = quizRepository.findById(request.getQuizId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại: " + request.getQuizId()));
         }
 
-        List<Question> questions = questionRepository.findByQuizId(quiz.getQuizId());
-        if (questions.isEmpty()) {
-            throw new BadRequestException("Entry Test chưa có câu hỏi nào");
+        // Cập nhật attempt đã tồn tại (từ startQuiz) hoặc tạo mới
+        QuizAttempt attempt;
+        if (request.getSessionsId() != null) {
+            attempt = quizAttemptRepository.findById(request.getSessionsId()).orElse(new QuizAttempt());
+        } else {
+            attempt = new QuizAttempt();
         }
 
-        Map<Integer, Integer> answers = request.getAnswers();
+        // Chỉ chấm những câu học sinh ĐÃ ĐƯỢC PHÁT và trả lời — KHÔNG lấy cả kho 250 câu
+        // (kho lớn mà chấm cả quiz thì 230 câu chưa phát sẽ bị tính là sai).
+        Map<Integer, String> answers = request.getAnswers();
+        List<Question> questions = (answers == null || answers.isEmpty())
+                ? new ArrayList<>()
+                : questionRepository.findWithOptionsByIds(new ArrayList<>(answers.keySet()));
+
         int correctCount = 0;
         List<QuizResultResponse.QuestionResultDetail> details = new ArrayList<>();
 
         for (Question q : questions) {
-            Integer selectedOptionId = Integer.valueOf(request.getAnswers().get(q.getQuestionId()));
+            String selectedText = answers.get(q.getQuestionId());
 
-            QuestionOption correctOption =
-                    q.getOptions()
-                            .stream()
-                            .filter(QuestionOption::getIsCorrect)
-                            .findFirst()
-                            .orElse(null);
+            QuestionOption correctOption = q.getOptions().stream()
+                    .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                    .findFirst()
+                    .orElse(null);
 
-            boolean isCorrect =
-                    correctOption != null &&
-                            correctOption.getOptionId().equals(selectedOptionId);
+            // So sánh theo nội dung text (FE cũ gửi text đáp án thay vì optionId)
+            boolean isCorrect = correctOption != null
+                    && selectedText != null
+                    && correctOption.getOptionContent().equals(selectedText);
             if (isCorrect) correctCount++;
 
             details.add(QuizResultResponse.QuestionResultDetail.builder()
                     .questionId(q.getQuestionId())
                     .questionContent(q.getQuestionContent())
-                    .selectedAnswer(
-                            selectedOptionId == null
-                                    ? null
-                                    : q.getOptions()
-                                    .stream()
-                                    .filter(o -> o.getOptionId().equals(selectedOptionId))
-                                    .map(QuestionOption::getOptionContent)
-                                    .findFirst()
-                                    .orElse(null)
-                    )
-                    .correctAnswer(
-                            correctOption == null
-                                    ? null
-                                    : correctOption.getOptionContent()
-                    )
+                    .selectedAnswer(selectedText)
+                    .correctAnswer(correctOption != null ? correctOption.getOptionContent() : null)
                     .isCorrect(isCorrect)
+                    .explanation(q.getExplanation())
+                    .topic(q.getTopic())
                     .build());
         }
 
-        int total = questions.size();
-        double score = total > 0 ? Math.round(((double) correctCount / total) * 100.0) / 10.0 : 0.0;
-        double percentage = total > 0 ? (double) correctCount / total * 100 : 0.0;
-
-        // Lưu attempt
-        QuizAttempt attempt = new QuizAttempt();
+        // Mẫu số = số câu ĐÃ PHÁT khi start (câu bỏ trống vẫn tính là sai),
+        // fallback = số câu đã trả lời (trường hợp attempt cũ không có total)
+        int total = (attempt.getTotalQuestions() != null && attempt.getTotalQuestions() > 0)
+                ? attempt.getTotalQuestions()
+                : Math.max(questions.size(), 1);
+        double score = Math.round(((double) correctCount / total) * 100.0) / 10.0;
+        double percentage = (double) correctCount / total * 100;
         attempt.setQuiz(quiz);
         attempt.setStudentId(studentId);
         attempt.setScore(score);
         attempt.setTotalQuestions(total);
         attempt.setCorrectCount(correctCount);
-        attempt.setStartedAt(new Date());
+        if (attempt.getStartedAt() == null) attempt.setStartedAt(new Date());
         attempt.setSubmittedAt(new Date());
         QuizAttempt saved = quizAttemptRepository.save(attempt);
 
@@ -183,6 +200,7 @@ public class EntryTestService {
                 .quizTitle(quiz.getQuizTitle())
                 .durationMinutes(quiz.getDurationMinutes())
                 .quizType(quiz.getQuizType())
+                .totalQuestions(questions.size())
                 .questions(questionResponses)
                 .build();
     }
@@ -201,22 +219,24 @@ public class EntryTestService {
         Quiz quiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại: " + quizId));
 
-        if (!"ENTRY_TEST".equals(quiz.getQuizType())) {
-            throw new BadRequestException("Quiz này không phải Entry Test");
+        if (!"ENTRY_TEST".equals(quiz.getQuizType()) && !"PRACTICE".equals(quiz.getQuizType()) && !"MOCK_EXAM".equals(quiz.getQuizType())) {
+            throw new BadRequestException("Quiz này không hợp lệ để thi thử/kiểm tra");
         }
 
-        // Lấy câu hỏi
-        List<Question> questions = questionRepository.findByQuizId(quizId);
-
-        if (questions.isEmpty()) {
-            throw new BadRequestException("Entry Test chưa có câu hỏi");
+        // Bốc ngẫu nhiên đúng 20 câu cho ENTRY_TEST và 25 câu cho PRACTICE/MOCK_EXAM
+        int numQuestions = "ENTRY_TEST".equals(quiz.getQuizType()) ? 20 : 25;
+        List<Integer> randomIds = questionRepository.findRandomQuestionIds(quizId, numQuestions);
+        if (randomIds.isEmpty()) {
+            throw new BadRequestException("Đề thi này chưa có câu hỏi trong kho");
         }
+        List<Question> questions = questionRepository.findWithOptionsByIds(randomIds);
 
-        // Tạo attempt (session làm bài)
+        // Tạo attempt (session làm bài) — lưu số câu đã phát để submit chấm đúng mẫu số
         QuizAttempt attempt = new QuizAttempt();
         attempt.setQuiz(quiz);
         attempt.setStudentId(studentId);
         attempt.setStartedAt(new Date());
+        attempt.setTotalQuestions(questions.size());
 
         QuizAttempt saved = quizAttemptRepository.save(attempt);
 
@@ -236,9 +256,12 @@ public class EntryTestService {
                 ).toList();
 
         return StartQuizResponse.builder()
+                .sessionsId(saved.getAttemptId())   // FE dùng sessionsId
                 .attemptId(saved.getAttemptId())
                 .quizId(quiz.getQuizId())
                 .quizTitle(quiz.getQuizTitle())
+                .durationMinutes(quiz.getDurationMinutes())
+                .remainingTime((quiz.getDurationMinutes() != null ? quiz.getDurationMinutes() : 20) * 60)
                 .questions(questionResponses)
                 .build();
     }

@@ -8,7 +8,8 @@ import java.util.*;
 public class UniversityAdvisingResponse {
     private boolean hasData;
     private String block;
+    /** Tổng điểm dự đoán khối (thang 30 = tổng 3 môn) */
     private Double predictedScore;
     private String summary;
-    private List<UniversitySuggestion> suggestions;
+    private List<UniversitySuggestionView> suggestions;
 }
