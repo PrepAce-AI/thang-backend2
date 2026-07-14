@@ -30,6 +30,14 @@ public class CourseService {
 
             dto.setPrice(course.getPrice());
             dto.setIsPublished(course.getIsPublished());
+
+            if (course.getSubject() != null) {
+                dto.setSubjectId(course.getSubject().getId());
+                dto.setSubjectName(course.getSubject().getSubjectName());
+            } else {
+                dto.setSubjectId(course.getSubjectId());
+            }
+
             return dto;
         }).collect(Collectors.toList());
     }
@@ -86,6 +94,7 @@ public class CourseService {
         response.setTitle(course.getTitle());
         response.setDescription(course.getDescription());
         response.setThumbnailUrl(course.getThumbnailUrl());
+        response.setPrice(course.getPrice());
 
         // Map danh sách Chapter
         response.setChapters(course.getChapters().stream().map(chapter -> {
