@@ -154,8 +154,9 @@ public class AdminController {
         String content = request.get("content");
         String targetRole = request.get("targetRole");
 
-        Integer adminId = getCurrentAdminId(token);
-        Notification noti = notificationService.createNotification(title, content, targetRole, adminId, null);
+        // Lấy userId của Admin hiện tại (từ JWT)
+        // Tạm thời hardcode createdBy = 1 (Admin), sau sẽ lấy từ token
+        Notification noti = notificationService.createNotification(title, content, targetRole, 1,null);
         return ResponseEntity.ok(noti);
     }
 
@@ -261,7 +262,6 @@ public class AdminController {
         }
     }
     // Thêm các REST API Endpoint này vào cuối file AdminController.java của bạn
-
 
 
     // Lấy toàn bộ danh mục (Dành cho màn hình Admin)

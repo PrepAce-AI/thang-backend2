@@ -31,18 +31,19 @@ public class CourseService {
             dto.setPrice(course.getPrice());
             dto.setIsPublished(course.getIsPublished());
 
-            // 🔥 ĐỒNG BỘ THÔNG TIN MÔN HỌC (SUBJECT)
-            dto.setSubjectId(course.getSubjectId());
+// 🔥 ĐỒNG BỘ THÔNG TIN MÔN HỌC (SUBJECT)
             if (course.getSubject() != null) {
-                dto.setSubjectName(course.getSubject().getSubjectName()); // subject_name trong DB
+                dto.setSubjectId(course.getSubject().getId());
+                dto.setSubjectName(course.getSubject().getSubjectName());
             } else {
+                dto.setSubjectId(course.getSubjectId());
                 dto.setSubjectName("Chung");
             }
 
             // 🔥 ĐỒNG BỘ THÔNG TIN GIÁO VIÊN (TEACHER)
             if (course.getTeacher() != null) {
-                dto.setTeacherId(course.getTeacher().getId()); // Sử dụng getId() khớp với cách viết trong controller của bạn
-                dto.setTeacherName(course.getTeacher().getFullName()); // full_name trong DB
+                dto.setTeacherId(course.getTeacher().getId());
+                dto.setTeacherName(course.getTeacher().getFullName());
             } else {
                 dto.setTeacherId(course.getTeacherId());
                 dto.setTeacherName("Giáo viên");
@@ -104,6 +105,7 @@ public class CourseService {
         response.setTitle(course.getTitle());
         response.setDescription(course.getDescription());
         response.setThumbnailUrl(course.getThumbnailUrl());
+        response.setPrice(course.getPrice());
 
         // Map danh sách Chapter
         response.setChapters(course.getChapters().stream().map(chapter -> {
