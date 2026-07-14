@@ -30,6 +30,24 @@ public class CourseService {
 
             dto.setPrice(course.getPrice());
             dto.setIsPublished(course.getIsPublished());
+
+            // 🔥 ĐỒNG BỘ THÔNG TIN MÔN HỌC (SUBJECT)
+            dto.setSubjectId(course.getSubjectId());
+            if (course.getSubject() != null) {
+                dto.setSubjectName(course.getSubject().getSubjectName()); // subject_name trong DB
+            } else {
+                dto.setSubjectName("Chung");
+            }
+
+            // 🔥 ĐỒNG BỘ THÔNG TIN GIÁO VIÊN (TEACHER)
+            if (course.getTeacher() != null) {
+                dto.setTeacherId(course.getTeacher().getId()); // Sử dụng getId() khớp với cách viết trong controller của bạn
+                dto.setTeacherName(course.getTeacher().getFullName()); // full_name trong DB
+            } else {
+                dto.setTeacherId(course.getTeacherId());
+                dto.setTeacherName("Giáo viên");
+            }
+
             return dto;
         }).collect(Collectors.toList());
     }

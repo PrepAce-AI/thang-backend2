@@ -262,11 +262,7 @@ public class AdminController {
     }
     // Thêm các REST API Endpoint này vào cuối file AdminController.java của bạn
 
-    @Autowired
-    private backend.repository.CategoryRepository categoryRepository;
 
-    @Autowired
-    private backend.repository.CourseRepository courseRepository; // Inject để kiểm tra khóa học đang dùng
 
     // Lấy toàn bộ danh mục (Dành cho màn hình Admin)
     @GetMapping("/categories/all")
@@ -332,8 +328,6 @@ public class AdminController {
     }
     // ====================== UI CONFIGURATION ENDPOINTS ======================
 
-    @Autowired
-    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     // 1. API công khai bốc dữ liệu Banner lên Trang chủ
 

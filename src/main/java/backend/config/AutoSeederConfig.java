@@ -17,6 +17,13 @@ import java.util.Optional;
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
+
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "app.seeder.enabled",
+        havingValue = "true",
+        matchIfMissing = false
+)
+
 public class AutoSeederConfig {
 
     private final AiDataSeederController aiDataSeederController;
