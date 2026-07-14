@@ -48,6 +48,7 @@ public class Course {
 
     @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "course_id")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<backend.entity.Chapter> chapters;
 
     @Column(name = "category_id")

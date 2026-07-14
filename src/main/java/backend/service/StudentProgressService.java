@@ -48,6 +48,9 @@ public class StudentProgressService {
         if (request.getScore() != null) {
             progress.setScore(request.getScore());
         }
+        if (request.getLastVideoTime() != null) {
+            progress.setLastVideoTime(request.getLastVideoTime());
+        }
 
         StudentProgress saved = studentProgressRepository.save(progress);
 
@@ -58,13 +61,14 @@ public class StudentProgressService {
                 lesson.getId(),
                 saved.getIsCompleted(),
                 saved.getScore(),
-                saved.getLastAccessed()
+                saved.getLastAccessed(),
+                saved.getLastVideoTime()
         );
     }
 
     public StudentProgressResponse getProgress(User user, int lessonId) {
         return studentProgressRepository.findByUserIdAndLessonId(user.getId(), lessonId)
-                .map(p -> new StudentProgressResponse(p.getId(), user.getId(), user.getFullName(), lessonId, p.getIsCompleted(), p.getScore(), p.getLastAccessed()))
+                .map(p -> new StudentProgressResponse(p.getId(), user.getId(), user.getFullName(), lessonId, p.getIsCompleted(), p.getScore(), p.getLastAccessed(), p.getLastVideoTime()))
                 .orElse(null);
     }
 

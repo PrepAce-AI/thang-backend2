@@ -43,4 +43,11 @@ public class PracticeAnswer {
     /** Thứ tự câu hỏi trong đề (1..25) để render lại đúng thứ tự */
     @Column(name = "question_order", nullable = false)
     private Integer questionOrder = 0;
+    @Column(name = "essay_answer")
+    private String essayAnswer;
+    @Column(name = "score")
+    private Double score;
+
+    @Column(name = "teacher_comment")
+    private String teacherComment;
 }

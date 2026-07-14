@@ -126,6 +126,7 @@ public class UserService {
                         newUser.setAvatarUrl(picture);
                         newUser.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
                         newUser.setRoleId(3);
+                        newUser.setRoleName("STUDENT");
                         newUser.setAccountStatus("ACTIVE");
                         newUser.setCreatedAt(new Date());
                         return userRepository.save(newUser);

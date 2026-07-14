@@ -65,8 +65,17 @@ public class CourseController {
             } catch (Exception e) {}
         }
 
-        // Gán cứng subject_id để tránh lỗi NOT NULL
-        course.setSubjectId(1);
+        if (body.containsKey("subjectId")) {
+            try {
+                course.setSubjectId(Integer.parseInt(String.valueOf(body.get("subjectId"))));
+            } catch (Exception e) {}
+        }
+        
+        if (body.containsKey("categoryId")) {
+            try {
+                course.setCategoryId(Integer.parseInt(String.valueOf(body.get("categoryId"))));
+            } catch (Exception e) {}
+        }
 
         Course saved = courseService.saveCourse(course);
 
@@ -89,5 +98,31 @@ public class CourseController {
     public ResponseEntity<?> deleteCourse(@PathVariable Integer courseId) {
         courseService.deleteCourse(courseId);
         return ResponseEntity.ok().build();
+    }
+
+    @Autowired
+    private backend.repository.EnrollmentRepository enrollmentRepository;
+    @Autowired
+    private backend.service.JwtService jwtService;
+    @Autowired
+    private backend.repository.UserRepository userRepository;
+
+    @GetMapping("/{courseId}/check-enrollment")
+    public ResponseEntity<Map<String, Boolean>> checkEnrollment(@PathVariable Integer courseId, @RequestHeader(value = "Authorization", required = false) String token) {
+        try {
+            if (token == null || !token.startsWith("Bearer ")) {
+                return ResponseEntity.ok(Map.of("isEnrolled", false));
+            }
+            String jwt = token.replace("Bearer ", "");
+            String email = jwtService.extractUsername(jwt);
+            backend.entity.User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) {
+                return ResponseEntity.ok(Map.of("isEnrolled", false));
+            }
+            boolean isEnrolled = enrollmentRepository.existsByStudentIdAndCourseId(user.getId(), courseId);
+            return ResponseEntity.ok(Map.of("isEnrolled", isEnrolled));
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of("isEnrolled", false));
+        }
     }
 }

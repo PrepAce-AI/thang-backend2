@@ -10,10 +10,11 @@ public class StudentProgressResponse {
     private Boolean isCompleted;
     private Double score;
     private Date lastAccessed;
+    private Double lastVideoTime;
 
     public StudentProgressResponse() {}
 
-    public StudentProgressResponse(Integer id, int userId, String userFullName, int lessonId, Boolean isCompleted, Double score, Date lastAccessed) {
+    public StudentProgressResponse(Integer id, int userId, String userFullName, int lessonId, Boolean isCompleted, Double score, Date lastAccessed, Double lastVideoTime) {
         this.id = id;
         this.userId = userId;
         this.userFullName = userFullName;
@@ -21,6 +22,7 @@ public class StudentProgressResponse {
         this.isCompleted = isCompleted;
         this.score = score;
         this.lastAccessed = lastAccessed;
+        this.lastVideoTime = lastVideoTime;
     }
 
     public Integer getId() {
@@ -77,5 +79,13 @@ public class StudentProgressResponse {
 
     public void setLastAccessed(Date lastAccessed) {
         this.lastAccessed = lastAccessed;
+    }
+
+    public Double getLastVideoTime() {
+        return lastVideoTime;
+    }
+
+    public void setLastVideoTime(Double lastVideoTime) {
+        this.lastVideoTime = lastVideoTime;
     }
 }

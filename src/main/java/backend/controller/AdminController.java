@@ -4,6 +4,7 @@ import backend.entity.Course;
 import backend.entity.User;
 import backend.service.AdminService;
 import backend.entity.Notification;
+import backend.entity.ViolationReport;
 import backend.service.JwtService;
 import backend.service.NotificationService;
 import backend.entity.ViolationReport;
@@ -24,6 +25,15 @@ public class AdminController {
     private final AdminService adminService;
     private final NotificationService notificationService;
     private final JwtService jwtService;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private backend.repository.CategoryRepository categoryRepository;
+
+    @Autowired
+    private backend.repository.CourseRepository courseRepository;
 
     public AdminController(AdminService adminService, NotificationService notificationService, JwtService jwtService) {
         this.adminService = adminService;
@@ -78,7 +88,7 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getAllUsers());
     }
 
-    // Tạm khóa (BANNED) hoặc Vô hiệu hóa (DEACTIVATED) tuân thủ quy tắc BR-UC40-01 và BR-UC40-02
+    // Tạm khóa (BANNED) hoặc Mở khóa (ACTIVE) tài khoản người dùng
     @PatchMapping("/users/{id}/status")
     public ResponseEntity<?> updateUserStatus(
             @PathVariable Integer id,
@@ -139,16 +149,13 @@ public class AdminController {
     }
 
     @PostMapping("/notifications")
-    public ResponseEntity<Notification> createNotification(
-            @RequestHeader(value = "Authorization", required = false) String token,
-            @RequestBody Map<String, String> request) {
+    public ResponseEntity<Notification> createNotification(@RequestBody Map<String, String> request, @RequestHeader(value = "Authorization", required = false) String token) {
         String title = request.get("title");
         String content = request.get("content");
         String targetRole = request.get("targetRole");
 
-        // Lấy userId của Admin hiện tại (từ JWT)
-        // Tạm thời hardcode createdBy = 1 (Admin), sau sẽ lấy từ token
-        Notification noti = notificationService.createNotification(title, content, targetRole, 1,null);
+        Integer adminId = getCurrentAdminId(token);
+        Notification noti = notificationService.createNotification(title, content, targetRole, adminId, null);
         return ResponseEntity.ok(noti);
     }
 

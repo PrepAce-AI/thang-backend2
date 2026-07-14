@@ -29,6 +29,7 @@ public class Quiz {
 
     @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonManagedReference // Quét dữ liệu xuôi xuống Question khi xem chi tiết đề
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<Question> questions = new ArrayList<>();
 
     @Column(name = "quiz_title", columnDefinition = "NVARCHAR(255)")
@@ -50,7 +51,4 @@ public class Quiz {
 
     @Column(name = "is_entry_test")
     private Boolean isEntryTest = false;
-
-
-
 }

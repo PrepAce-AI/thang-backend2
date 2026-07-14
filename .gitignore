@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Ignore Uploaded Files (Videos, Images, Documents) ###
+src/main/resources/static/uploads/

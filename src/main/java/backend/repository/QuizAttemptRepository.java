@@ -31,4 +31,5 @@ public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Intege
     /** Điểm trung bình của student (dùng cho AI Score Forecasting) */
     @Query("SELECT AVG(a.score) FROM QuizAttempt a WHERE a.studentId = :studentId AND a.submittedAt IS NOT NULL")
     Optional<Double> findAverageScoreByStudentId(@Param("studentId") Integer studentId);
+    List<QuizAttempt> findByStatus(String status);
 }

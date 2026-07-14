@@ -7,11 +7,13 @@ import backend.dto.response.ChatResponse;
 import backend.dto.response.GapDiagnosisResponse;
 import backend.dto.response.ScoreForecastResponse;
 import backend.dto.response.UniversityAdvisingResponse;
+import backend.repository.UserRepository;
 import backend.service.AIService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -29,24 +31,44 @@ import org.springframework.web.bind.annotation.*;
 public class AIController {
 
     private final AIService aiService;
+    private final UserRepository userRepository;
+
+    private Integer getCurrentStudentId(Authentication authentication) {
+
+        String email = authentication.getName();
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"))
+                .getId();
+    }
 
     // ─── UC-26: Chat ─────────────────────────────────────────────────────────────
 
     /** Gửi câu hỏi tới AI Chatbot (Gemini) */
     @PostMapping("/chat")
     public ResponseEntity<ChatResponse> chat(
-            @RequestHeader("X-Student-Id") Integer studentId,
+            Authentication authentication,
             @Valid @RequestBody ChatRequest request) {
-        return ResponseEntity.ok(aiService.chat(studentId, request));
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.chat(studentId, request)
+        );
     }
 
     /** Lịch sử chat của học sinh (phân trang) */
     @GetMapping("/chat/history")
     public ResponseEntity<Page<ChatResponse>> getChatHistory(
-            @RequestHeader("X-Student-Id") Integer studentId,
+            Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(aiService.getChatHistory(studentId, page, size));
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.getChatHistory(studentId, page, size)
+        );
     }
 
     // ─── UC-28: Gap Diagnosis ────────────────────────────────────────────────────
@@ -57,8 +79,13 @@ public class AIController {
      */
     @GetMapping("/gap-diagnosis")
     public ResponseEntity<GapDiagnosisResponse> diagnoseGaps(
-            @RequestHeader("X-Student-Id") Integer studentId) {
-        return ResponseEntity.ok(aiService.diagnoseGaps(studentId));
+            Authentication authentication) {
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.diagnoseGaps(studentId)
+        );
     }
 
     // ─── UC-27: Adaptive Path ────────────────────────────────────────────────────
@@ -69,8 +96,13 @@ public class AIController {
      */
     @GetMapping("/adaptive-path")
     public ResponseEntity<AdaptivePathViewResponse> generatePath(
-            @RequestHeader("X-Student-Id") Integer studentId) {
-        return ResponseEntity.ok(aiService.generateAdaptivePath(studentId));
+            Authentication authentication) {
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.generateAdaptivePath(studentId)
+        );
     }
 
     // ─── UC-29: Score Forecasting ────────────────────────────────────────────────
@@ -78,8 +110,13 @@ public class AIController {
     /** Dự đoán điểm thi THPT QG dựa trên phong độ học sinh */
     @GetMapping("/score-forecast")
     public ResponseEntity<ScoreForecastResponse> forecastScore(
-            @RequestHeader("X-Student-Id") Integer studentId) {
-        return ResponseEntity.ok(aiService.forecastScore(studentId));
+            Authentication authentication) {
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.forecastScore(studentId)
+        );
     }
 
     // ─── UC-30: University Advising ──────────────────────────────────────────────
@@ -89,8 +126,10 @@ public class AIController {
      */
     @GetMapping("/university-advising")
     public ResponseEntity<UniversityAdvisingResponse> universityAdvising(
-            @RequestHeader("X-Student-Id") Integer studentId,
-            @RequestParam(defaultValue = "A00") String block){
+            Authentication authentication,
+            @RequestParam(defaultValue = "A00") String block) {
+
+        Integer studentId = getCurrentStudentId(authentication);
 
         return ResponseEntity.ok(
                 aiService.getUniversityAdvising(studentId, block)

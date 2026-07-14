@@ -21,7 +21,7 @@ public class SecurityConfig {
 
     @Bean
     public BCryptPasswordEncoder passwordEncoder(){
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(12);
     }
 
     @Bean
@@ -38,27 +38,22 @@ public class SecurityConfig {
                         .requestMatchers("/api/courses/delete-seed").permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/api/entry-test",
-                                "/api/entry-test/ping",
-                                "/api/entry-test/quizzes",
-                                "/api/entry-test/course/**",
-                                "/api/entry-test/submit",
-                                "/api/entry-test/history",
-                                "/api/entry-test/start/**",
-                                "/api/quizzes",
-                                "/api/quizzes/**",
-                                "/api/payments/**",
+//                                "/api/entry-test",
+//                                "/api/entry-test/ping",
+//                                "/api/entry-test/course/**",
+//                                "/api/entry-test/submit",
+//                                "/api/entry-test/history",
                                 "/api/ai/**",
-                                // Luyện Đề: controller tự xác thực bằng JWT / X-Student-Id (giống entry-test)
-                                "/api/practice/**"
+                                "/uploads/**"
                         ).permitAll()
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)
                         .requestMatchers("/api/materials/**").authenticated()
                         // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
                         .requestMatchers("/api/outlines/**").authenticated()
-
-                        .requestMatchers("/api/courses", "/api/courses/**").permitAll()
+                        .requestMatchers("/api/payments/**").authenticated()
+                        .requestMatchers("/api/entry-test/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )

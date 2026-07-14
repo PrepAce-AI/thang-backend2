@@ -5,6 +5,8 @@ public class RegisterRequest {
     private String email;
     private String password;
     private String phone;
+    private String role; // "STUDENT" hoặc "TEACHER"
+    private boolean agreeToTerms;
 
     public String getFullName() {
         return fullName;
@@ -36,5 +38,21 @@ public class RegisterRequest {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getRole() {
+        return role;
+    }
+
+    public void setRole(String role) {
+        this.role = role;
+    }
+
+    public boolean isAgreeToTerms() {
+        return agreeToTerms;
+    }
+
+    public void setAgreeToTerms(boolean agreeToTerms) {
+        this.agreeToTerms = agreeToTerms;
     }
 }

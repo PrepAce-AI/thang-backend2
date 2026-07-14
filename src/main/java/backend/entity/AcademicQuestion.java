@@ -32,4 +32,7 @@ public class AcademicQuestion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id", nullable = false)
     private Lesson lesson;
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private java.util.List<AcademicAnswer> answers;
 }

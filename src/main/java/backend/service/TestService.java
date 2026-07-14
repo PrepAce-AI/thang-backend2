@@ -115,8 +115,9 @@ public class TestService {
     }
 
     // Nộp toàn bộ bài thi
+    // Nộp toàn bộ bài thi (Bản nâng cấp: Nhận toàn bộ đáp án một lượt từ FE)
     @Transactional
-    public TestResultResponse submitTest(int sessionsId, int studentId) {
+    public TestResultResponse submitTest(int sessionsId, int studentId, Map<Long, String> answersRequest) {
         TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId)
                 .orElseThrow(() -> new RuntimeException("Phiên thi không tồn tại"));
 
@@ -124,6 +125,51 @@ public class TestService {
             throw new RuntimeException("Bài thi đã được nộp trước đó");
         }
 
+        // =========================================================================
+        // 🔥 BƯỚC THÊM MỚI: TỰ ĐỘNG LƯU TOÀN BỘ ĐÁP ÁN TỪ FRONTEND VÀO DB TRƯỚC KHI TÍNH ĐIỂM
+        // =========================================================================
+        if (answersRequest != null && !answersRequest.isEmpty()) {
+            for (Map.Entry<Long, String> entry : answersRequest.entrySet()) {
+                Long questionId = entry.getKey();
+                String userValue = entry.getValue();
+
+                // Nếu câu hỏi bỏ trống không làm thì bỏ qua không lưu
+                if (userValue == null || userValue.trim().isEmpty()) continue;
+
+                Question question = questionRepository.findById(Math.toIntExact(questionId)).orElse(null);
+                if (question == null) continue;
+
+                // Tìm xem câu này trước đó đã có bản ghi chưa, chưa có thì tạo mới (tránh trùng lặp dữ liệu)
+                StudentAnswer answer = studentAnswerRepository
+                        .findBySessionSessionsIdAndQuestionQuestionId(sessionsId, question.getQuestionId())
+                        .orElse(new StudentAnswer());
+
+                answer.setSession(session);
+                answer.setQuestion(question);
+                answer.setAnsweredAt(new Date());
+
+                // Kiểm tra loại câu hỏi để lưu vào đúng cột dữ liệu
+                if ("ESSAY".equals(question.getQuestionType()) || "SHORT_ANSWER".equals(question.getQuestionType())) {
+                    answer.setEssayAnswer(userValue); // Lưu chữ gõ tự luận / đáp án ngắn
+                    answer.setSelectedOption(null);
+                } else {
+                    // Nếu là câu Trắc nghiệm -> Ép chuỗi String từ FE về Long để tìm OptionId
+                    try {
+                        Long optionId = Long.parseLong(userValue);
+                        QuestionOption selectedOption = questionOptionRepository.findById(Math.toIntExact(optionId)).orElse(null);
+                        answer.setSelectedOption(selectedOption);
+                        answer.setEssayAnswer(null);
+                    } catch (NumberFormatException e) {
+                        answer.setSelectedOption(null); // Phòng hờ dữ liệu lỗi dạng chuỗi
+                    }
+                }
+                studentAnswerRepository.save(answer);
+            }
+        }
+
+        // =========================================================================
+        // 2. CHẠY LOGIC TÍNH ĐIỂM TỰ ĐỘNG (Giữ nguyên logic gốc của ông cực chuẩn)
+        // =========================================================================
         List<StudentAnswer> studentAnswers = studentAnswerRepository.findBySessionSessionsId(sessionsId);
         List<Question> questions = session.getQuiz().getQuestions();
 
@@ -133,7 +179,7 @@ public class TestService {
         List<QuestionResult> resultDetails = new ArrayList<>();
 
         for (Question question : questions) {
-            if ("ESSAY".equals(question.getQuestionType())) {
+            if ("ENTER_TEST_OR_MOCK_OR_PRACTICE".equals(question.getQuestionType()) || "ESSAY".equals(question.getQuestionType())) {
                 hasEssay = true;
             }
 
@@ -147,7 +193,7 @@ public class TestService {
             qr.setExplanation(question.getExplanation());
             qr.setQuestionType(question.getQuestionType());
 
-            // THÀNH PHẦN KIỂM TRA LOGIC TỪNG LOẠI CÂU HỎI RÕ RÀNG:
+            // Kiểm tra Đáp án ngắn
             if ("SHORT_ANSWER".equals(question.getQuestionType())) {
                 if (studentAnswer != null && studentAnswer.getEssayAnswer() != null && !studentAnswer.getEssayAnswer().trim().isEmpty()) {
                     String studentText = studentAnswer.getEssayAnswer().trim();
@@ -164,6 +210,7 @@ public class TestService {
                     qr.setCorrect(false);
                 }
             }
+            // Kiểm tra Tự luận
             else if ("ESSAY".equals(question.getQuestionType())) {
                 qr.setSelectedAnswer(studentAnswer != null && studentAnswer.getEssayAnswer() != null ? studentAnswer.getEssayAnswer() : "Chưa trả lời");
                 qr.setCorrectedAnswer("Chờ giáo viên chấm điểm");
@@ -171,7 +218,7 @@ public class TestService {
                 qr.setScore(studentAnswer != null ? studentAnswer.getScore() : null);
                 qr.setTeacherComment(studentAnswer != null ? studentAnswer.getTeacherComment() : null);
             }
-            // TRƯỜNG HỢP CÂU HỎI TRẮC NGHIỆM (CHOICE)
+            // Kiểm tra Trắc nghiệm (CHOICE)
             else {
                 QuestionOption correctOption = question.getOptions().stream()
                         .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
@@ -194,6 +241,7 @@ public class TestService {
 
         session.setSubmittedAt(new Date());
 
+        // Nếu bài làm có câu tự luận -> Chuyển sang trạng thái chờ Giáo viên chấm điểm
         if (hasEssay) {
             session.setStatus("PENDING_GRADING");
             session.setScore(null);

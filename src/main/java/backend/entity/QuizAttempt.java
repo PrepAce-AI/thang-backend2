@@ -41,4 +41,6 @@ public class QuizAttempt {
 
     @Column(name = "correct_count")
     private Integer correctCount;
+    @Column(name = "status")
+    private String status = "IN_PROGRESS";
 }

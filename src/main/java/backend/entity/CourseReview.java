@@ -21,6 +21,10 @@ public class CourseReview {
     @Column(name = "comment", columnDefinition = "NVARCHAR(MAX)")
     private String comment;
 
+    /** Cột student_id (NOT NULL trong DB) — luôn gán = user.id khi tạo review */
+    @Column(name = "student_id", nullable = false)
+    private Integer studentId;
+
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt = new Date();

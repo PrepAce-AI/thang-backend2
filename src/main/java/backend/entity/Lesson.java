@@ -22,10 +22,13 @@ public class Lesson {
     @Column(name = "lesson_description", columnDefinition = "NVARCHAR(MAX)")
     private String description;
 
+    @Column(name = "is_preview", columnDefinition = "BIT DEFAULT 0")
+    private Boolean isPreview = false;
+
     @Column(name = "video_url")
     private String videoUrl;
 
-    @Column(name = "duration", columnDefinition = "NVARCHAR(20)")
+    @Column(name = "duration", length = 50)
     private String duration;
 
     @Column(name = "lesson_order")
@@ -37,8 +40,23 @@ public class Lesson {
     private Chapter chapter;
 
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<LearningMaterial> materials;
 
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<InVideoQuestion> inVideoQuestions;
+
+    // 🔥 ĐÃ SỬA: Thêm CascadeType.ALL để khi XÓA bài học sẽ tự động xóa hết các tiến độ, ghi chú, và hỏi đáp liên quan
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private List<StudentProgress> studentProgresses;
+
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private List<StudentNote> studentNotes;
+
+    @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 50)
+    private List<AcademicQuestion> academicQuestions;
 }
