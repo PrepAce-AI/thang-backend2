@@ -9,5 +9,6 @@ public class CourseDetailResponse {
     private String title;
     private String description;
     private String thumbnailUrl;
+    private java.math.BigDecimal price;
     private List<ChapterDto> chapters;
 }
