@@ -29,5 +29,6 @@ public class Chapter {
     @JsonManagedReference(value = "chapter-lessons")
     @OneToMany(mappedBy = "chapter", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @OrderBy("order ASC")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<Lesson> lessons;
 }

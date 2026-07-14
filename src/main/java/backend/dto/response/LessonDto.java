@@ -14,4 +14,5 @@ public class LessonDto {
     private Integer order;
     // Thêm vào trong LessonDto
     private List<MaterialDto> materials;
+    private Boolean isPreview;
 }

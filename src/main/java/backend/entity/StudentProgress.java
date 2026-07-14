@@ -84,4 +84,15 @@ public class StudentProgress {
     public void setLastAccessed(Date lastAccessed) {
         this.lastAccessed = lastAccessed;
     }
+
+    @Column(name = "last_video_time")
+    private Double lastVideoTime = 0.0;
+
+    public Double getLastVideoTime() {
+        return lastVideoTime;
+    }
+
+    public void setLastVideoTime(Double lastVideoTime) {
+        this.lastVideoTime = lastVideoTime;
+    }
 }

@@ -51,9 +51,11 @@ public class Question {
     @OneToMany(mappedBy = "question",
             fetch = FetchType.EAGER,
             cascade = CascadeType.ALL)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<QuestionOption> options = new ArrayList<>();
 
     @OneToMany(mappedBy = "question")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<StudentAnswer> studentAnswers = new ArrayList<>();
 
     @Column(name = "question_type", length = 50)

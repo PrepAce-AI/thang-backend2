@@ -38,8 +38,8 @@ public class OutlineController {
         chapter.setOrder(nextOrder);
         chapter.setCourse(courseOptional.get());
 
-        Chapter savedChapter = chapterRepository.save(chapter);
-        return ResponseEntity.ok(savedChapter);
+        chapterRepository.save(chapter);
+        return ResponseEntity.ok(Map.of("message", "Thêm chương thành công"));
     }
 
     // 2. API: Thêm Bài học mới vào một Chương cụ thể
@@ -60,9 +60,12 @@ public class OutlineController {
         lesson.setDuration((String) body.get("duration"));
         lesson.setOrder(nextOrder);
         lesson.setChapter(chapter);
+        if (body.containsKey("isPreview")) {
+            lesson.setIsPreview(Boolean.parseBoolean(String.valueOf(body.get("isPreview"))));
+        }
 
-        Lesson savedLesson = lessonRepository.save(lesson);
-        return ResponseEntity.ok(savedLesson);
+        lessonRepository.save(lesson);
+        return ResponseEntity.ok(Map.of("message", "Thêm bài học thành công"));
     }
     // ==============================================================
     // 🛠️ BỔ SUNG CÁC API CẬP NHẬT VÀ XÓA ĐỀ CƯƠNG (CRUD)
@@ -76,7 +79,8 @@ public class OutlineController {
             if (body.containsKey("order")) {
                 chapter.setOrder((Integer) body.get("order"));
             }
-            return ResponseEntity.ok(chapterRepository.save(chapter));
+            chapterRepository.save(chapter);
+            return ResponseEntity.ok(Map.of("message", "Cập nhật chương thành công"));
         }).orElse(ResponseEntity.notFound().build());
     }
 
@@ -99,7 +103,11 @@ public class OutlineController {
             if (body.containsKey("videoUrl")) lesson.setVideoUrl((String) body.get("videoUrl"));
             if (body.containsKey("duration")) lesson.setDuration((String) body.get("duration"));
             if (body.containsKey("order")) lesson.setOrder((Integer) body.get("order"));
-            return ResponseEntity.ok(lessonRepository.save(lesson));
+            if (body.containsKey("isPreview")) {
+                lesson.setIsPreview(Boolean.parseBoolean(String.valueOf(body.get("isPreview"))));
+            }
+            lessonRepository.save(lesson);
+            return ResponseEntity.ok(Map.of("message", "Cập nhật bài học thành công"));
         }).orElse(ResponseEntity.notFound().build());
     }
 
