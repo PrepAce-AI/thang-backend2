@@ -146,6 +146,7 @@ CREATE TABLE LearningMaterials (
     material_title NVARCHAR(255),
     file_url NVARCHAR(255),
     uploaded_at DATETIME DEFAULT GETDATE(),
+	content NVARCHAR(MAX) NULL,
     FOREIGN KEY (lesson_id) REFERENCES Lessons(lesson_id)
 );
 
@@ -232,6 +233,47 @@ CREATE TABLE Quizzes (
     FOREIGN KEY (course_id) REFERENCES Courses(course_id)
 );
 
+CREATE TABLE FlashQuizzes(
+    flash_quiz_id INT IDENTITY PRIMARY KEY,
+    student_id INT NOT NULL,
+    chapter_id INT NOT NULL,
+    total_questions INT DEFAULT 5,
+    correct_answers INT DEFAULT 0,
+    score DECIMAL(5,2),
+    status VARCHAR(20) DEFAULT 'GENERATED',
+    created_at DATETIME DEFAULT GETDATE(),
+    completed_at DATETIME NULL,
+	ai_model NVARCHAR(100) NULL,
+    FOREIGN KEY(student_id) REFERENCES Users(user_id),
+    FOREIGN KEY(chapter_id) REFERENCES Chapters(chapter_id)
+);
+
+CREATE TABLE FlashQuizQuestions(
+    question_id INT IDENTITY PRIMARY KEY,
+    flash_quiz_id INT,
+    question NVARCHAR(MAX),
+    option_a NVARCHAR(500),
+    option_b NVARCHAR(500),
+    option_c NVARCHAR(500),
+    option_d NVARCHAR(500),
+    correct_answer CHAR(1),
+    explanation NVARCHAR(MAX),
+    FOREIGN KEY(flash_quiz_id)
+        REFERENCES FlashQuizzes(flash_quiz_id)
+);
+
+CREATE TABLE FlashQuizAnswers(
+    answer_id INT IDENTITY PRIMARY KEY,
+    flash_quiz_id INT,
+    question_id INT,
+    selected_answer CHAR(1),
+    is_correct BIT,
+    FOREIGN KEY(flash_quiz_id)
+        REFERENCES FlashQuizzes(flash_quiz_id),
+    FOREIGN KEY(question_id)
+        REFERENCES FlashQuizQuestions(question_id)
+);
+
 CREATE TABLE Questions (
     question_id INT IDENTITY(1,1) PRIMARY KEY,
     quiz_id INT,
@@ -265,7 +307,7 @@ CREATE TABLE QuizAttempts (
     status VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS' CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'ABANDONED')),
     correct_count int null,
 	total_questions int null
-
+	
 	FOREIGN KEY (quiz_id) REFERENCES Quizzes(quiz_id),
     FOREIGN KEY (student_id) REFERENCES Users(user_id)
 );
@@ -350,6 +392,22 @@ CREATE TABLE AIChatHistory (
     FOREIGN KEY (student_id) REFERENCES Users(user_id)
 );
 
+CREATE TABLE AIChapterSummary (
+    summary_id INT IDENTITY(1,1) PRIMARY KEY,
+    student_id INT NOT NULL,
+    course_id INT NOT NULL,
+    chapter_id INT NOT NULL,
+    ai_model NVARCHAR(50),
+    summary_content NVARCHAR(MAX) NOT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    CONSTRAINT FK_AISummary_User
+        FOREIGN KEY(student_id) REFERENCES Users(user_id),
+    CONSTRAINT FK_AISummary_Course
+        FOREIGN KEY(course_id) REFERENCES Courses(course_id),
+    CONSTRAINT FK_AISummary_Chapter
+        FOREIGN KEY(chapter_id) REFERENCES Chapters(chapter_id)
+);
+
 CREATE TABLE AcademicQuestions (
     question_id INT PRIMARY KEY IDENTITY(1,1),
     user_id INT NOT NULL,
@@ -414,7 +472,7 @@ GO
 
 INSERT INTO Roles(role_name) VALUES ('ADMIN'), ('TEACHER'), ('STUDENT');
 
-INSERT INTO SystemConfig (config_key, config_value) VALUES
+INSERT INTO SystemConfig (config_key, config_value) VALUES 
 ('banner_title', N'Bứt phá điểm số cùng PrepAce AI'),
 ('banner_subtitle', N'Hệ thống học tập thông minh sử dụng AI để phân tích năng lực, xây dựng lộ trình cá nhân và tối ưu kết quả kỳ thi THPT Quốc Gia.'),
 ('banner_btn_text', N'Bắt đầu ngay');
@@ -460,7 +518,7 @@ INSERT INTO Categories(category_name) VALUES ('Natural Sciences'), ('Social Scie
 INSERT INTO Subjects(subject_name, category_id) VALUES
 ('Mathematics', 1), ('Physics', 1), ('Chemistry', 1), ('Literature', 2), ('English', 3), ('History', 2), ('Geography', 2);
 
-SET IDENTITY_INSERT Courses ON
+SET IDENTITY_INSERT Courses ON 
 
 INSERT Courses (course_id, teacher_id, subject_id, course_title, course_description, thumbnail_url, price, is_published, created_at, status, review_note, reviewed_at) VALUES (1, 2, 1, N'Toán Học 12', N'Complete mathematics course for National High School Exam preparation.', N'/uploads/thumbnails/math-course.jpg', CAST(599000.00 AS Decimal(10, 2)), 1, CAST(N'2026-07-11T21:29:40.457' AS DateTime), N'PUBLISHED', NULL, NULL)
 INSERT Courses (course_id, teacher_id, subject_id, course_title, course_description, thumbnail_url, price, is_published, created_at, status, review_note, reviewed_at) VALUES (2, 3, 2, N'Ngữ Văn 12', N'Advanced physics lessons and mock exam strategies.', N'/uploads/thumbnails/physics-course.jpg', CAST(499000.00 AS Decimal(10, 2)), 1, CAST(N'2026-07-11T21:29:40.457' AS DateTime), N'PUBLISHED', NULL, NULL)
@@ -479,7 +537,7 @@ INSERT Chapters (chapter_id, chapter_order, chapter_title, course_id, created_at
 
 SET IDENTITY_INSERT Chapters OFF;
 
-SET IDENTITY_INSERT Lessons ON
+SET IDENTITY_INSERT Lessons ON 
 INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (15, N'Bài 1 - Tính đơn điệu và cực trị của hàm số - Tiết 2', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783855488/videos/22b1a857-8d30-494a-ab97-7fdb5689bd3a.mp4', NULL, 2, CAST(N'2026-07-12T18:24:50.420' AS DateTime), 17, NULL, N'31:24', 0)
 INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (16, N'Bài 6 - Vectơ trong không gian - Tiết 1', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783856454/videos/6a3956c0-e030-4ca7-b54e-69da6ba03e86.mp4', NULL, 1, CAST(N'2026-07-12T18:40:55.970' AS DateTime), 18, NULL, N'22:56', 0)
 INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (17, N'Xuân Tóc Đỏ cứu quốc', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783857353/videos/f86d21cd-1fea-4d04-b7dc-687926dba685.mp4', NULL, 1, CAST(N'2026-07-12T18:55:53.797' AS DateTime), 19, NULL, N'25:06', 0)
@@ -491,7 +549,7 @@ INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle
 INSERT Lessons (lesson_id, lesson_title, lesson_description, video_url, subtitle_url, lesson_order, created_at, chapter_id, course_id, duration, is_preview) VALUES (14, N' Bài 1 - Tính đơn điệu và cực trị của hàm số - Tiết 1', N'', N'https://res.cloudinary.com/desnyjgxp/video/upload/v1783855379/videos/ea767ddf-c07f-4f09-92cb-fc27ce521e1c.mp4', NULL, 1, CAST(N'2026-07-12T18:23:01.080' AS DateTime), 17, NULL, N'35:33', 0)
 SET IDENTITY_INSERT Lessons OFF
 
-SET IDENTITY_INSERT LearningMaterials ON
+SET IDENTITY_INSERT LearningMaterials ON 
 INSERT LearningMaterials (material_id, lesson_id, material_title, file_url, uploaded_at) VALUES (8, 14, N'Trắc nghiệm Tính đơn điệu và cực trị của hàm số', N'https://res.cloudinary.com/desnyjgxp/raw/upload/v1783859873/materials/bfea7dd9-cd88-4e37-bb8e-56364eea4d98', CAST(N'2026-07-12T19:37:54.277' AS DateTime))
 SET IDENTITY_INSERT LearningMaterials OFF
 
@@ -544,36 +602,166 @@ DECLARE @QId INT;
 -- ---------------------------------------------------------
 SET @QuizId = 1;
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Tìm đạo hàm của hàm số y = x^3 - 3x.', '3x^2 - 3', N'y'' = (x^3)'' - (3x)'' = 3x^2 - 3'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'3x^2 - 3'), (@QId, N'3x^2'), (@QId, N'x^2 - 3'), (@QId, N'3x^2 + 3');
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId, N'Tìm đạo hàm của hàm số y = x^3 - 3x.', '3x^2 - 3',
+N'y'' = (x^3)'' - (3x)'' = 3x^2 - 3');
+SET @QId = SCOPE_IDENTITY();
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Tìm đường tiệm cận đứng của đồ thị hàm số y = (2x + 1)/(x - 1).', 'x = 1', N'Tiệm cận đứng là nghiệm của mẫu số: x - 1 = 0 => x = 1'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'x = 1'), (@QId, N'y = 2'), (@QId, N'x = -1'), (@QId, N'y = -1');
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'3x^2 - 3', 1),
+(@QId, N'3x^2', 0),
+(@QId, N'x^2 - 3', 0),
+(@QId, N'3x^2 + 3', 0);
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Hàm số y = x^4 - 2x^2 đạt cực tiểu tại điểm nào?', 'x = 1 và x = -1', N'y'' = 4x^3 - 4x = 0 => x = 0, x = 1, x = -1. Lập bảng biến thiên ta thấy x = 1 và x = -1 là điểm cực tiểu.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'x = 1 và x = -1'), (@QId, N'x = 0'), (@QId, N'x = 2'), (@QId, N'x = -2');
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Tìm nguyên hàm của hàm số f(x) = cos(x).', 'sin(x) + C', N'Theo bảng nguyên hàm cơ bản, nguyên hàm của cos(x) là sin(x) + C'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'sin(x) + C'), (@QId, N'-sin(x) + C'), (@QId, N'tan(x) + C'), (@QId, N'-cos(x) + C');
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Tính tích phân I = tích phân từ 0 đến 1 của e^x dx.', 'e - 1', N'I = e^x thế số từ 0 đến 1 = e^1 - e^0 = e - 1'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'e - 1'), (@QId, N'e'), (@QId, N'e + 1'), (@QId, N'1');
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId, N'Tìm đường tiệm cận đứng của đồ thị hàm số y = (2x + 1)/(x - 1).',
+'x = 1',
+N'Tiệm cận đứng là nghiệm của mẫu số: x - 1 = 0 => x = 1');
+SET @QId = SCOPE_IDENTITY();
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Tính thể tích V của khối lập phương có cạnh bằng 2a.', '8a^3', N'V = cạnh^3 = (2a)^3 = 8a^3'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'8a^3'), (@QId, N'2a^3'), (@QId, N'4a^3'), (@QId, N'a^3');
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'x = 1', 1),
+(@QId, N'y = 2', 0),
+(@QId, N'x = -1', 0),
+(@QId, N'y = -1', 0);
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Công thức tính thể tích V của khối chóp có diện tích đáy B và chiều cao h là gì?', 'V = (1/3)Bh', N'Thể tích khối chóp bằng một phần ba tích diện tích đáy và chiều cao.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'V = (1/3)Bh'), (@QId, N'V = Bh'), (@QId, N'V = 3Bh'), (@QId, N'V = (1/2)Bh');
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Giải phương trình log3(x - 1) = 2.', 'x = 10', N'Điều kiện x > 1. Ta có: x - 1 = 3^2 = 9 => x = 10'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'x = 10'), (@QId, N'x = 7'), (@QId, N'x = 8'), (@QId, N'x = 9');
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Giải phương trình mũ: 2^(x + 1) = 8.', 'x = 2', N'2^(x + 1) = 2^3 => x + 1 = 3 => x = 2'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'x = 2'), (@QId, N'x = 3'), (@QId, N'x = 1'), (@QId, N'x = 4');
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Hàm số y = x^4 - 2x^2 đạt cực tiểu tại điểm nào?',
+'x = 1 và x = -1',
+N'y'' = 4x^3 - 4x = 0 => x = 0, x = ±1. Hai điểm cực tiểu là x = ±1');
+SET @QId = SCOPE_IDENTITY();
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Cho số phức z = 3 + 4i. Tính môđun của số phức z.', '5', N'|z| = căn(3^2 + 4^2) = 5'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'5'), (@QId, N'7'), (@QId, N'25'), (@QId, N'căn(7)');
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'x = 1 và x = -1', 1),
+(@QId, N'x = 0', 0),
+(@QId, N'x = 2', 0),
+(@QId, N'x = -2', 0);
 
+
+
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Tìm nguyên hàm của hàm số f(x) = cos(x).',
+'sin(x) + C',
+N'Theo bảng nguyên hàm cơ bản.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'sin(x) + C', 1),
+(@QId, N'-sin(x) + C', 0),
+(@QId, N'tan(x) + C', 0),
+(@QId, N'-cos(x) + C', 0);
+
+
+
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Tính tích phân I từ 0 đến 1 của e^x dx.',
+'e - 1',
+N'e¹ - e⁰ = e - 1');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'e - 1', 1),
+(@QId, N'e', 0),
+(@QId, N'e + 1', 0),
+(@QId, N'1', 0);
+
+
+
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Tính thể tích khối lập phương cạnh 2a.',
+'8a^3',
+N'V = (2a)^3');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'8a^3', 1),
+(@QId, N'2a^3', 0),
+(@QId, N'4a^3', 0),
+(@QId, N'a^3', 0);
+
+
+
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Công thức tính thể tích khối chóp?',
+'V = (1/3)Bh',
+N'V = 1/3 diện tích đáy × chiều cao.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'V = (1/3)Bh', 1),
+(@QId, N'V = Bh', 0),
+(@QId, N'V = 3Bh', 0),
+(@QId, N'V = (1/2)Bh', 0);
+
+
+
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Giải phương trình log3(x - 1) = 2.',
+'x = 10',
+N'3² = 9 ⇒ x = 10');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'x = 10', 1),
+(@QId, N'x = 7', 0),
+(@QId, N'x = 8', 0),
+(@QId, N'x = 9', 0);
+
+
+
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Giải phương trình 2^(x+1)=8.',
+'x = 2',
+N'8 = 2³');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'x = 2', 1),
+(@QId, N'x = 3', 0),
+(@QId, N'x = 1', 0),
+(@QId, N'x = 4', 0);
+
+
+
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Cho số phức z = 3 + 4i. Tính môđun của z.',
+'5',
+N'√(3² + 4²) = 5');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'5', 1),
+(@QId, N'7', 0),
+(@QId, N'25', 0),
+(@QId, N'căn(7)', 0);
+SELECT
+option_id,
+option_content,
+is_correct
+FROM QuestionOptions
+WHERE question_id = 1;
 -- ---------------------------------------------------------
 -- QUIZ 3: Đề thi thử Vật Lý
 -- ---------------------------------------------------------
@@ -640,38 +828,329 @@ INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'F = m 
 -- ---------------------------------------------------------
 SET @QuizId = 5;
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'She _____ to the cinema with her friends last night.', 'went', N'Dấu hiệu "last night" chia thì quá khứ đơn (V2/ed của go là went).'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'went'), (@QId, N'goes'), (@QId, N'has gone'), (@QId, N'was going');
+-- Câu 1
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'She _____ to the cinema with her friends last night.',
+'went',
+N'Dấu hiệu "last night" chia thì quá khứ đơn (V2 của go là went).');
+SET @QId = SCOPE_IDENTITY();
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'The old house _____ by the storm yesterday.', 'was destroyed', N'Chủ ngữ vật, có "by" và "yesterday" -> Bị động quá khứ đơn.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'was destroyed'), (@QId, N'destroyed'), (@QId, N'is destroyed'), (@QId, N'was destroying');
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'went', 1),
+(@QId, N'goes', 0),
+(@QId, N'has gone', 0),
+(@QId, N'was going', 0);
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'If I _____ you, I would accept that job offer.', 'were', N'Câu điều kiện loại 2. Động từ tobe chia "were" cho tất cả các ngôi.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'were'), (@QId, N'am'), (@QId, N'had been'), (@QId, N'will be');
+-- Câu 2
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'The old house _____ by the storm yesterday.',
+'was destroyed',
+N'Chủ ngữ là vật, có "by" và "yesterday" nên dùng bị động quá khứ đơn.');
+SET @QId = SCOPE_IDENTITY();
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'The man _____ lives next door is a famous musician.', 'who', N'Đại từ quan hệ thay thế cho danh từ chỉ người làm chủ ngữ.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'who'), (@QId, N'whom'), (@QId, N'which'), (@QId, N'whose');
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'was destroyed', 1),
+(@QId, N'destroyed', 0),
+(@QId, N'is destroyed', 0),
+(@QId, N'was destroying', 0);
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'This smartphone is much _____ than my old one.', 'more expensive', N'So sánh hơn của tính từ dài.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'more expensive'), (@QId, N'expensive'), (@QId, N'most expensive'), (@QId, N'as expensive');
+-- Câu 3
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'If I _____ you, I would accept that job offer.',
+'were',
+N'Câu điều kiện loại II, động từ "to be" dùng "were" cho mọi ngôi.');
+SET @QId = SCOPE_IDENTITY();
 
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'were', 1),
+(@QId, N'am', 0),
+(@QId, N'had been', 0),
+(@QId, N'will be', 0);
+
+-- Câu 4
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'The man _____ lives next door is a famous musician.',
+'who',
+N'"Who" là đại từ quan hệ thay thế cho danh từ chỉ người làm chủ ngữ.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'who', 1),
+(@QId, N'whom', 0),
+(@QId, N'which', 0),
+(@QId, N'whose', 0);
+
+-- Câu 5
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'This smartphone is much _____ than my old one.',
+'more expensive',
+N'So sánh hơn của tính từ dài dùng "more + adjective".');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'more expensive', 1),
+(@QId, N'expensive', 0),
+(@QId, N'most expensive', 0),
+(@QId, N'as expensive', 0);
+
+-- Câu 6
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Hardly _____ the meeting when the CEO announced the company''s new strategy.',
+N'had we started',
+N'Cấu trúc đảo ngữ: Hardly had + S + V3/ed + when...');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'had we started', 1),
+(@QId, N'we had started', 0),
+(@QId, N'did we start', 0),
+(@QId, N'we started', 0);
+
+-- Câu 7
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'The proposal was rejected, _____ surprised everyone in the committee.',
+N'which',
+N'"Which" thay thế cho cả mệnh đề đứng trước.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'which', 1),
+(@QId, N'who', 0),
+(@QId, N'where', 0),
+(@QId, N'what', 0);
+
+-- Câu 8
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'By the time we arrived at the station, the train _____.',
+N'had already left',
+N'Hành động xảy ra trước một hành động khác trong quá khứ → Past Perfect.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'had already left', 1),
+(@QId, N'has already left', 0),
+(@QId, N'already left', 0),
+(@QId, N'was leaving', 0);
+
+-- Câu 9
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'It is essential that every student _____ the assignment before Friday.',
+N'submit',
+N'Sau "It is essential that" dùng động từ nguyên mẫu (subjunctive mood).');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'submit', 1),
+(@QId, N'submits', 0),
+(@QId, N'submitted', 0),
+(@QId, N'will submit', 0);
+
+-- Câu 10
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'The more she practised speaking English, _____.',
+N'the more confident she became',
+N'Cấu trúc so sánh kép: The more..., the more...');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'the more confident she became', 1),
+(@QId, N'she became more confident', 0),
+(@QId, N'the most confident she became', 0),
+(@QId, N'more confident she became', 0);
 -- ---------------------------------------------------------
 -- QUIZ 6: Từ vựng và cấu trúc câu
 -- ---------------------------------------------------------
 SET @QuizId = 6;
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'I am looking forward to _____ from you soon.', 'hearing', N'look forward to + V-ing'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'hearing'), (@QId, N'hear'), (@QId, N'heard'), (@QId, N'to hear');
+-- =====================================================
+-- Câu 1 (Dễ)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'I am looking forward to _____ from you soon.',
+'hearing',
+N'look forward to + V-ing.');
+SET @QId = SCOPE_IDENTITY();
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'You need to _____ a decision right now before it''s too late.', 'make', N'make a decision (đưa ra quyết định).'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'make'), (@QId, N'do'), (@QId, N'take'), (@QId, N'give');
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'hearing', 1),
+(@QId, N'hear', 0),
+(@QId, N'heard', 0),
+(@QId, N'to hear', 0);
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Effective _____ is the key to a successful relationship.', 'communication', N'Cần danh từ -> communication.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'communication'), (@QId, N'communicate'), (@QId, N'communicative'), (@QId, N'communicated');
+-- =====================================================
+-- Câu 2 (Dễ)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'You need to _____ a decision right now before it''s too late.',
+'make',
+N'Cụm cố định: make a decision.');
+SET @QId = SCOPE_IDENTITY();
 
-INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation) VALUES (@QuizId, N'Despite the difficulties, he remained _____ about the future.', 'optimistic', N'Optimistic (lạc quan) phù hợp ngữ cảnh.'); SET @QId = SCOPE_IDENTITY();
-INSERT INTO QuestionOptions (question_id, option_content) VALUES (@QId, N'optimistic'), (@QId, N'pessimistic'), (@QId, N'hopeless'), (@QId, N'disappointed');
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'make', 1),
+(@QId, N'do', 0),
+(@QId, N'take', 0),
+(@QId, N'give', 0);
 
+-- =====================================================
+-- Câu 3 (Dễ)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Effective _____ is the key to a successful relationship.',
+'communication',
+N'Sau tính từ "effective" cần một danh từ.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'communication', 1),
+(@QId, N'communicate', 0),
+(@QId, N'communicative', 0),
+(@QId, N'communicated', 0);
+
+-- =====================================================
+-- Câu 4 (Dễ)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Despite the difficulties, he remained _____ about the future.',
+'optimistic',
+N'Optimistic = lạc quan.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'optimistic', 1),
+(@QId, N'pessimistic', 0),
+(@QId, N'hopeless', 0),
+(@QId, N'disappointed', 0);
+
+-- =====================================================
+-- Câu 5 (Dễ)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Neither my brother nor my parents _____ at home yesterday.',
+'were',
+N'Neither...nor... chia theo chủ ngữ gần nhất (parents).');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'were', 1),
+(@QId, N'was', 0),
+(@QId, N'are', 0),
+(@QId, N'is', 0);
+
+-- =====================================================
+-- Câu 6 (Trung bình)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'The project _____ by the time the manager arrived.',
+'had been completed',
+N'Past Perfect Passive.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'had been completed', 1),
+(@QId, N'has completed', 0),
+(@QId, N'was completing', 0),
+(@QId, N'completed', 0);
+
+-- =====================================================
+-- Câu 7 (Trung bình)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'If she _____ harder, she would have passed the final exam.',
+'had studied',
+N'Câu điều kiện loại III.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'had studied', 1),
+(@QId, N'studied', 0),
+(@QId, N'has studied', 0),
+(@QId, N'would study', 0);
+
+-- =====================================================
+-- Câu 8 (Trung bình)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'The woman _____ purse was stolen reported the incident to the police.',
+'whose',
+N'Whose diễn tả sự sở hữu.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'whose', 1),
+(@QId, N'who', 0),
+(@QId, N'whom', 0),
+(@QId, N'which', 0);
+
+-- =====================================================
+-- Câu 9 (Khó)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'Rarely _____ such an impressive performance.',
+'have I seen',
+N'Đảo ngữ với Rarely.');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'have I seen', 1),
+(@QId, N'I have seen', 0),
+(@QId, N'did I see', 0),
+(@QId, N'I saw', 0);
+
+-- =====================================================
+-- Câu 10 (Khó)
+-- =====================================================
+INSERT INTO Questions (quiz_id, question_content, correct_answer, explanation)
+VALUES (@QuizId,
+N'No sooner _____ home than it started to rain heavily.',
+'had we arrived',
+N'Cấu trúc đảo ngữ: No sooner had + S + V3 than...');
+SET @QId = SCOPE_IDENTITY();
+
+INSERT INTO QuestionOptions (question_id, option_content, is_correct)
+VALUES
+(@QId, N'had we arrived', 1),
+(@QId, N'we had arrived', 0),
+(@QId, N'did we arrive', 0),
+(@QId, N'we arrived', 0);
 GO
 
 -- ===========================================================================
@@ -770,7 +1249,7 @@ INSERT INTO Notifications (title, content, target_role, created_by) VALUES
 
 --StudySchedule
 INSERT INTO StudySchedules (user_id, title, schedule_date, schedule_time, schedule_type)
-VALUES
+VALUES 
 (5, N'Luyện đề Toán số 1', '2026-07-15', '19:00', 'math'),
 (5, N'Kiểm tra Lý 45p', '2026-07-20', '14:00', 'physics'),
 (5, N'Livestream Tiếng Anh', '2026-07-25', '20:00', 'english');
@@ -778,3 +1257,63 @@ VALUES
 -- Kiểm tra lại schema
 PRINT '=== Hoàn tất quá trình tạo Data (Merged SQL) ===';
 GO
+
+SELECT * FROM Users
+-- ===========================================================================
+-- 9. BỔ SUNG CẤU TRÚC VÀ DỮ LIỆU ĐỀ THI THỬ TỰ LUẬN HỖN HỢP (NÂNG CẤP 2026)
+-- ===========================================================================
+-- 1. Bổ sung các cột lưu điểm và lời phê tự luận cho bảng Luyện đề mới (PracticeAnswers)
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('PracticeAnswers') AND name = 'essay_answer')
+    ALTER TABLE PracticeAnswers ADD essay_answer NVARCHAR(MAX) NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('PracticeAnswers') AND name = 'score')
+    ALTER TABLE PracticeAnswers ADD score FLOAT NULL;
+
+IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('PracticeAnswers') AND name = 'teacher_comment')
+    ALTER TABLE PracticeAnswers ADD teacher_comment NVARCHAR(MAX) NULL;
+GO
+
+-- 2. Quét và xoá sạch các Check Constraint cũ chặn trạng thái 'PENDING_GRADING' của QuizAttempts
+DECLARE @sql NVARCHAR(MAX) = '';
+SELECT @sql += 'ALTER TABLE QuizAttempts DROP CONSTRAINT ' + name + ';' + CHAR(13)
+FROM sys.check_constraints
+WHERE parent_object_id = OBJECT_ID('QuizAttempts');
+
+EXEC sp_executesql @sql;
+GO
+
+-- 3. Tạo lại ràng buộc mới chuẩn đét cho phép lưu trạng thái Chờ chấm điểm
+ALTER TABLE QuizAttempts ADD CONSTRAINT CK_QuizAttempts_status_new CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'ABANDONED', 'PENDING_GRADING'));
+GO
+
+-- 4. TẠO MỘT ĐỀ THI MẪU PHỐI HỢP CẢ 3 THỂ LOẠI ĐỂ TEST ENGINE CHẤM ĐIỂM
+DECLARE @ValidCourseId INT = (SELECT TOP 1 course_id FROM Courses);
+
+INSERT INTO Quizzes (course_id, quiz_title, duration_minutes, quiz_type, created_at)
+VALUES (@ValidCourseId, N'Đề Test Toàn Diện Hệ Thống Chấm Điểm 2026', 90, 'PRACTICE', GETDATE());
+
+DECLARE @NewQuizId INT = SCOPE_IDENTITY();
+
+-- Thể loại 1: Trắc nghiệm truyền thống (CHOICE)
+INSERT INTO Questions (quiz_id, question_content, question_type, correct_answer, explanation)
+VALUES (@NewQuizId, N'Tính đạo hàm của hàm số y = x³ - 3x.', 'CHOICE', N'3x² - 3', N'Áp dụng công thức tính đạo hàm cơ bản (x^n)'' = n*x^(n-1).');
+
+DECLARE @QuestionChoiceId INT = SCOPE_IDENTITY();
+INSERT INTO QuestionOptions (question_id, option_content, is_correct) VALUES 
+(@QuestionChoiceId, N'3x² - 3', 1), -- Đáp án đúng
+(@QuestionChoiceId, N'3x² + 3', 0), 
+(@QuestionChoiceId, N'x² - 3', 0),
+(@QuestionChoiceId, N'3x³ - 3', 0);
+
+-- Thể loại 2: Đáp án ngắn máy tự chấm (SHORT_ANSWER)
+INSERT INTO Questions (quiz_id, question_content, question_type, correct_answer, explanation)
+VALUES (@NewQuizId, N'Tìm số giao điểm của đồ thị hàm số y = x³ - 3x và trục hoành.', 'SHORT_ANSWER', N'3', N'Phương trình hoành độ giao điểm x³ - 3x = 0 <=> x(x² - 3) = 0 => x = 0 hoặc x = ±√3. Vậy có 3 nghiệm (3 giao điểm).');
+
+-- Thể loại 3: Tự luận giáo viên chấm (ESSAY)
+INSERT INTO Questions (quiz_id, question_content, question_type, correct_answer, explanation)
+VALUES (@NewQuizId, N'Viết phương trình tiếp tuyến của đồ thị (C): y = x³ - 3x tại điểm có hoành độ x₀ = 2.', 'ESSAY', N'y = 9x - 10', N'Ta có đạo hàm y phẩy tại 2 bằng 9, y(2) = 2. Phương trình tiếp tuyến là: y = 9(x - 2) + 2 <=> y = 9x - 10.');
+GO
+
+-- Kiểm tra lại sản phẩm sau khi nâng cấp
+SELECT * FROM Quizzes WHERE quiz_title LIKE N'%Hệ Thống Chấm Điểm%';
+SELECT * FROM Questions WHERE quiz_id = (SELECT MAX(quiz_id) FROM Quizzes);
