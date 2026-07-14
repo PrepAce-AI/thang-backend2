@@ -1,9 +1,8 @@
 package backend.service;
 
 import backend.dto.response.*;
-import backend.entity.Chapter;
 import backend.entity.Course;
-import backend.entity.Lesson;
+import backend.dto.*;
 import backend.repository.CourseRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -15,14 +14,13 @@ import java.util.stream.Collectors;
 
 @Service
 public class CourseService {
-
     @Autowired
     private CourseRepository courseRepository;
     @Transactional(readOnly = true)
     public List<CourseListResponse> getAllCourses() {
         return courseRepository.findAll().stream().map(course -> {
             var dto = new backend.dto.response.CourseListResponse();
-            dto.setId(course.getId());
+            dto.setId(course.getCourseId());
             dto.setTitle(course.getTitle());
             dto.setDescription(course.getDescription());
 
@@ -58,7 +56,7 @@ public class CourseService {
     public Course updateCourse(Integer courseId, java.util.Map<String, Object> updates) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học"));
-        
+
         if (updates.containsKey("title")) {
             course.setTitle((String) updates.get("title"));
         }
@@ -74,7 +72,7 @@ public class CourseService {
     // Hàm thực hiện chuyển đổi Entity -> DTO thủ công
     private CourseDetailResponse mapToResponse(Course course) {
         CourseDetailResponse response = new CourseDetailResponse();
-        response.setId(course.getId());
+        response.setId(course.getCourseId());
         response.setTitle(course.getTitle());
         response.setDescription(course.getDescription());
         response.setThumbnailUrl(course.getThumbnailUrl());
@@ -114,5 +112,9 @@ public class CourseService {
         }).collect(Collectors.toList()));
 
         return response;
+    }
+
+    public List<Course> getCoursesByTeacherId(Integer teacherId) {
+        return courseRepository.findByTeacherId(teacherId);
     }
 }

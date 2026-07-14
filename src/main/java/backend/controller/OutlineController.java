@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@CrossOrigin(origins = "http://localhost:5173")
 @RequestMapping("/api/outlines")
 public class OutlineController {
 
@@ -29,7 +30,7 @@ public class OutlineController {
         }
 
         // Tính toán số thứ tự tự động tăng cho chương mới
-        List<Chapter> existingChapters = chapterRepository.findByCourseIdOrderByOrderAsc(courseId);
+        List<Chapter> existingChapters = chapterRepository.findByCourse_CourseIdOrderByOrderAsc(courseId);
         int nextOrder = existingChapters.size() + 1;
 
         Chapter chapter = new Chapter();

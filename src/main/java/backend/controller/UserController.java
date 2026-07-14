@@ -126,7 +126,7 @@ public class UserController {
 
 
 
-    //FORGET - RESET - CHANGE PASSWORD ======================================================================
+    //FORGET - RESET - CHANGE PASSWORD - LOGOUT ======================================================================
 
     @PutMapping("/change-password")
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest req, @RequestHeader("Authorization") String token){
@@ -155,5 +155,12 @@ public class UserController {
         String message = userService.verifyEmail(req);
 
         return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    //========================================================================================================
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader("Authorization") String token){
+        userService.logout(token);
+        return ResponseEntity.ok(Map.of("message", "Logout Successfully"));
     }
 }

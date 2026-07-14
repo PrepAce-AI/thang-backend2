@@ -4,7 +4,7 @@ import lombok.*;
 import java.util.*;
 
 @Entity
-@Table(name = "TestSessions")
+@Table(name = "test_sessions")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,7 +20,7 @@ public class TestSession {
     private Quiz quiz;
 
     @ManyToOne
-    @JoinColumn(name = "student_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User student;
 
     @Column(name = "started_at")
@@ -35,7 +35,7 @@ public class TestSession {
     private int remainingTime;
 
     @Column(name = "status")
-    private String status;
+    private String status = "IN_PROGRESS";
 
     @Column(name = "score")
     private Float score;

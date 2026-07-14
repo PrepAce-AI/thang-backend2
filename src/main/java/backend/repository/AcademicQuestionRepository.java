@@ -10,4 +10,8 @@ public interface AcademicQuestionRepository extends JpaRepository<AcademicQuesti
 
     // Hàm tìm kiếm tất cả câu hỏi của một bài học, sắp xếp theo thời gian mới nhất lên đầu
     List<AcademicQuestion> findByLessonIdOrderByCreatedAtDesc(Integer lessonId);
+
+    // Lấy tất cả câu hỏi kèm theo thông tin liên quan
+    @org.springframework.data.jpa.repository.Query("SELECT q FROM AcademicQuestion q JOIN FETCH q.user JOIN FETCH q.lesson l JOIN FETCH l.chapter c JOIN FETCH c.course co ORDER BY q.createdAt DESC")
+    List<AcademicQuestion> findAllQuestionsWithDetails();
 }

@@ -22,6 +22,9 @@ public class AcademicQuestion {
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt = new Date();
 
+    @Column(name = "timestamp_seconds")
+    private Integer timestampSeconds;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
@@ -29,4 +32,7 @@ public class AcademicQuestion {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id", nullable = false)
     private Lesson lesson;
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private java.util.List<AcademicAnswer> answers;
 }

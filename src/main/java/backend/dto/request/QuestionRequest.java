@@ -6,4 +6,5 @@ import lombok.Data;
 public class QuestionRequest {
     private String content;
     private Integer lessonId;
+    private Integer timestampSeconds;
 }

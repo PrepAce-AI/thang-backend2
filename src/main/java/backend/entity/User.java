@@ -1,8 +1,12 @@
 package backend.entity;
-
+import lombok.*;
 import jakarta.persistence.*;
 import java.util.Date;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "Users")
 public class User {
@@ -39,8 +43,10 @@ public class User {
     @Temporal(TemporalType.TIMESTAMP)
     private Date createdAt;
 
+    @Column(name = "verification_code")
     private String verificationCode;
 
+    @Column(name = "verification_expiry")
     private Date verificationExpiry;
 
     // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu tên trường học tiếng Việt
@@ -51,36 +57,15 @@ public class User {
     @Column(name = "bio", columnDefinition = "NVARCHAR(MAX)")
     private String bio;
 
-//    private boolean verified = false;
+    @Column(name = "role_name")
+    private String roleName;
 
-    public User() {}
+    @Column(name = "teacher_request_status")
+    private String teacherRequestStatus; // Giá trị: NULL (Bình thường), "PENDING" (Đang chờ duyệt), "APPROVED", "REJECTED"
 
-    // getters & setters (Giữ nguyên không thay đổi)
+    @Column(name = "education")
+    private String education;
 
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-    public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    public String getPasswordHash() { return passwordHash; }
-    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
-    public String getAvatarUrl() { return avatarUrl; }
-    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
-    public int getRoleId() { return roleId; }
-    public void setRoleId(int roleId) { this.roleId = roleId; }
-    public String getAccountStatus() { return accountStatus; }
-    public void setAccountStatus(String accountStatus) { this.accountStatus = accountStatus; }
-    public Date getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
-    public String getVerificationCode() { return verificationCode; }
-    public void setVerificationCode(String verificationCode) { this.verificationCode = verificationCode; }
-    public Date getVerificationExpiry() { return verificationExpiry; }
-    public void setVerificationExpiry(Date verificationExpiry) { this.verificationExpiry = verificationExpiry; }
-    public String getSchool() { return school; }
-    public void setSchool(String school) { this.school = school; }
-    public String getBio() { return bio; }
-    public void setBio(String bio) { this.bio = bio; }
+    @Column(name = "experience")
+    private String experience;
 }

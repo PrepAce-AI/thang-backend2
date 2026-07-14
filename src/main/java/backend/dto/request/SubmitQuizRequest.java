@@ -1,7 +1,6 @@
 package backend.dto.request;
 
 import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.util.Map;
@@ -9,12 +8,19 @@ import java.util.Map;
 @Data
 public class SubmitQuizRequest {
 
-    @NotNull(message = "quizId is required")
+    /**
+     * sessionsId = attemptId từ startQuiz response.
+     * Dùng để lấy lại quizId từ QuizAttempt.
+     */
+    private Integer sessionsId;
+
+    /** quizId — có thể gửi trực tiếp hoặc sẽ được lấy từ sessionsId */
     private Integer quizId;
 
     /**
-     * Map<questionId, selectedAnswer>
-     * selectedAnswer là nội dung text của đáp án chọn
+     * Map<questionId, optionContent>
+     * key   = questionId (Integer)
+     * value = nội dung text của đáp án chọn (String)
      */
     @NotEmpty(message = "answers must not be empty")
     private Map<Integer, String> answers;

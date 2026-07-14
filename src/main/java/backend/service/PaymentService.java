@@ -1,15 +1,18 @@
 package backend.service;
 
 import backend.dto.request.PurchaseRequest;
+import backend.dto.request.SePayWebhookRequest;
 import backend.dto.response.PaymentResponse;
 import backend.entity.Course;
 import backend.entity.Enrollment;
 import backend.entity.Payment;
+import backend.entity.User;
 import backend.exceptions.BadRequestException;
 import backend.exceptions.ResourceNotFoundException;
 import backend.repository.CourseRepository;
 import backend.repository.EnrollmentRepository;
 import backend.repository.PaymentRepository;
+import backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -32,116 +36,353 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final UserRepository userRepository;
 
     // ─── Mua khóa học ───────────────────────────────────────────────────────────
 
     @Transactional
-    public PaymentResponse purchaseCourse(Integer studentId, PurchaseRequest request) {
+    public PaymentResponse createBankPayment(
+            Integer studentId,
+            PurchaseRequest request) {
+
         Course course = courseRepository.findById(request.getCourseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Course không tồn tại: " + request.getCourseId()));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Không tìm thấy khóa học"));
 
         if (!Boolean.TRUE.equals(course.getIsPublished())) {
-            throw new BadRequestException("Khóa học này chưa được phát hành");
+            throw new BadRequestException("Khóa học chưa được phát hành.");
         }
 
-        // Kiểm tra đã mua chưa
-        if (paymentRepository.existsSuccessfulPayment(studentId, request.getCourseId())) {
-            throw new BadRequestException("Bạn đã sở hữu khóa học này rồi");
+        if (paymentRepository.existsSuccessfulPayment(
+                studentId,
+                course.getCourseId())) {
+
+            throw new BadRequestException("Bạn đã sở hữu khóa học này.");
         }
 
-        // Kiểm tra đã enroll chưa (trường hợp free)
-        if (enrollmentRepository.existsByStudentIdAndCourseId(studentId, request.getCourseId())) {
-            throw new BadRequestException("Bạn đã được đăng ký vào khóa học này");
+        if (enrollmentRepository.existsByStudentIdAndCourseId(
+                studentId,
+                course.getCourseId())) {
+
+            throw new BadRequestException("Bạn đã đăng ký khóa học này.");
         }
 
-        String transactionCode = request.getTransactionCode() != null
-                ? request.getTransactionCode()
-                : "TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String transactionCode =
+                "PAY-" + UUID.randomUUID()
+                        .toString()
+                        .substring(0, 8)
+                        .toUpperCase();
 
-        // Xác định trạng thái thanh toán
-        String status = processPaymentGateway(request.getPaymentMethod(), transactionCode, course);
+        String transferContent = "PAY " + transactionCode;
 
-        // Lưu payment record
+        String bankBin = "970436";
+        String accountNo = "9703391695";
+        String accountName = "NGUYEN CUU THANG";
+
+        String qrUrl =
+                "https://img.vietqr.io/image/"
+                        + bankBin
+                        + "-"
+                        + accountNo
+                        + "-compact2.jpg"
+                        + "?amount="
+                        + course.getPrice().intValue()
+                        + "&addInfo="
+                        + transferContent
+                        + "&accountName="
+                        + accountName.replace(" ", "%20");
+
         Payment payment = new Payment();
+
         payment.setStudentId(studentId);
         payment.setCourseId(course.getCourseId());
         payment.setAmount(course.getPrice());
-        payment.setPaymentMethod(request.getPaymentMethod().toUpperCase());
-        payment.setPaymentStatus(status);
-        payment.setTransactionCode(transactionCode);
-        payment.setPaidAt(new Date());
-        Payment saved = paymentRepository.save(payment);
 
-        // Nếu SUCCESS → tự động enroll
-        if ("SUCCESS".equals(status)) {
-            autoEnroll(studentId, course.getCourseId());
-            log.info("Student {} purchased courseId={} via {} — enrolled", studentId, course.getCourseId(), request.getPaymentMethod());
-        }
+        payment.setPaymentMethod("BANK");
+        payment.setPaymentStatus("PENDING");
+
+        payment.setTransactionCode(transactionCode);
+
+        payment.setCreatedAt(new Date());
+        payment.setUpdatedAt(new Date());
+        payment.setPaidAt(null);
+
+        paymentRepository.save(payment);
+
+        log.info(
+                "Create payment: student={}, course={}, txn={}",
+                studentId,
+                course.getCourseId(),
+                transactionCode
+        );
 
         return PaymentResponse.builder()
-                .paymentId(saved.getPaymentId())
+                .paymentId(payment.getPaymentId())
+                .studentId(studentId)
                 .courseId(course.getCourseId())
-                .courseTitle(course.getCourseTitle())
-                .amount(saved.getAmount())
-                .paymentMethod(saved.getPaymentMethod())
-                .paymentStatus(saved.getPaymentStatus())
-                .transactionCode(saved.getTransactionCode())
-                .paidAt(saved.getPaidAt())
-                .message("SUCCESS".equals(status) ? "Thanh toán thành công! Bạn đã được đăng ký vào khóa học." : "Thanh toán đang xử lý.")
+                .courseTitle(course.getTitle())
+                .amount(course.getPrice())
+                .paymentMethod("BANK")
+                .paymentStatus("PENDING")
+                .transactionCode(transactionCode)
+                .transferContent(transferContent)
+                .qrUrl(qrUrl)
+                .createdAt(payment.getCreatedAt())
+                .message("Đã tạo giao dịch. Vui lòng chuyển khoản đúng nội dung.")
                 .build();
     }
 
     /**
-     * Callback từ cổng VNPAY/MOMO xác nhận giao dịch thành công.
-     * Sẽ được gọi từ webhook endpoint.
+     * ==========================================================
+     * XÁC NHẬN THANH TOÁN
+     * (Được gọi bởi SePay Webhook hoặc Admin)
+     * ==========================================================
      */
-    @Transactional
-    public PaymentResponse confirmPayment(String transactionCode) {
-        Payment payment = paymentRepository.findByTransactionCode(transactionCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Giao dịch không tồn tại: " + transactionCode));
+    @Transactional(readOnly = true)
+    public PaymentResponse confirmPayment(String transactionCode){
 
-        if ("SUCCESS".equals(payment.getPaymentStatus())) {
-            throw new BadRequestException("Giao dịch này đã được xác nhận trước đó");
-        }
+        Payment payment = paymentRepository
+                .findByTransactionCode(transactionCode)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Payment not found"));
 
-        payment.setPaymentStatus("SUCCESS");
-        payment.setPaidAt(new Date());
-        paymentRepository.save(payment);
-
-        autoEnroll(payment.getStudentId(), payment.getCourseId());
-
-        Course course = courseRepository.findById(payment.getCourseId()).orElse(null);
-        log.info("Payment confirmed for transactionCode={}, student={}", transactionCode, payment.getStudentId());
+        Course course = courseRepository
+                .findById(payment.getCourseId())
+                .orElse(null);
 
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
+                .studentId(payment.getStudentId())
                 .courseId(payment.getCourseId())
-                .courseTitle(course != null ? course.getCourseTitle() : null)
+                .courseTitle(course!=null?course.getTitle():null)
                 .amount(payment.getAmount())
                 .paymentMethod(payment.getPaymentMethod())
-                .paymentStatus("SUCCESS")
-                .transactionCode(transactionCode)
+                .paymentStatus(payment.getPaymentStatus())
+                .transactionCode(payment.getTransactionCode())
+                .createdAt(payment.getCreatedAt())
                 .paidAt(payment.getPaidAt())
-                .message("Xác nhận thanh toán thành công! Bạn đã được đăng ký vào khóa học.")
+                .message(payment.getPaymentStatus())
+                .build();
+    }
+    @Transactional
+    public PaymentResponse adminConfirmPayment(String transactionCode) {
+        Payment payment = paymentRepository
+                .findByTransactionCode(transactionCode)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Không tìm thấy giao dịch: " + transactionCode
+                        ));
+        // 1. Không cho confirm lại
+        if ("SUCCESS".equals(payment.getPaymentStatus())) {
+            throw new BadRequestException(
+                    "Giao dịch này đã được xác nhận trước đó."
+            );
+        }
+        // 2. Chỉ cho phép confirm payment đang chờ
+        if (!"WAITING_CONFIRM".equals(payment.getPaymentStatus())) {
+            throw new BadRequestException(
+                    "Giao dịch không ở trạng thái chờ xác nhận."
+            );
+        }
+        // 3. Check student tồn tại
+        User student = userRepository
+                .findById(payment.getStudentId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Không tìm thấy học viên."
+                        ));
+        // 4. Check course tồn tại
+        Course course = courseRepository
+                .findById(payment.getCourseId())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Không tìm thấy khóa học."
+                        ));
+        // 5. Check payment amount
+        if (payment.getAmount() == null ||
+                course.getPrice() == null ||
+                payment.getAmount()
+                        .compareTo(course.getPrice()) != 0) {
+            throw new BadRequestException(
+                    "Số tiền thanh toán không khớp với khóa học."
+            );
+        }
+        // 6. Check thời gian thanh toán
+        long elapsed =
+                new Date().getTime()
+                        -
+                        payment.getCreatedAt().getTime();
+        // quá 24h thì không cho xác nhận
+        if (elapsed > 24 * 60 * 60 * 1000) {
+            throw new BadRequestException(
+                    "Giao dịch đã hết hạn xác nhận."
+            );
+        }
+        // 7. Update payment
+        payment.setPaymentStatus("SUCCESS");
+        payment.setPaidAt(new Date());
+        payment.setUpdatedAt(new Date());
+        paymentRepository.save(payment);
+
+        // 8. Mở khóa khóa học
+        autoEnroll(
+                payment.getStudentId(),
+                payment.getCourseId()
+        );
+        log.info(
+                "ADMIN CONFIRM PAYMENT SUCCESS - Student={}, Course={}, Txn={}",
+                payment.getStudentId(),
+                payment.getCourseId(),
+                transactionCode
+        );
+        // 9. Response
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .studentId(payment.getStudentId())
+                .studentName(student.getFullName())
+                .courseId(payment.getCourseId())
+                .courseTitle(course.getTitle())
+                .amount(payment.getAmount())
+                .paymentMethod(payment.getPaymentMethod())
+                .paymentStatus(payment.getPaymentStatus())
+                .transactionCode(payment.getTransactionCode())
+                .createdAt(payment.getCreatedAt())
+                .paidAt(payment.getPaidAt())
+                .message(
+                        "Admin đã xác nhận thanh toán thành công."
+                )
                 .build();
     }
 
-    // ─── Lịch sử thanh toán ─────────────────────────────────────────────────────
+    @Transactional
+    public PaymentResponse cancelPayment(String transactionCode){
 
-    public List<PaymentResponse> getPaymentHistory(Integer studentId) {
-        return paymentRepository.findByStudentIdOrderByPaidAtDesc(studentId)
+        Payment payment = paymentRepository
+                .findByTransactionCode(transactionCode)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Không tìm thấy giao dịch: "
+                                        + transactionCode
+                        )
+                );
+
+
+        if(!"WAITING_CONFIRM".equals(payment.getPaymentStatus())){
+            throw new BadRequestException(
+                    "Chỉ được hủy giao dịch đang chờ xác nhận."
+            );
+        }
+
+
+        payment.setPaymentStatus("CANCELLED");
+        payment.setUpdatedAt(new Date());
+
+        paymentRepository.save(payment);
+
+
+        Course course = courseRepository
+                .findById(payment.getCourseId())
+                .orElse(null);
+
+
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .studentId(payment.getStudentId())
+                .courseId(payment.getCourseId())
+                .courseTitle(
+                        course != null
+                                ? course.getTitle()
+                                : null
+                )
+                .amount(payment.getAmount())
+                .paymentMethod(payment.getPaymentMethod())
+                .paymentStatus(payment.getPaymentStatus())
+                .transactionCode(payment.getTransactionCode())
+                .createdAt(payment.getCreatedAt())
+                .message(
+                        "Admin đã hủy giao dịch."
+                )
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getPendingPayments() {
+
+        return paymentRepository.findByPaymentStatus("WAITING_CONFIRM")
                 .stream()
-                .map(p -> {
-                    Course course = courseRepository.findById(p.getCourseId()).orElse(null);
+                .map(payment -> {
+
+                    Course course = courseRepository
+                            .findById(payment.getCourseId())
+                            .orElse(null);
+
+                    User student = userRepository
+                            .findById(payment.getStudentId())
+                            .orElse(null);
+
                     return PaymentResponse.builder()
-                            .paymentId(p.getPaymentId())
-                            .courseId(p.getCourseId())
-                            .courseTitle(course != null ? course.getCourseTitle() : "Unknown")
-                            .amount(p.getAmount())
-                            .paymentMethod(p.getPaymentMethod())
-                            .paymentStatus(p.getPaymentStatus())
-                            .transactionCode(p.getTransactionCode())
-                            .paidAt(p.getPaidAt())
+                            .paymentId(payment.getPaymentId())
+
+                            // Student info
+                            .studentId(payment.getStudentId())
+                            .studentName(
+                                    student != null
+                                            ? student.getFullName()
+                                            : "Unknown"
+                            )
+
+                            // Course info
+                            .courseId(payment.getCourseId())
+                            .courseTitle(
+                                    course != null
+                                            ? course.getTitle()
+                                            : "Unknown"
+                            )
+
+                            // Payment info
+                            .amount(payment.getAmount())
+                            .paymentMethod(payment.getPaymentMethod())
+                            .paymentStatus(payment.getPaymentStatus())
+                            .transactionCode(payment.getTransactionCode())
+                            .createdAt(payment.getCreatedAt())
+                            .paidAt(payment.getPaidAt())
+
+                            .message("Đang chờ xác nhận thanh toán")
+                            .build();
+                })
+                .toList();
+    }
+
+    /**
+     * ==========================================================
+     * LỊCH SỬ THANH TOÁN
+     * ==========================================================
+     */
+    @Transactional(readOnly = true)
+    public List<PaymentResponse> getPaymentHistory(Integer studentId) {
+
+        return paymentRepository
+                .findByStudentIdOrderByCreatedAtDesc(studentId)
+                .stream()
+                .map(payment -> {
+
+                    Course course = courseRepository
+                            .findById(payment.getCourseId())
+                            .orElse(null);
+
+                    return PaymentResponse.builder()
+                            .paymentId(payment.getPaymentId())
+                            .studentId(payment.getStudentId())
+                            .courseId(payment.getCourseId())
+                            .courseTitle(course != null
+                                    ? course.getTitle()
+                                    : "Unknown")
+                            .amount(payment.getAmount())
+                            .paymentMethod(payment.getPaymentMethod())
+                            .paymentStatus(payment.getPaymentStatus())
+                            .transactionCode(payment.getTransactionCode())
+                            .createdAt(payment.getCreatedAt())
+                            .paidAt(payment.getPaidAt())
                             .build();
                 })
                 .toList();
@@ -178,5 +419,177 @@ public class PaymentService {
             enrollment.setProgressPercent(0.0);
             enrollmentRepository.save(enrollment);
         }
+    }
+
+    /**
+     * ==========================================================
+     * WEBHOOK TỪ SePay
+     * ==========================================================
+     */
+    @Transactional
+    public void handleSePayWebhook(SePayWebhookRequest req) {
+
+        log.info("===== SEPAY WEBHOOK =====");
+        log.info("Content      : {}", req.getContent());
+        log.info("Amount       : {}", req.getAmount());
+        log.info("Bank Txn Id  : {}", req.getBankTransactionId());
+
+        // Nội dung chuyển khoản
+        String content = req.getContent();
+
+        if (content == null || content.isBlank()) {
+            log.warn("Webhook không có nội dung chuyển khoản");
+            return;
+        }
+
+        // Tìm payment theo transactionCode
+        Payment payment = paymentRepository
+                .findByTransactionCodeContaining(content)
+                .orElse(null);
+
+        if (payment == null) {
+            log.warn("Không tìm thấy payment với content={}", content);
+            return;
+        }
+
+        // Đã xử lý rồi
+        if ("SUCCESS".equals(payment.getPaymentStatus())) {
+            log.info("Payment {} đã SUCCESS trước đó", payment.getTransactionCode());
+            return;
+        }
+
+        // Kiểm tra số tiền
+        if (req.getAmount() == null ||
+                payment.getAmount().compareTo(req.getAmount()) != 0) {
+
+            log.warn("Sai số tiền. DB={} Webhook={}",
+                    payment.getAmount(),
+                    req.getAmount());
+
+            return;
+        }
+
+        // Cập nhật payment
+        payment.setPaymentStatus("SUCCESS");
+        payment.setPaidAt(new Date());
+        payment.setUpdatedAt(new Date());
+        payment.setBankTransactionId(req.getBankTransactionId());
+
+        paymentRepository.save(payment);
+
+        // Auto enroll
+        autoEnroll(payment.getStudentId(), payment.getCourseId());
+
+        log.info("Payment {} SUCCESS",
+                payment.getTransactionCode());
+
+        log.info("=========================");
+    }
+
+    @Transactional
+    public PaymentResponse purchaseCourse(Integer studentId, PurchaseRequest request) {
+        String method = request.getPaymentMethod().toUpperCase();
+        switch (method) {
+            case "BANK":
+                return createBankPayment(studentId, request);
+            // Sau này mở rộng
+            // case "VNPAY":
+            //     return createVnPayPayment(studentId, request);
+
+            // case "MOMO":
+            //     return createMoMoPayment(studentId, request);
+
+            default:
+                throw new BadRequestException("Unsupported payment method: " + method);
+        }
+    }
+
+    /**
+     * ==========================================================
+     * KIỂM TRA TRẠNG THÁI GIAO DỊCH
+     * ==========================================================
+     */
+    @Transactional(readOnly = true)
+    public PaymentResponse checkPaymentStatus(String transactionCode) {
+
+        Payment payment = paymentRepository
+                .findByTransactionCode(transactionCode)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Không tìm thấy giao dịch"));
+
+        Course course = courseRepository
+                .findById(payment.getCourseId())
+                .orElse(null);
+
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .studentId(payment.getStudentId())
+                .courseId(payment.getCourseId())
+                .courseTitle(course != null ? course.getTitle() : null)
+                .amount(payment.getAmount())
+                .paymentMethod(payment.getPaymentMethod())
+                .paymentStatus(payment.getPaymentStatus())
+                .transactionCode(payment.getTransactionCode())
+                .createdAt(payment.getCreatedAt())
+                .paidAt(payment.getPaidAt())
+                .message(payment.getPaymentStatus())
+                .build();
+    }
+
+    // -------------------- STATUS BANKING -----------------------
+    @Transactional(readOnly = true)
+    public PaymentResponse getPaymentStatus(String transactionCode) {
+
+        Payment payment = paymentRepository.findByTransactionCode(transactionCode)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Payment not found"));
+
+        Course course = courseRepository.findById(payment.getCourseId())
+                .orElse(null);
+
+        return PaymentResponse.builder()
+                .paymentId(payment.getPaymentId())
+                .studentId(payment.getStudentId())
+                .courseId(payment.getCourseId())
+                .courseTitle(course != null ? course.getTitle() : "")
+                .amount(payment.getAmount())
+                .paymentMethod(payment.getPaymentMethod())
+                .paymentStatus(payment.getPaymentStatus())
+                .transactionCode(payment.getTransactionCode())
+                .transferContent(payment.getTransactionCode())
+                .paidAt(payment.getPaidAt())
+                .createdAt(payment.getCreatedAt())
+                .message(payment.getPaymentStatus())
+                .build();
+    }
+
+    // -------------------- WAITING BANKING -----------------------
+
+    @Transactional
+    public PaymentResponse waitingConfirm(String transactionCode){
+
+        Payment payment = paymentRepository
+                .findByTransactionCode(transactionCode)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Không tìm thấy giao dịch"
+                        ));
+        // Chỉ PENDING mới được gửi yêu cầu
+        if(!"PENDING".equals(payment.getPaymentStatus())){
+
+            throw new BadRequestException(
+                    "Giao dịch này đã được gửi xác nhận hoặc đã hoàn tất."
+            );
+        }
+
+        payment.setPaymentStatus("WAITING_CONFIRM");
+        payment.setUpdatedAt(new Date());
+
+        paymentRepository.save(payment);
+        log.info(
+                "Payment waiting confirm: {}",
+                transactionCode
+        );
+        return getPaymentStatus(transactionCode);
     }
 }

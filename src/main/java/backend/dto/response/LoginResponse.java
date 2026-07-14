@@ -8,10 +8,6 @@ public class LoginResponse {
 
     }
 
-    public LoginResponse(String token){
-        this.token = token;
-    }
-
     public LoginResponse(String token, User user){
         this.token = token;
         this.user = user;

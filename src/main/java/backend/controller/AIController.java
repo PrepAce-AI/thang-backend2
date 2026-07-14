@@ -1,13 +1,19 @@
 package backend.controller;
 
 import backend.dto.request.ChatRequest;
-import backend.dto.response.AdaptivePathResponse;
+import backend.dto.request.UniversityAdvisingRequest;
+import backend.dto.response.AdaptivePathViewResponse;
 import backend.dto.response.ChatResponse;
+import backend.dto.response.GapDiagnosisResponse;
+import backend.dto.response.ScoreForecastResponse;
+import backend.dto.response.UniversityAdvisingResponse;
+import backend.repository.UserRepository;
 import backend.service.AIService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -25,24 +31,44 @@ import org.springframework.web.bind.annotation.*;
 public class AIController {
 
     private final AIService aiService;
+    private final UserRepository userRepository;
+
+    private Integer getCurrentStudentId(Authentication authentication) {
+
+        String email = authentication.getName();
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"))
+                .getId();
+    }
 
     // ─── UC-26: Chat ─────────────────────────────────────────────────────────────
 
     /** Gửi câu hỏi tới AI Chatbot (Gemini) */
     @PostMapping("/chat")
     public ResponseEntity<ChatResponse> chat(
-            @RequestHeader("X-Student-Id") Integer studentId,
+            Authentication authentication,
             @Valid @RequestBody ChatRequest request) {
-        return ResponseEntity.ok(aiService.chat(studentId, request));
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.chat(studentId, request)
+        );
     }
 
     /** Lịch sử chat của học sinh (phân trang) */
     @GetMapping("/chat/history")
     public ResponseEntity<Page<ChatResponse>> getChatHistory(
-            @RequestHeader("X-Student-Id") Integer studentId,
+            Authentication authentication,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return ResponseEntity.ok(aiService.getChatHistory(studentId, page, size));
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.getChatHistory(studentId, page, size)
+        );
     }
 
     // ─── UC-28: Gap Diagnosis ────────────────────────────────────────────────────
@@ -52,9 +78,14 @@ public class AIController {
      * Trả về: điểm trung bình, biểu đồ cognitive, danh sách gap.
      */
     @GetMapping("/gap-diagnosis")
-    public ResponseEntity<AdaptivePathResponse> diagnoseGaps(
-            @RequestHeader("X-Student-Id") Integer studentId) {
-        return ResponseEntity.ok(aiService.diagnoseGaps(studentId));
+    public ResponseEntity<GapDiagnosisResponse> diagnoseGaps(
+            Authentication authentication) {
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.diagnoseGaps(studentId)
+        );
     }
 
     // ─── UC-27: Adaptive Path ────────────────────────────────────────────────────
@@ -64,31 +95,54 @@ public class AIController {
      * Trả về: biểu đồ năng lực + danh sách bài học ưu tiên.
      */
     @GetMapping("/adaptive-path")
-    public ResponseEntity<AdaptivePathResponse> generatePath(
-            @RequestHeader("X-Student-Id") Integer studentId) {
-        return ResponseEntity.ok(aiService.generateAdaptivePath(studentId));
+    public ResponseEntity<AdaptivePathViewResponse> generatePath(
+            Authentication authentication) {
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.generateAdaptivePath(studentId)
+        );
     }
 
     // ─── UC-29: Score Forecasting ────────────────────────────────────────────────
 
     /** Dự đoán điểm thi THPT QG dựa trên phong độ học sinh */
     @GetMapping("/score-forecast")
-    public ResponseEntity<ChatResponse> forecastScore(
-            @RequestHeader("X-Student-Id") Integer studentId) {
-        return ResponseEntity.ok(aiService.forecastScore(studentId));
+    public ResponseEntity<ScoreForecastResponse> forecastScore(
+            Authentication authentication) {
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.forecastScore(studentId)
+        );
     }
 
     // ─── UC-30: University Advising ──────────────────────────────────────────────
 
     /**
-     * Tư vấn ngành và trường đại học phù hợp.
-     * Params: targetScore (điểm mục tiêu), preferredMajor (ngành yêu thích)
+     * Tư vấn ngành và trường đại học phù hợp theo khối thi (A00/A01/B00/C00/D01).
      */
-    @GetMapping("/university-advise")
-    public ResponseEntity<ChatResponse> adviseUniversity(
-            @RequestHeader("X-Student-Id") Integer studentId,
-            @RequestParam(required = false) String targetScore,
-            @RequestParam(required = false) String preferredMajor) {
-        return ResponseEntity.ok(aiService.adviseUniversity(studentId, targetScore, preferredMajor));
+    @GetMapping("/university-advising")
+    public ResponseEntity<UniversityAdvisingResponse> universityAdvising(
+            Authentication authentication,
+            @RequestParam(defaultValue = "A00") String block) {
+
+        Integer studentId = getCurrentStudentId(authentication);
+
+        return ResponseEntity.ok(
+                aiService.getUniversityAdvising(studentId, block)
+        );
+    }
+
+    @PostMapping("/university-advising")
+    public UniversityAdvisingResponse getUniversityAdvising(
+            @RequestBody UniversityAdvisingRequest request
+    ) {
+        return aiService.getUniversityAdvising(
+                request.getStudentId(),
+                request.getBlock()
+        );
     }
 }

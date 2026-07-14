@@ -1,35 +1,12 @@
 package backend.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import java.util.List;
-
-@Data
-@Entity
-@Table(name = "Courses")
-public class Course {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "course_id")
-    private Integer id;
-
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR cho tiêu đề khóa học
-    @Column(name = "course_title", nullable = false, columnDefinition = "NVARCHAR(255)")
-    private String title;
-
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR(MAX) cho mô tả khóa học dài
-    @Column(name = "course_description", columnDefinition = "NVARCHAR(MAX)")
-    private String description;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 @Entity
 @Table(name = "Courses")
-@Getter @Setter @NoArgsConstructor
 public class Course {
 
     @Id
@@ -37,42 +14,103 @@ public class Course {
     @Column(name = "course_id")
     private Integer courseId;
 
-    @Column(name = "teacher_id", nullable = false)
-    private Integer teacherId;
+    @Column(name = "course_title", nullable = false)
+    private String title;
 
-    @Column(name = "subject_id", nullable = false)
-    private Integer subjectId;
+    @Column(name = "description")
+    private String description;
 
-    @Column(name = "course_title")
-    private String courseTitle;
-
-    @Column(name = "course_description", columnDefinition = "NVARCHAR(MAX)")
-    private String courseDescription;
+    @Column(name = "price")
+    private BigDecimal price;
 
     @Column(name = "thumbnail_url")
     private String thumbnailUrl;
-
-    @OneToMany(mappedBy = "course", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @OrderBy("order ASC")
-    private List<Chapter> chapters;
-
-
-    // 🔥 BẢO TOÀN THÊM ĐOẠN NÀY VÀO CUỐI FILE ĐỂ ĐỒNG BỘ VỚI SQL SERVER:
-    @Column(name = "price")
-    private java.math.BigDecimal price;
-    @Column(name = "price", precision = 10, scale = 2)
-    private BigDecimal price;
-
-    @Column(name = "is_published")
-    private Boolean isPublished;
 
     @Column(name = "teacher_id")
     private Integer teacherId;
 
     @Column(name = "subject_id")
     private Integer subjectId;
-}
-    @Column(name = "created_at")
+
+    @Column(name = "status")
+    private String status = "DRAFT";
+
+    @Column(name = "note")
+    private String reviewNote;
+
     @Temporal(TemporalType.TIMESTAMP)
-    private Date createdAt;
+    @Column(name = "created_at")
+    private Date createdAt = new Date();
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "subject_id", insertable = false, updatable = false)
+    private Subject subject;
+
+    @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @JoinColumn(name = "course_id")
+    private List<backend.entity.Chapter> chapters;
+
+    @Column(name = "category_id")
+    private Integer categoryId;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "category_id", insertable = false, updatable = false)
+    
+    private Category category; // Thực thể Category quản lý tên danh mục
+    // ==================== GETTERS AND SETTERS ====================
+
+    public Integer getCourseId() { return courseId; }
+    public void setCourseId(Integer courseId) { this.courseId = courseId; }
+
+    public boolean getIsPublished() {
+        return "PUBLISHED".equalsIgnoreCase(this.status);
+    }
+
+    public void setIsPublished(boolean isPublished) {
+        this.status = isPublished ? "PUBLISHED" : "DRAFT";
+    }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+
+    public String getThumbnailUrl() { return thumbnailUrl; }
+    public void setThumbnailUrl(String thumbnailUrl) { this.thumbnailUrl = thumbnailUrl; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public Integer getTeacherId() { return teacherId; }
+    public void setTeacherId(Integer teacherId) { this.teacherId = teacherId; }
+
+    public Integer getSubjectId() { return subjectId; }
+    public void setSubjectId(Integer subjectId) { this.subjectId = subjectId; }
+
+    public Subject getSubject() { return subject; }
+    public void setSubject(Subject subject) { this.subject = subject; }
+
+    public String getReviewNote() { return reviewNote; }
+    public void setReviewNote(String reviewNote) { this.reviewNote = reviewNote; }
+
+    public Date getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
+
+    public List<backend.entity.Chapter> getChapters() { return chapters; }
+    public void setChapters(List<backend.entity.Chapter> chapters) { this.chapters = chapters; }
+
+
+
+
+    // --- Thêm Getter và Setter cho thuộc tính mới ---
+    public Integer getCategoryId() { return categoryId; }
+    public void setCategoryId(Integer categoryId) { this.categoryId = categoryId; }
+
+    public Category getCategory() { return category; }
+    public void setCategory(Category category) { this.category = category; }
+
 }
