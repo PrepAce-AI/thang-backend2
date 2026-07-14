@@ -66,6 +66,16 @@ public class CourseService {
         if (updates.containsKey("is_published")) {
             course.setIsPublished(Boolean.parseBoolean(String.valueOf(updates.get("is_published"))));
         }
+        if (updates.containsKey("subjectId")) {
+            try {
+                course.setSubjectId(Integer.parseInt(String.valueOf(updates.get("subjectId"))));
+            } catch (Exception e) {}
+        }
+        if (updates.containsKey("categoryId")) {
+            try {
+                course.setCategoryId(Integer.parseInt(String.valueOf(updates.get("categoryId"))));
+            } catch (Exception e) {}
+        }
         return courseRepository.save(course);
     }
 
@@ -93,6 +103,7 @@ public class CourseService {
                 lessonDto.setVideoUrl(lesson.getVideoUrl());
                 lessonDto.setDuration(lesson.getDuration());
                 lessonDto.setOrder(lesson.getOrder());
+                lessonDto.setIsPreview(lesson.getIsPreview() != null ? lesson.getIsPreview() : false);
 // 🔥 ĐÃ THÊM: Bốc danh sách tài liệu thật từ database nạp vào DTO trả về cho React
                 if (lesson.getMaterials() != null) {
                     lessonDto.setMaterials(lesson.getMaterials().stream().map(mat -> {

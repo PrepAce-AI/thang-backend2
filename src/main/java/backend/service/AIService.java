@@ -714,15 +714,49 @@ public class AIService {
                 .toList();
 
         List<AdaptivePathViewResponse.PathStepView> path = new ArrayList<>();
+        
+        // Cảnh báo khẩn cấp cho các môn ở ngưỡng tử (< 40%)
+        for (AdaptivePathViewResponse.SkillView skill : skills) {
+            if (skill.getScore() < 40) {
+                String icon = "🚨";
+                String action = "Xem lộ trình cấp cứu";
+                if (skill.getSubject().toLowerCase().contains("anh")) action = "Lấy lại gốc Tiếng Anh";
+                else if (skill.getSubject().toLowerCase().contains("lý") || skill.getSubject().toLowerCase().contains("hóa")) action = "Ôn khẩn cấp lý thuyết";
+                else if (skill.getSubject().toLowerCase().contains("toán")) action = "Cày lại chuyên đề Toán";
+                
+                path.add(AdaptivePathViewResponse.PathStepView.builder()
+                        .type("video").icon(icon)
+                        .title("BÁO ĐỘNG ĐỎ: Môn " + skill.getSubject())
+                        .subject(skill.getSubject())
+                        .reason("Môn học này đang ở ngưỡng báo động (chỉ đạt " + skill.getScore() + "%). Cần học lại từ cơ bản ngay lập tức!")
+                        .action(action)
+                        .build());
+            }
+        }
+        
         if (!weak.isEmpty()) {
             TopicStat w1 = weak.get(0);
             int acc1 = accuracyPercent(w1.total(), w1.wrong());
+            
+            String icon = "🔄";
+            String action = "Luyện lại chủ đề này";
+            if (w1.subject().toLowerCase().contains("anh")) {
+                icon = "🎬";
+                action = "Xem Video bài giảng Tiếng Anh";
+            } else if (w1.subject().toLowerCase().contains("lý") || w1.subject().toLowerCase().contains("hóa")) {
+                icon = "🔬";
+                action = "Ôn tập lại công thức và lý thuyết nền tảng";
+            } else if (w1.subject().toLowerCase().contains("toán")) {
+                icon = "📐";
+                action = "Luyện thêm bài tập chuyên đề để phản xạ nhanh hơn";
+            }
+
             path.add(AdaptivePathViewResponse.PathStepView.builder()
-                    .type("practice").icon("🔄")
+                    .type("practice").icon(icon)
                     .title("Ôn tập bù lỗ hổng: " + w1.topic())
                     .subject(w1.subject())
                     .reason("AI phát hiện: bạn sai " + w1.wrong() + "/" + w1.total() + " câu dạng này (đúng " + acc1 + "%).")
-                    .action("Luyện lại chủ đề này")
+                    .action(action)
                     .build());
         }
         if (weak.size() > 1) {

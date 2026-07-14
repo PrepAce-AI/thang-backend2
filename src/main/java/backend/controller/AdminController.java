@@ -4,6 +4,7 @@ import backend.entity.Course;
 import backend.entity.User;
 import backend.service.AdminService;
 import backend.entity.Notification;
+import backend.entity.ViolationReport;
 import backend.service.JwtService;
 import backend.service.NotificationService;
 import backend.entity.ViolationReport;
@@ -87,6 +88,7 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getAllUsers());
     }
 
+    // Tạm khóa (BANNED) hoặc Mở khóa (ACTIVE) tài khoản người dùng
     @PatchMapping("/users/{id}/status")
     public ResponseEntity<?> updateUserStatus(
             @PathVariable Integer id,
@@ -95,6 +97,8 @@ public class AdminController {
         String status = request.get("status");
         String reason = request.get("reason");
 
+        // 🛡️ BẢO VỆ TUYỆT ĐỐI ADMIN GỐC (BR-UC40-02): Nếu ID = 1 (Tài khoản System Admin chủ chốt)
+        // thì nghiêm cấm mọi hành vi tự khóa chính mình để giữ tối thiểu 1 Admin luôn chạy.
         if (id != null && id == 1) {
             if ("BANNED".equalsIgnoreCase(status) || "DEACTIVATED".equalsIgnoreCase(status)) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
@@ -103,6 +107,7 @@ public class AdminController {
             }
         }
 
+        // ✍️ KIỂM TRA LÝ DO KHÓA (BR-UC40-01): Đảm bảo nhập lý do có nghĩa khi khóa tài khoản
         if ("BANNED".equalsIgnoreCase(status)) {
             if (reason == null || reason.trim().length() < 20) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
@@ -111,8 +116,10 @@ public class AdminController {
             }
         }
 
+        // 1. Thực thi cập nhật trạng thái tài khoản xuống Database thông qua Service có sẵn
         User updated = adminService.updateUserStatus(id, status);
 
+        // 2. Lưu lý do khóa chi tiết vào lịch sử hệ thống hoạt động thành công
         if ("BANNED".equalsIgnoreCase(status) && updated != null) {
             try {
                 String logMessage = "Tài khoản bị khóa đăng nhập hệ thống. Lý do cụ thể: " + reason.trim();
@@ -142,24 +149,13 @@ public class AdminController {
     }
 
     @PostMapping("/notifications")
-    public ResponseEntity<Notification> createNotification(
-            @RequestHeader("Authorization") String token,
-            @RequestBody Map<String, String> request) {
-
+    public ResponseEntity<Notification> createNotification(@RequestBody Map<String, String> request, @RequestHeader(value = "Authorization", required = false) String token) {
         String title = request.get("title");
         String content = request.get("content");
         String targetRole = request.get("targetRole");
 
         Integer adminId = getCurrentAdminId(token);
-
-        Notification noti = notificationService.createNotification(
-                title,
-                content,
-                targetRole,
-                adminId,
-                null
-        );
-
+        Notification noti = notificationService.createNotification(title, content, targetRole, adminId, null);
         return ResponseEntity.ok(noti);
     }
 
@@ -200,42 +196,22 @@ public class AdminController {
     @PutMapping("/users/{id}/review-teacher")
     public ResponseEntity<?> reviewTeacher(@PathVariable Integer id, @RequestBody Map<String, String> body) {
         String decision = body.get("decision");
-        Object result = adminService.handleTeacherRequest(id, decision);
-
-        // 🔥 THÊM: Nếu duyệt thành công duyệt làm giáo viên, tự động đồng bộ role_name lên 'TEACHER'
-        if ("APPROVED".equalsIgnoreCase(decision)) {
-            try {
-                jdbcTemplate.update("UPDATE Users SET role_name = 'TEACHER' WHERE user_id = ?", id);
-                System.out.println("🎉 Đã tự động đồng bộ thành công role_name thành TEACHER sau khi duyệt đơn!");
-            } catch (Exception e) {
-                System.out.println("⚠️ Lỗi đồng bộ chuỗi chữ role_name khi duyệt đơn: " + e.getMessage());
-            }
-        }
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(adminService.handleTeacherRequest(id, decision));
     }
 
+    // 🔥 CẬP NHẬT: Ngăn chặn hạ quyền của Admin hoạt động duy nhất bằng cơ chế check cứng ID an toàn
     @PutMapping("/users/{id}/change-role")
     public ResponseEntity<?> changeRole(@PathVariable Integer id, @RequestBody Map<String, Integer> body) {
         Integer newRoleId = body.get("roleId");
 
+        // Bảo vệ BR-UC40-02: Nếu là tài khoản Admin số 1 thì cấm hạ quyền xuống Giáo viên/Học sinh
         if (id != null && id == 1 && newRoleId != 1) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "message", "❌ Chặn phân quyền (BR-UC40-02): Đây là tài khoản Quản trị viên tối cao của hệ thống. Bạn không thể hạ vai trò quyền hạn!"
             ));
         }
 
-        Object result = adminService.changeUserRole(id, newRoleId);
-
-        // 🔥 THÊM: Đồng bộ cứng lại trường role_name bằng JdbcTemplate để tránh lệch pha dữ liệu chữ
-        try {
-            String targetRoleName = (newRoleId == 2) ? "TEACHER" : (newRoleId == 3) ? "STUDENT" : "ADMIN";
-            jdbcTemplate.update("UPDATE Users SET role_name = ? WHERE user_id = ?", targetRoleName, id);
-            System.out.println("🎉 Đã đồng bộ role_name thành: " + targetRoleName + " cho User ID: " + id);
-        } catch (Exception e) {
-            System.out.println("⚠️ Lỗi đồng bộ chuỗi chữ role_name: " + e.getMessage());
-        }
-
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(adminService.changeUserRole(id, newRoleId));
     }
 
     @GetMapping("/users/{id}/activity")
@@ -284,6 +260,13 @@ public class AdminController {
                     .body(Map.of("message", "Lỗi máy chủ hệ thống: " + e.getMessage()));
         }
     }
+    // Thêm các REST API Endpoint này vào cuối file AdminController.java của bạn
+
+    @Autowired
+    private backend.repository.CategoryRepository categoryRepository;
+
+    @Autowired
+    private backend.repository.CourseRepository courseRepository; // Inject để kiểm tra khóa học đang dùng
 
     // Lấy toàn bộ danh mục (Dành cho màn hình Admin)
     @GetMapping("/categories/all")
@@ -306,6 +289,7 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of("message", "Tên danh mục không được để trống!"));
         }
 
+        // [Exception E-01]: Trùng tên danh mục -> Đưa ra cảnh báo
         if (categoryRepository.existsByCategoryNameAndIsHiddenFalse(name.trim())) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
                     "message", "⚠️ Cảnh báo (E-01): Tên danh mục '" + name.trim() + "' đã tồn tại trên hệ thống. Vui lòng chọn tên khác!"
@@ -319,6 +303,7 @@ public class AdminController {
         return ResponseEntity.ok(categoryRepository.save(category));
     }
 
+    // 🛡️ Xử lý XÓA / ẨN DANH MỤC TUÂN THỦ CHẶT CHẼ BIẾN CẤU HÌNH (BR-UC41-01)
     @DeleteMapping("/categories/{id}")
     public ResponseEntity<?> deleteOrHideCategory(@PathVariable Integer id) {
         backend.entity.Category category = categoryRepository.findById(id).orElse(null);
@@ -326,23 +311,32 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Không tìm thấy danh mục này."));
         }
 
+        // Đếm số lượng khóa học đang liên kết sử dụng danh mục môn học này
+        // Giả sử trong CourseRepository của bạn có hàm đếm theo Subject hoặc Category liên quan
         long coursesCount = adminService.getAllCourse().stream()
-                .filter(c -> id.equals(c.getSubjectId()) || id.equals(c.getCourseId()))
+                .filter(c -> id.equals(c.getSubjectId()) || id.equals(c.getCourseId())) // Điều chỉnh theo mapping thực tế của Hưng
                 .count();
 
+        // Nghiệp vụ BR-UC41-01: Nếu có ít nhất 1 khóa học đang sử dụng, cấm Hard Delete, ép buộc chuyển sang ẩn danh mục
         if (coursesCount > 0) {
-            category.setIsHidden(true);
+            category.setIsHidden(true); // Chỉ ẩn đi để bảo toàn lịch sử dữ liệu cũ
             categoryRepository.save(category);
             return ResponseEntity.ok(Map.of(
                     "message", "⚠️ Thông báo (BR-UC41-01): Danh mục này đang có " + coursesCount + " khóa học sử dụng. Hệ thống đã tự động CHUYỂN SANG TRẠNG THÁI ẨN để bảo toàn lịch sử!"
             ));
         }
 
+        // Nếu hoàn toàn chưa có khóa học nào dùng, cho phép xóa vĩnh viễn khỏi DB
         categoryRepository.delete(category);
         return ResponseEntity.ok(Map.of("message", "Đã xóa hoàn toàn danh mục trống thành công!"));
     }
+    // ====================== UI CONFIGURATION ENDPOINTS ======================
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     // 1. API công khai bốc dữ liệu Banner lên Trang chủ
+
     @GetMapping("/public/ui-config/banner")
     public ResponseEntity<?> getBannerConfig() {
         try {

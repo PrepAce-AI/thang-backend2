@@ -31,6 +31,7 @@ public class EntryTestService {
     private final QuizRepository quizRepository;
     private final QuestionRepository questionRepository;
     private final QuizAttemptRepository quizAttemptRepository;
+    private final backend.repository.PracticeAnswerRepository practiceAnswerRepository;
 
     // ─── Lấy danh sách đề Entry Test ───────────────────────────────────────────
 
@@ -98,6 +99,8 @@ public class EntryTestService {
 
         int correctCount = 0;
         List<QuizResultResponse.QuestionResultDetail> details = new ArrayList<>();
+        List<PracticeAnswer> practiceAnswersToSave = new ArrayList<>();
+        int orderIndex = 1;
 
         for (Question q : questions) {
             String selectedText = answers.get(q.getQuestionId());
@@ -106,12 +109,25 @@ public class EntryTestService {
                     .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
                     .findFirst()
                     .orElse(null);
+                    
+            QuestionOption selectedOption = q.getOptions().stream()
+                    .filter(o -> o.getOptionContent().equals(selectedText))
+                    .findFirst()
+                    .orElse(null);
 
             // So sánh theo nội dung text (FE cũ gửi text đáp án thay vì optionId)
             boolean isCorrect = correctOption != null
                     && selectedText != null
                     && correctOption.getOptionContent().equals(selectedText);
             if (isCorrect) correctCount++;
+            
+            PracticeAnswer pa = new PracticeAnswer();
+            pa.setAttempt(attempt);
+            pa.setQuestion(q);
+            pa.setSelectedOptionId(selectedOption != null ? selectedOption.getOptionId() : null);
+            pa.setIsCorrect(isCorrect);
+            pa.setQuestionOrder(orderIndex++);
+            practiceAnswersToSave.add(pa);
 
             details.add(QuizResultResponse.QuestionResultDetail.builder()
                     .questionId(q.getQuestionId())
@@ -139,6 +155,7 @@ public class EntryTestService {
         if (attempt.getStartedAt() == null) attempt.setStartedAt(new Date());
         attempt.setSubmittedAt(new Date());
         QuizAttempt saved = quizAttemptRepository.save(attempt);
+        practiceAnswerRepository.saveAll(practiceAnswersToSave);
 
         log.info("Student {} submitted Entry Test quizId={}, score={}", studentId, quiz.getQuizId(), score);
 

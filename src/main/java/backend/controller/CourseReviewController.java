@@ -19,9 +19,11 @@ public class CourseReviewController {
 
     @PostMapping
     public ResponseEntity<ReviewResponse> addReview(
+            org.springframework.security.core.Authentication authentication,
             @PathVariable Integer courseId,
             @RequestBody ReviewRequest request) {
-        return ResponseEntity.ok(reviewService.createReview(courseId, request));
+        String email = authentication.getName();
+        return ResponseEntity.ok(reviewService.createReview(email, courseId, request));
     }
 
     @GetMapping

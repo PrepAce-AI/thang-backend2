@@ -53,7 +53,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/outlines/**").authenticated()
                         .requestMatchers("/api/payments/**").authenticated()
                         .requestMatchers("/api/entry-test/**").authenticated()
-                        .requestMatchers("/api/courses", "/api/courses/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )

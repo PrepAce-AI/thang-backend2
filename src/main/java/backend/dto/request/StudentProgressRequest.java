@@ -28,4 +28,14 @@ public class StudentProgressRequest {
     public void setScore(Double score) {
         this.score = score;
     }
+
+    private Double lastVideoTime;
+
+    public Double getLastVideoTime() {
+        return lastVideoTime;
+    }
+
+    public void setLastVideoTime(Double lastVideoTime) {
+        this.lastVideoTime = lastVideoTime;
+    }
 }

@@ -36,10 +36,10 @@ public class Question {
     @Column(name = "correct_answer", columnDefinition = "NVARCHAR(MAX)")
     private String correctAnswer;
 
-    @Column(name = "topic")
+    @Column(name = "topic", columnDefinition = "NVARCHAR(255)")
     private String topic;
 
-    @Column(name = "subject")
+    @Column(name = "subject", columnDefinition = "NVARCHAR(255)")
     private String subject;
 
     @Column(name = "created_at", insertable = false, updatable = true)
@@ -51,9 +51,11 @@ public class Question {
     @OneToMany(mappedBy = "question",
             fetch = FetchType.EAGER,
             cascade = CascadeType.ALL)
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<QuestionOption> options = new ArrayList<>();
 
     @OneToMany(mappedBy = "question")
+    @org.hibernate.annotations.BatchSize(size = 50)
     private List<StudentAnswer> studentAnswers = new ArrayList<>();
 
     @Column(name = "question_type", length = 50)

@@ -25,9 +25,11 @@ public class CourseReviewService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private backend.repository.CourseRepository courseRepository;
+
     @Transactional
-    public ReviewResponse createReview(Integer courseId, ReviewRequest request) {
-        String email = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    public ReviewResponse createReview(String email, Integer courseId, ReviewRequest request) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
@@ -35,9 +37,10 @@ public class CourseReviewService {
         review.setRating(request.getRating());
         review.setComment(request.getComment());
         review.setUser(user);
+        review.setStudentId(user.getId());
 
-        Course course = new Course();
-        course.setCourseId(courseId);
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học"));
         review.setCourse(course);
 
         CourseReview saved = reviewRepository.save(review);

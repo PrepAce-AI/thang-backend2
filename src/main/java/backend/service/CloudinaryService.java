@@ -38,8 +38,13 @@ public class CloudinaryService {
     }
 
     public String uploadFile(MultipartFile file) throws IOException {
-        // Chỉ dùng UUID để tránh URL quá dài vượt qua 255 ký tự của Database
-        String uniqueFilename = UUID.randomUUID().toString();
+        String originalFilename = file.getOriginalFilename();
+        String extension = "";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+        // Thêm extension vào UUID để Cloudinary URL có định dạng file rõ ràng
+        String uniqueFilename = UUID.randomUUID().toString() + extension;
         Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap(
                 "resource_type", "auto",
                 "public_id", "materials/" + uniqueFilename
