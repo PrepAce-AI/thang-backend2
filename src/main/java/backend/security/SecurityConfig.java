@@ -43,7 +43,6 @@ public class SecurityConfig {
 //                                "/api/entry-test/course/**",
 //                                "/api/entry-test/submit",
 //                                "/api/entry-test/history",
-                                "/api/payments/**",
                                 "/api/ai/**",
                                 "/uploads/**"
                         ).permitAll()
@@ -52,6 +51,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/materials/**").authenticated()
                         // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
                         .requestMatchers("/api/outlines/**").authenticated()
+                        .requestMatchers("/api/payments/**").authenticated()
                         .requestMatchers("/api/entry-test/**").authenticated()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/courses", "/api/courses/**").permitAll()
                         .requestMatchers("/error").permitAll()

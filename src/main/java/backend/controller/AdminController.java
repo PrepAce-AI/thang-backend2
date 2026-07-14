@@ -1,4 +1,5 @@
 package backend.controller;
+
 import backend.entity.Course;
 import backend.entity.User;
 import backend.service.AdminService;
@@ -6,6 +7,7 @@ import backend.entity.Notification;
 import backend.entity.ViolationReport;
 import backend.service.JwtService;
 import backend.service.NotificationService;
+import backend.entity.ViolationReport;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,11 +19,21 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class AdminController {
+
     private final AdminService adminService;
     private final NotificationService notificationService;
     private final JwtService jwtService;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private backend.repository.CategoryRepository categoryRepository;
+
+    @Autowired
+    private backend.repository.CourseRepository courseRepository;
 
     public AdminController(AdminService adminService, NotificationService notificationService, JwtService jwtService) {
         this.adminService = adminService;
@@ -38,14 +50,14 @@ public class AdminController {
         return 1;
     }
 
-    // ====================== DASHBOARD ======================
+    // ====================== DASHBOARD (TASK 44) ======================
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Long>> getStats(){
+    public ResponseEntity<Map<String, Long>> getStats() {
         System.out.println("✅ ADMIN STATS ENDPOINT ĐÃ ĐƯỢC GỌI!");
         return ResponseEntity.ok(adminService.getDashboardStats());
     }
 
-    // ====================== COURSES ======================
+    // ====================== COURSES MANAGEMENT (TASK 42) ======================
     @GetMapping("/courses")
     public ResponseEntity<List<Course>> getAllCourses() {
         return ResponseEntity.ok(adminService.getAllCourse());
@@ -55,10 +67,8 @@ public class AdminController {
     public ResponseEntity<Course> updateCourseStatus(
             @PathVariable Integer id,
             @RequestBody Map<String, String> request) {
-
         String status = request.get("status");
         String note = request.get("note");
-
         Course updated = adminService.updateCourseStatus(id, status, note);
         return ResponseEntity.ok(updated);
     }
@@ -132,6 +142,7 @@ public class AdminController {
         return ResponseEntity.badRequest().body(Map.of("message", "Xóa người dùng thất bại hoặc ID không tồn tại."));
     }
 
+    // ====================== NOTIFICATIONS (TASK 45) ======================
     @GetMapping("/notifications")
     public ResponseEntity<List<Notification>> getAllNotifications() {
         return ResponseEntity.ok(notificationService.getAllNotifications());

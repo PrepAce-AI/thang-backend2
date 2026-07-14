@@ -170,6 +170,7 @@ public class PracticeTestService {
     // ─── NỘP BÀI & CHẤM ĐIỂM ─────────────────────────────────────────────────────
 
     /** Nộp bài: chấm điểm, lưu lịch sử, trả chi tiết từng câu kèm explanation */
+    // ─── NỘP BÀI & CHẤM ĐIỂM HỖN HỢP (Trắc nghiệm + Ngắn + Tự luận) ────────────────
     @Transactional
     public PracticeResultResponse submit(Integer studentId, PracticeSubmitRequest request) {
         QuizAttempt attempt = quizAttemptRepository.findById(request.getAttemptId())
@@ -184,23 +185,59 @@ public class PracticeTestService {
 
         List<PracticeAnswer> answers = practiceAnswerRepository
                 .findByAttemptIdWithQuestions(attempt.getAttemptId());
-        Map<Integer, Integer> submitted = request.getAnswers() == null ? Map.of() : request.getAnswers();
+
+        // Đón nhận dữ liệu dạng Map<Integer, String> linh hoạt
+        Map<Integer, String> submitted = request.getAnswers() == null ? Map.of() : request.getAnswers();
 
         int correctCount = 0;
+        boolean hasEssay = false;
+
         for (PracticeAnswer pa : answers) {
             Question question = pa.getQuestion();
-            Integer selectedId = submitted.get(question.getQuestionId());
+            String userValue = submitted.get(question.getQuestionId());
+            String qType = question.getQuestionType(); // CHOICE, SHORT_ANSWER, ESSAY
 
-            QuestionOption selected = selectedId == null ? null : question.getOptions().stream()
-                    .filter(o -> o.getOptionId().equals(selectedId))
-                    .findFirst()
-                    .orElseThrow(() -> new BadRequestException(
-                            "Lựa chọn " + selectedId + " không thuộc câu hỏi " + question.getQuestionId()));
+            // Nếu câu hỏi bị bỏ trống
+            if (userValue == null || userValue.trim().isEmpty()) {
+                pa.setSelectedOptionId(null);
+                pa.setEssayAnswer(null);
+                pa.setIsCorrect(false);
+                continue;
+            }
 
-            boolean isCorrect = selected != null && Boolean.TRUE.equals(selected.getIsCorrect());
-            pa.setSelectedOptionId(selectedId);
-            pa.setIsCorrect(isCorrect);
-            if (isCorrect) correctCount++;
+            // PHÂN LOẠI XỬ LÝ LOGIC THEO KIỂU CÂU HỎI:
+            if ("CHOICE".equals(qType) || qType == null) {
+                // Trường hợp 1: Trắc nghiệm truyền thống
+                Integer selectedId = Integer.parseInt(userValue);
+                QuestionOption selected = question.getOptions().stream()
+                        .filter(o -> o.getOptionId().equals(selectedId))
+                        .findFirst()
+                        .orElseThrow(() -> new BadRequestException(
+                                "Lựa chọn " + selectedId + " không thuộc câu hỏi " + question.getQuestionId()));
+
+                boolean isCorrect = Boolean.TRUE.equals(selected.getIsCorrect());
+                pa.setSelectedOptionId(selectedId);
+                pa.setEssayAnswer(null);
+                pa.setIsCorrect(isCorrect);
+                if (isCorrect) correctCount++;
+            }
+            else if ("SHORT_ANSWER".equals(qType)) {
+                // Trường hợp 2: Đáp án ngắn -> Máy tự động khớp chuỗi chữ
+                pa.setEssayAnswer(userValue);
+                pa.setSelectedOptionId(null);
+
+                boolean isCorrect = question.getCorrectAnswer() != null
+                        && question.getCorrectAnswer().trim().equalsIgnoreCase(userValue.trim());
+                pa.setIsCorrect(isCorrect);
+                if (isCorrect) correctCount++;
+            }
+            else if ("ESSAY".equals(qType)) {
+                // Trường hợp 3: Tự luận -> Lưu đoạn văn dài và bật cờ chờ giáo viên chấm
+                pa.setEssayAnswer(userValue);
+                pa.setSelectedOptionId(null);
+                pa.setIsCorrect(false);
+                hasEssay = true;
+            }
         }
         practiceAnswerRepository.saveAll(answers);
 
@@ -211,7 +248,16 @@ public class PracticeTestService {
 
         attempt.setSubmittedAt(new Date());
         attempt.setCorrectCount(correctCount);
-        attempt.setScore(score);
+
+        // CHỐT TRẠNG THÁI BÀI THI LINH HOẠT
+        if (hasEssay) {
+            attempt.setStatus("PENDING_GRADING"); // Chờ giáo viên chấm điểm câu tự luận
+            attempt.setScore(null);               // Chưa có tổng điểm ngay
+        } else {
+            attempt.setStatus("COMPLETED");       // Hoàn thành luôn nếu chỉ có trắc nghiệm/ngắn
+            attempt.setScore(score);
+        }
+
         quizAttemptRepository.save(attempt);
 
         return buildResult(attempt, answers);
@@ -292,10 +338,16 @@ public class PracticeTestService {
                             .topic(q.getTopic())
                             .options(optionReviews)
                             .selectedOptionId(pa.getSelectedOptionId())
+                            // 🔥 THÊM DÒNG NÀY: Để Frontend nhận được đoạn chữ học sinh đã gõ
+                            .essayAnswer(pa.getEssayAnswer())
+                            .questionType(q.getQuestionType())
                             .correctOptionId(correctOptionId)
                             .correct(Boolean.TRUE.equals(pa.getIsCorrect()))
-                            .answered(pa.getSelectedOptionId() != null)
+                            // Sửa lại logic kiểm tra xem câu hỏi đã được làm hay chưa
+                            .answered(pa.getSelectedOptionId() != null || (pa.getEssayAnswer() != null && !pa.getEssayAnswer().trim().isEmpty()))
                             .explanation(q.getExplanation())
+                            .score(pa.getScore())
+                            .teacherComment(pa.getTeacherComment())
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -326,4 +378,106 @@ public class PracticeTestService {
                 .details(details)
                 .build();
     }
+
+    /* ============================= ENGINE CHẤM ĐIỂM DÀNH CHO GIÁO VIÊN =============================*/
+
+    // 1. Lấy danh sách các lượt thi đang chờ giáo viên chấm điểm
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getPendingGradingAttempts() {
+        return quizAttemptRepository.findByStatus("PENDING_GRADING").stream()
+                .map(a -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    // Ép tên key thành sessionsId để khớp với session.sessionsId bên React
+                    map.put("sessionsId", a.getAttemptId());
+                    map.put("quizTitle", a.getQuiz() != null ? a.getQuiz().getQuizTitle() : "Đề luyện tập");
+                    return map;
+                }).collect(Collectors.toList());
+    }
+
+    // 2. Lấy chi tiết câu hỏi tự luận để hiển thị lên form chấm bài cho giáo viên
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getEssayAnswersForTeacher(int attemptId) {
+        List<PracticeAnswer> answers = practiceAnswerRepository.findByAttemptIdWithQuestions(attemptId);
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (PracticeAnswer pa : answers) {
+            String qType = pa.getQuestion().getQuestionType();
+            if ("ESSAY".equals(qType) || "TEXT_OR_ESSAY".equals(qType)) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("answerId", pa.getPracticeAnswerId()); // ID câu trả lời để PUT điểm
+                map.put("questionId", pa.getQuestion().getQuestionId());
+                map.put("content", pa.getQuestion().getQuestionContent());
+                map.put("selectedAnswer", pa.getEssayAnswer()); // Chữ học sinh gõ
+                map.put("correctedAnswer", pa.getQuestion().getCorrectAnswer() != null ? pa.getQuestion().getCorrectAnswer() : "Chưa có đáp án mẫu."); // Đáp án hướng dẫn
+                map.put("score", pa.getScore());
+                map.put("comment", pa.getTeacherComment());
+                result.add(map);
+            }
+        }
+        return result;
+    }
+
+    // 3. Xử lý lưu điểm từng câu và tự động cộng dồn số câu đúng vào bài kiểm tra (Hệ 10)
+    @Transactional
+    public void teacherGradeAnswer(int practiceAnswerId, double score, String comment) {
+        PracticeAnswer pa = practiceAnswerRepository.findById(practiceAnswerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy câu trả lời với id = " + practiceAnswerId));
+
+        pa.setScore(score);
+        pa.setTeacherComment(comment);
+
+        // 🔥 THÊM ĐOẠN NÀY: Nếu giáo viên bấm "✓ Được" (score = 1), câu này được chốt trạng thái là ĐÚNG (true)
+        pa.setIsCorrect(score > 0);
+        practiceAnswerRepository.save(pa);
+
+        // Lấy ra tất cả các câu trả lời của lượt thi này để quét lại một lượt
+        Integer attemptId = pa.getAttempt().getAttemptId();
+        List<PracticeAnswer> allAnswers = practiceAnswerRepository.findByAttemptIdWithQuestions(attemptId);
+
+        // Kiểm tra xem toàn bộ các câu tự luận (ESSAY) của bài này đã được giáo viên click chấm điểm hết chưa
+        boolean isAllGraded = allAnswers.stream()
+                .filter(ans -> "ESSAY".equals(ans.getQuestion().getQuestionType()))
+                .allMatch(ans -> ans.getScore() != null);
+
+        // Nếu đã chấm xong hết toàn bộ câu tự luận -> Tiến hành cập nhật điểm tổng cho học sinh
+        if (isAllGraded) {
+            QuizAttempt attempt = pa.getAttempt();
+            int totalQuestions = attempt.getTotalQuestions();
+
+            // 🎯 Đếm lại tổng số câu ĐÚNG thực tế của cả bài (Bao gồm Trắc nghiệm + Ngắn + Tự luận vừa được duyệt Đúng)
+            long actualCorrectCount = allAnswers.stream()
+                    .filter(ans -> Boolean.TRUE.equals(ans.getIsCorrect()))
+                    .count();
+
+            attempt.setCorrectCount((int) actualCorrectCount);
+
+            // 🎯 Tính điểm tổng hệ 10 chuẩn đét theo ý ông: (Số câu đúng / Tổng số câu) * 10
+            double finalScore = totalQuestions > 0 ? (actualCorrectCount * 10.0 / totalQuestions) : 0;
+
+            // Làm tròn lấy 2 chữ số thập phân (Ví dụ: 8.33, 7.50) giống hệt hàm submit gốc của ông
+            finalScore = BigDecimal.valueOf(finalScore)
+                    .setScale(2, RoundingMode.HALF_UP)
+                    .doubleValue();
+
+            attempt.setScore(finalScore);
+            attempt.setStatus("COMPLETED"); // Cập nhật trạng thái hoàn thành để học sinh xem được kết quả
+            quizAttemptRepository.save(attempt);
+        }
+    }
+
+    @Transactional
+    public void teacherGradeAttemptAnswer(int attemptId, int questionId, double score, String comment) {
+        // Tự động tìm danh sách câu trả lời của lượt thi này
+        List<PracticeAnswer> allAnswers = practiceAnswerRepository.findByAttemptIdWithQuestions(attemptId);
+
+        // Lọc ra đúng câu hỏi tự luận mà giáo viên đang nhấn chấm
+        PracticeAnswer targetAnswer = allAnswers.stream()
+                .filter(pa -> pa.getQuestion().getQuestionId().equals(questionId))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy câu trả lời tự luận để chấm"));
+
+        // Bắn ID câu trả lời sang hàm chấm điểm chuẩn đã tối ưu ở bộ lọc mới
+        this.teacherGradeAnswer(targetAnswer.getPracticeAnswerId(), score, comment);
+    }
+
 }

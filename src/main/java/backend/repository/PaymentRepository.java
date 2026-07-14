@@ -12,13 +12,43 @@ import java.util.Optional;
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Integer> {
 
-    List<Payment> findByStudentIdOrderByPaidAtDesc(Integer studentId);
+    // Lịch sử thanh toán
+    List<Payment> findByStudentIdOrderByCreatedAtDesc(Integer studentId);
 
+    // Tìm theo mã giao dịch của hệ thống
     Optional<Payment> findByTransactionCode(String transactionCode);
 
-    /** Kiểm tra student đã thanh toán thành công cho course chưa */
-    @Query("SELECT COUNT(p) > 0 FROM Payment p WHERE p.studentId = :studentId AND p.courseId = :courseId AND p.paymentStatus = 'SUCCESS'")
-    boolean existsSuccessfulPayment(@Param("studentId") Integer studentId, @Param("courseId") Integer courseId);
-
+    // Tìm theo nội dung chuyển khoản (SePay)
     Optional<Payment> findByTransactionCodeContaining(String transactionCode);
+
+    // Tìm theo mã giao dịch ngân hàng
+    Optional<Payment> findByBankTransactionId(String bankTransactionId);
+
+    // Kiểm tra đã thanh toán thành công chưa
+    @Query("""
+            SELECT COUNT(p) > 0
+            FROM Payment p
+            WHERE p.studentId = :studentId
+              AND p.courseId = :courseId
+              AND p.paymentStatus = 'SUCCESS'
+            """)
+    boolean existsSuccessfulPayment(
+            @Param("studentId") Integer studentId,
+            @Param("courseId") Integer courseId
+    );
+
+    // Kiểm tra đã tạo payment PENDING chưa
+    boolean existsByStudentIdAndCourseIdAndPaymentStatus(
+            Integer studentId,
+            Integer courseId,
+            String paymentStatus
+    );
+
+    // Lấy payment mới nhất của khóa học
+    Optional<Payment> findTopByStudentIdAndCourseIdOrderByCreatedAtDesc(
+            Integer studentId,
+            Integer courseId
+    );
+
+    List<Payment> findByPaymentStatus(String paymentStatus);
 }
