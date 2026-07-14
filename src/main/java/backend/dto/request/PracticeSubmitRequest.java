@@ -17,5 +17,5 @@ public class PracticeSubmitRequest {
     @NotNull(message = "Thiếu attemptId")
     private Integer attemptId;
 
-    private Map<Integer, Integer> answers = new HashMap<>();
+    private Map<Integer, Object> answers = new HashMap<>();
 }

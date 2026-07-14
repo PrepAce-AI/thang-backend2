@@ -17,14 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -51,6 +47,10 @@ public class PracticeTestService {
     private final QuestionRepository questionRepository;
     private final QuizAttemptRepository quizAttemptRepository;
     private final PracticeAnswerRepository practiceAnswerRepository;
+    private final AiGradingService aiGradingService;
+    @org.springframework.context.annotation.Lazy
+    private final AIService aiService;
+    private final ObjectMapper objectMapper;
 
     /** Số câu phát cho 1 lượt thi, theo loại đề */
     public static int questionsPerTest(String quizType) {
@@ -62,19 +62,31 @@ public class PracticeTestService {
     /** Danh sách đề thi (metadata) — lọc theo loại (ENTRY_TEST/PRACTICE/MOCK_EXAM) và môn */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getQuizzes(String type, String subject) {
-        return quizRepository.findExamQuizzes(type, subject).stream()
-                .map(q -> {
-                    Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("quizId", q.getQuizId());
-                    m.put("quizTitle", q.getQuizTitle() == null ? "" : q.getQuizTitle());
-                    m.put("subject", q.getSubject() == null ? "" : q.getSubject());
-                    m.put("quizType", q.getQuizType());
-                    m.put("durationMinutes", q.getDurationMinutes() == null ? 30 : q.getDurationMinutes());
-                    m.put("questionsPerTest", questionsPerTest(q.getQuizType()));
-                    m.put("bankSize", questionRepository.countByQuiz_QuizId(q.getQuizId()));
-                    return m;
-                })
-                .collect(Collectors.toList());
+        List<Quiz> quizzes = quizRepository.findExamQuizzes(type, subject);
+        
+        // Nhóm các đề thi theo môn học, chỉ trả về 1 thẻ đại diện cho mỗi môn
+        Map<String, Map<String, Object>> grouped = new LinkedHashMap<>();
+        
+        for (Quiz q : quizzes) {
+            String subj = q.getSubject() == null ? "Khác" : q.getSubject();
+            if (!grouped.containsKey(subj)) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("quizId", q.getQuizId()); // Dùng ID của 1 đề bất kỳ làm mỏ neo
+                m.put("quizTitle", "Đề Thi " + subj);
+                m.put("subject", subj);
+                m.put("quizType", q.getQuizType());
+                m.put("durationMinutes", q.getDurationMinutes() == null ? 30 : q.getDurationMinutes());
+                m.put("questionsPerTest", questionsPerTest(q.getQuizType()));
+                // Không count từng đề để tăng tốc độ, để mặc định bankSize lớn
+                m.put("bankSize", 250); 
+                m.put("quizIds", new ArrayList<Integer>()); // Lưu danh sách các đề cùng môn
+                grouped.put(subj, m);
+            }
+            // Thêm quizId vào danh sách để bốc random sau này
+            ((List<Integer>) grouped.get(subj).get("quizIds")).add(q.getQuizId());
+        }
+        
+        return new ArrayList<>(grouped.values());
     }
 
     // ─── BẮT ĐẦU THI ─────────────────────────────────────────────────────────────
@@ -82,11 +94,15 @@ public class PracticeTestService {
     /** Bắt đầu 1 lượt thi: tạo attempt + bốc ngẫu nhiên 20/25 câu tùy loại đề */
     @Transactional
     public PracticeStartResponse start(Integer studentId, Integer quizId) {
-        Quiz quiz = quizRepository.findById(quizId)
+        Quiz requestedQuiz = quizRepository.findById(quizId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đề thi với id = " + quizId));
 
+        // CHỌN NGẪU NHIÊN 1 MÃ ĐỀ (cùng môn, cùng loại)
+        List<Quiz> sameSubjectQuizzes = quizRepository.findExamQuizzes(requestedQuiz.getQuizType(), requestedQuiz.getSubject());
+        Quiz quiz = sameSubjectQuizzes.isEmpty() ? requestedQuiz : sameSubjectQuizzes.get(new Random().nextInt(sameSubjectQuizzes.size()));
+
         int need = questionsPerTest(quiz.getQuizType());
-        List<Integer> randomIds = questionRepository.findRandomQuestionIds(quizId, need);
+        List<Integer> randomIds = questionRepository.findRandomQuestionIds(quiz.getQuizId(), need);
         if (randomIds.isEmpty()) {
             throw new BadRequestException("Kho câu hỏi của đề này đang trống. Hãy chạy script sql/prepace_exam_system_v2.sql trước.");
         }
@@ -149,6 +165,7 @@ public class PracticeTestService {
                         q.getQuestionId(),
                         q.getQuestionContent(),
                         q.getTopic(),
+                        q.getQuestionType(),
                         q.getOptions().stream()
                                 .map(o -> new PracticeOptionDto(o.getOptionId(), o.getOptionContent()))
                                 .collect(Collectors.toList())))
@@ -184,35 +201,115 @@ public class PracticeTestService {
 
         List<PracticeAnswer> answers = practiceAnswerRepository
                 .findByAttemptIdWithQuestions(attempt.getAttemptId());
-        Map<Integer, Integer> submitted = request.getAnswers() == null ? Map.of() : request.getAnswers();
+        Map<Integer, Object> submitted = request.getAnswers() == null ? Map.of() : request.getAnswers();
 
-        int correctCount = 0;
+        double totalScore = 0;
+        int correctCount = 0; // Only tracks fully correct multiple choice or exact match short answers for backward compatibility
+
         for (PracticeAnswer pa : answers) {
             Question question = pa.getQuestion();
-            Integer selectedId = submitted.get(question.getQuestionId());
+            Object rawAnswer = submitted.get(question.getQuestionId());
+            String qType = question.getQuestionType();
+            
+            if (qType == null) qType = "CHOICE";
 
-            QuestionOption selected = selectedId == null ? null : question.getOptions().stream()
-                    .filter(o -> o.getOptionId().equals(selectedId))
-                    .findFirst()
-                    .orElseThrow(() -> new BadRequestException(
-                            "Lựa chọn " + selectedId + " không thuộc câu hỏi " + question.getQuestionId()));
+            if ("CHOICE".equals(qType)) {
+                Integer selectedId = null;
+                if (rawAnswer != null) {
+                    try {
+                        selectedId = Integer.parseInt(rawAnswer.toString());
+                    } catch (NumberFormatException e) {
+                        // ignore invalid ID
+                    }
+                }
 
-            boolean isCorrect = selected != null && Boolean.TRUE.equals(selected.getIsCorrect());
-            pa.setSelectedOptionId(selectedId);
-            pa.setIsCorrect(isCorrect);
-            if (isCorrect) correctCount++;
+                Integer finalSelectedId = selectedId;
+                QuestionOption selected = finalSelectedId == null ? null : question.getOptions().stream()
+                        .filter(o -> o.getOptionId().equals(finalSelectedId))
+                        .findFirst()
+                        .orElse(null);
+
+                boolean isCorrect = selected != null && Boolean.TRUE.equals(selected.getIsCorrect());
+                pa.setSelectedOptionId(finalSelectedId);
+                pa.setIsCorrect(isCorrect);
+                
+                if (isCorrect) {
+                    correctCount++;
+                    pa.setScore(10.0f);
+                    totalScore += 10.0;
+                } else {
+                    pa.setScore(0f);
+                }
+            } else if ("TRUE_FALSE".equals(qType)) {
+                int correctOpts = 0;
+                int totalOpts = question.getOptions().size();
+                try {
+                    if (rawAnswer instanceof Map) {
+                        Map<String, Boolean> tfAnswers = (Map<String, Boolean>) rawAnswer;
+                        pa.setEssayAnswer(objectMapper.writeValueAsString(tfAnswers)); // Lưu dạng JSON vào essayAnswer
+
+                        for (QuestionOption opt : question.getOptions()) {
+                            Boolean studentChoice = tfAnswers.get(String.valueOf(opt.getOptionId()));
+                            if (studentChoice != null && studentChoice.equals(opt.getIsCorrect())) {
+                                correctOpts++;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // ignore
+                }
+
+                // Điểm theo luật Bộ GD: 1 đúng = 0.1, 2 = 0.25, 3 = 0.5, 4 = 1.0 (nhân hệ số 10)
+                float scoreForTF = 0f;
+                if (correctOpts == 1) scoreForTF = 1.0f;
+                else if (correctOpts == 2) scoreForTF = 2.5f;
+                else if (correctOpts == 3) scoreForTF = 5.0f;
+                else if (correctOpts == 4) scoreForTF = 10.0f;
+
+                pa.setScore(scoreForTF);
+                pa.setIsCorrect(correctOpts == totalOpts && totalOpts > 0);
+                if (pa.getIsCorrect()) correctCount++;
+                totalScore += scoreForTF;
+            } else if ("SHORT_ANSWER".equals(qType)) {
+                String studentAns = rawAnswer != null ? String.valueOf(rawAnswer).trim() : null;
+                pa.setEssayAnswer(studentAns);
+                
+                String correctAns = question.getCorrectAnswer();
+                if (correctAns != null && studentAns != null && studentAns.equalsIgnoreCase(correctAns.trim())) {
+                    pa.setIsCorrect(true);
+                    pa.setScore(10.0f);
+                    correctCount++;
+                    totalScore += 10.0;
+                } else {
+                    pa.setIsCorrect(false);
+                    pa.setScore(0f);
+                }
+            } else if ("ESSAY".equals(qType)) {
+                String studentAns = rawAnswer != null ? String.valueOf(rawAnswer).trim() : null;
+                pa.setEssayAnswer(studentAns);
+                
+                AiGradingService.GradingResult res = aiGradingService.gradeEssay(question.getQuestionContent(), studentAns);
+                pa.setScore(res.score);
+                pa.setTeacherComment(res.comment);
+                pa.setIsCorrect(res.score >= 5.0f);
+                if (pa.getIsCorrect()) correctCount++;
+                totalScore += res.score;
+            }
         }
         practiceAnswerRepository.saveAll(answers);
 
         int total = answers.size();
-        double score = BigDecimal.valueOf(correctCount * 10.0 / total)
+        double finalScore = total == 0 ? 0 : BigDecimal.valueOf(totalScore / total)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
 
         attempt.setSubmittedAt(new Date());
         attempt.setCorrectCount(correctCount);
-        attempt.setScore(score);
+        attempt.setScore(finalScore);
         quizAttemptRepository.save(attempt);
+        
+        // Clear AI cache for this student since their data just changed
+        aiService.clearCache(studentId);
 
         return buildResult(attempt, answers);
     }
@@ -294,8 +391,12 @@ public class PracticeTestService {
                             .selectedOptionId(pa.getSelectedOptionId())
                             .correctOptionId(correctOptionId)
                             .correct(Boolean.TRUE.equals(pa.getIsCorrect()))
-                            .answered(pa.getSelectedOptionId() != null)
+                            .answered(pa.getSelectedOptionId() != null || (pa.getEssayAnswer() != null && !pa.getEssayAnswer().trim().isEmpty()))
                             .explanation(q.getExplanation())
+                            .questionType(q.getQuestionType())
+                            .essayAnswer(pa.getEssayAnswer())
+                            .score(pa.getScore())
+                            .teacherComment(pa.getTeacherComment())
                             .build();
                 })
                 .collect(Collectors.toList());

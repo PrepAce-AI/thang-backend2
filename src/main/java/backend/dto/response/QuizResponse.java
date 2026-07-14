@@ -20,6 +20,7 @@ public class QuizResponse {
     public static class QuestionResponse {
         private Integer questionId;
         private String questionContent;
+        private String questionType;
         private Integer cognitiveLevel;
         private List<OptionResponse> options;
     }

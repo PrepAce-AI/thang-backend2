@@ -20,15 +20,26 @@ import java.util.Map;
 @Slf4j
 public class GeminiService {
 
-    @Value("${gemini.api.key}")
-    private String apiKey;
+    private List<String> apiKeys = new java.util.ArrayList<>();
+    private java.util.concurrent.atomic.AtomicInteger currentKeyIndex = new java.util.concurrent.atomic.AtomicInteger(0);
 
     @Value("${gemini.api.url}")
     private String apiUrl;
 
     private final RestTemplate restTemplate;
 
-    public GeminiService() {
+    public GeminiService(@Value("${gemini.api.keys:${gemini.api.key:}}") String keysString) {
+        if (keysString != null && !keysString.trim().isEmpty()) {
+            String[] keys = keysString.split(",");
+            for (String k : keys) {
+                if (!k.trim().isEmpty()) {
+                    apiKeys.add(k.trim());
+                }
+            }
+        }
+        if (apiKeys.isEmpty()) {
+            log.warn("No Gemini API keys configured!");
+        }
 
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(15000);
@@ -61,61 +72,47 @@ public class GeminiService {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         String model = "gemini-2.5-flash";
+        int maxRetries = Math.max(1, apiKeys.size());
+        
+        for (int i = 0; i < maxRetries; i++) {
+            String currentKey = apiKeys.isEmpty() ? "" : apiKeys.get(Math.abs(currentKeyIndex.getAndIncrement()) % apiKeys.size());
+            String url = apiUrl + model + ":generateContent?key=" + currentKey;
 
-        String url =
-                apiUrl
-                        + model
-                        + ":generateContent?key="
-                        + apiKey;
-
-        try {
-
-            ResponseEntity<Map> response =
-                    restTemplate.exchange(
-                            url,
-                            HttpMethod.POST,
-                            new HttpEntity<>(body, headers),
-                            Map.class
-                    );
-
-            String text = extractTextSafe(response.getBody());
-
-            if (text == null || text.isBlank()) {
-                throw new GeminiException(
-                        500,
-                        "Gemini returned empty response."
+            try {
+                ResponseEntity<Map> response = restTemplate.exchange(
+                        url,
+                        HttpMethod.POST,
+                        new HttpEntity<>(body, headers),
+                        Map.class
                 );
+
+                String text = extractTextSafe(response.getBody());
+
+                if (text == null || text.isBlank()) {
+                    throw new GeminiException(500, "Gemini returned empty response.");
+                }
+
+                return text.trim();
+
+            } catch (HttpStatusCodeException e) {
+                int status = e.getStatusCode().value();
+                
+                // If it's 429 Too Many Requests and we have more keys to try, continue to next iteration
+                if (status == 429 && i < maxRetries - 1) {
+                    log.warn("Gemini API Key overloaded (429). Retrying with another key...");
+                    continue;
+                }
+
+                log.error("Gemini HTTP {}:\n{}", status, e.getResponseBodyAsString());
+                throw new GeminiException(status, e.getResponseBodyAsString());
+
+            } catch (Exception e) {
+                log.error("Gemini API failed", e);
+                throw new GeminiException(500, e.getMessage());
             }
-
-            return text.trim();
-
         }
-
-        catch (HttpStatusCodeException e) {
-
-            int status = e.getStatusCode().value();
-
-            log.error(
-                    "Gemini HTTP {}:\n{}",
-                    status,
-                    e.getResponseBodyAsString()
-            );
-
-            throw new GeminiException(
-                    status,
-                    e.getResponseBodyAsString()
-            );
-        }
-
-        catch (Exception e) {
-
-            log.error("Gemini API failed", e);
-
-            throw new GeminiException(
-                    500,
-                    e.getMessage()
-            );
-        }
+        
+        throw new GeminiException(500, "All Gemini API keys failed or overloaded.");
     }
 
     /**
