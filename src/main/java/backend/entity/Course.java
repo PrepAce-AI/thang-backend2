@@ -1,5 +1,7 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.util.Date;
@@ -7,6 +9,10 @@ import java.util.List;
 
 @Entity
 @Table(name = "Courses")
+@JsonIgnoreProperties({
+        "hibernateLazyInitializer",
+        "handler"
+})
 public class Course {
 
     @Id
@@ -53,6 +59,7 @@ public class Course {
     @OneToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "course_id")
     @org.hibernate.annotations.BatchSize(size = 50)
+    @JsonIgnore
     private List<backend.entity.Chapter> chapters;
 
     @Column(name = "category_id")
