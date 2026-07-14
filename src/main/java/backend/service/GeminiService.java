@@ -71,7 +71,7 @@ public class GeminiService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String model = "gemini-2.5-flash";
+        String model = "gemini-2.0-flash";
         int maxRetries = Math.max(1, apiKeys.size());
         
         for (int i = 0; i < maxRetries; i++) {

@@ -349,6 +349,7 @@ public class EntryTestService {
                         QuizResponse.QuestionResponse.builder()
                                 .questionId(q.getQuestionId())
                                 .questionContent(q.getQuestionContent())
+                                .questionType(q.getQuestionType())
                                 .options(q.getOptions().stream()
                                         .map(o -> QuizResponse.OptionResponse.builder()
                                                 .optionId(o.getOptionId())
