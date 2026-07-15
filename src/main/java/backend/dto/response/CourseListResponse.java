@@ -13,6 +13,7 @@ public class CourseListResponse {
 
     private BigDecimal price;
     private Boolean isPublished;
+    private Integer students = 0;
 
     // Toàn bộ các hàm Constructor, Getter, Setter bên dưới của Toàn GIỮ NGUYÊN VẸN 100%
     public CourseListResponse() {}
@@ -34,6 +35,9 @@ public class CourseListResponse {
 
     public Boolean getIsPublished() { return isPublished; }
     public void setIsPublished(Boolean isPublished) { this.isPublished = isPublished; }
+
+    public Integer getStudents() { return students; }
+    public void setStudents(Integer students) { this.students = students; }
 
     private Integer subjectId;
     private String subjectName;

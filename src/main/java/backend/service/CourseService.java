@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
 public class CourseService {
     @Autowired
     private CourseRepository courseRepository;
+    @Autowired
+    private backend.repository.EnrollmentRepository enrollmentRepository;
     @Transactional(readOnly = true)
     public List<CourseListResponse> getAllCourses() {
         return courseRepository.findAll().stream().map(course -> {
@@ -30,6 +32,7 @@ public class CourseService {
 
             dto.setPrice(course.getPrice());
             dto.setIsPublished(course.getIsPublished());
+            dto.setStudents(enrollmentRepository.countByCourseId(course.getCourseId()));
 
 // 🔥 ĐỒNG BỘ THÔNG TIN MÔN HỌC (SUBJECT)
             if (course.getSubject() != null) {
@@ -128,6 +131,7 @@ public class CourseService {
         response.setDescription(course.getDescription());
         response.setThumbnailUrl(course.getThumbnailUrl());
         response.setPrice(course.getPrice());
+        response.setStudents(enrollmentRepository.countByCourseId(course.getCourseId()));
         response.setTeacherId(course.getTeacherId());
 
         if (course.getTeacherId() != null) {

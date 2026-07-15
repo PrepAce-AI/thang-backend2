@@ -57,7 +57,15 @@ public class CourseController {
         course.setTitle((String) body.getOrDefault("title", "Khóa học nháp (Chưa đặt tên)"));
         course.setDescription((String) body.getOrDefault("description", ""));
         course.setIsPublished(false);
-        course.setPrice(java.math.BigDecimal.ZERO);
+        if (body.containsKey("price")) {
+            try {
+                course.setPrice(new java.math.BigDecimal(String.valueOf(body.get("price"))));
+            } catch (Exception e) {
+                course.setPrice(java.math.BigDecimal.ZERO);
+            }
+        } else {
+            course.setPrice(java.math.BigDecimal.ZERO);
+        }
 
         if (body.containsKey("teacher_id")) {
             try {
