@@ -259,20 +259,22 @@ public class PracticeTestService {
         practiceAnswerRepository.saveAll(answers);
 
         int total = answers.size();
-        double finalScore = total == 0 ? 0 : BigDecimal.valueOf(totalScore / total)
+
+        double finalScore = total == 0
+                ? 0
+                : BigDecimal.valueOf((double) correctCount / total * 10)
                 .setScale(2, RoundingMode.HALF_UP)
                 .doubleValue();
 
         attempt.setSubmittedAt(new Date());
         attempt.setCorrectCount(correctCount);
 
-        // CHỐT TRẠNG THÁI BÀI THI LINH HOẠT
         if (hasEssay) {
-            attempt.setStatus("PENDING_GRADING"); // Chờ giáo viên chấm điểm câu tự luận
-            attempt.setScore(null);               // Chưa có tổng điểm ngay
+            attempt.setStatus("PENDING_GRADING");
+            attempt.setScore(null);
         } else {
-            attempt.setStatus("COMPLETED");       // Hoàn thành luôn nếu chỉ có trắc nghiệm/ngắn
-            attempt.setScore(score);
+            attempt.setStatus("COMPLETED");
+            attempt.setScore(finalScore);
         }
 
         quizAttemptRepository.save(attempt);
