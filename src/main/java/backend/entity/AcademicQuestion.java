@@ -35,4 +35,5 @@ public class AcademicQuestion {
 
     @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private java.util.List<AcademicAnswer> answers;
+
 }
