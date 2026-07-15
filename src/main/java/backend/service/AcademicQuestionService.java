@@ -82,10 +82,8 @@ public class AcademicQuestionService {
                     }
                     Integer courseTeacherId = q.getLesson().getChapter().getCourse().getTeacherId();
                     
-                    // Do hệ thống hiện tại Frontend đang hiển thị TẤT CẢ các khóa học cho Giáo viên
-                    // (chức năng phân quyền khóa học chưa bật), nên Q&A cũng sẽ tạm thời hiển thị
-                    // câu hỏi từ TẤT CẢ các khóa học để giáo viên có thể nhìn thấy.
-                    boolean isMyCourse = true; 
+                    // Chỉ hiển thị câu hỏi thuộc về khóa học do chính giáo viên này phụ trách
+                    boolean isMyCourse = (courseTeacherId != null && courseTeacherId.equals(teacherId)); 
                     
                     // 2. Loại trừ những câu hỏi do chính giáo viên này tự hỏi (để test)
                     boolean isNotMyOwnQuestion = (q.getUser().getId() != teacherId);
