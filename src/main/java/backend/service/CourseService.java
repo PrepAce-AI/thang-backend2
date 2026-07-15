@@ -31,11 +31,22 @@ public class CourseService {
             dto.setPrice(course.getPrice());
             dto.setIsPublished(course.getIsPublished());
 
+// 🔥 ĐỒNG BỘ THÔNG TIN MÔN HỌC (SUBJECT)
             if (course.getSubject() != null) {
                 dto.setSubjectId(course.getSubject().getId());
                 dto.setSubjectName(course.getSubject().getSubjectName());
             } else {
                 dto.setSubjectId(course.getSubjectId());
+                dto.setSubjectName("Chung");
+            }
+
+            // 🔥 ĐỒNG BỘ THÔNG TIN GIÁO VIÊN (TEACHER)
+            if (course.getTeacher() != null) {
+                dto.setTeacherId(course.getTeacher().getId());
+                dto.setTeacherName(course.getTeacher().getFullName());
+            } else {
+                dto.setTeacherId(course.getTeacherId());
+                dto.setTeacherName("Giáo viên");
             }
 
             dto.setTeacherId(course.getTeacherId());

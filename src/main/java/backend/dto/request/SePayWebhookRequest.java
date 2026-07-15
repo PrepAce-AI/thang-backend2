@@ -1,50 +1,34 @@
 package backend.dto.request;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class SePayWebhookRequest {
-    private String content;   // nội dung chuyển khoản
-    private Long amount;
-    private String gatewayTransactionId;
+
+    /**
+     * Nội dung chuyển khoản
+     * Ví dụ: PAY-ABCD1234
+     */
+    private String content;
+
+    /**
+     * Số tiền SePay gửi về
+     */
+    private BigDecimal amount;
+
+    /**
+     * Mã giao dịch của ngân hàng
+     */
+    private String bankTransactionId;
+
+    /**
+     * Thời gian chuyển khoản
+     */
     private String transferTime;
-
-    public SePayWebhookRequest(String content, Long amount, String gatewayTransactionId, String transferTime) {
-        this.content = content;
-        this.amount = amount;
-        this.gatewayTransactionId = gatewayTransactionId;
-        this.transferTime = transferTime;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public Long getAmount() {
-        return amount;
-    }
-
-    public void setAmount(Long amount) {
-        this.amount = amount;
-    }
-
-    public String getGatewayTransactionId() {
-        return gatewayTransactionId;
-    }
-
-    public void setGatewayTransactionId(String gatewayTransactionId) {
-        this.gatewayTransactionId = gatewayTransactionId;
-    }
-
-    public String getTransferTime() {
-        return transferTime;
-    }
-
-    public void setTransferTime(String transferTime) {
-        this.transferTime = transferTime;
-    }
 }
