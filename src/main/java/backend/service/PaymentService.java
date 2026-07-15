@@ -2,6 +2,7 @@ package backend.service;
 
 import backend.dto.request.PurchaseRequest;
 import backend.dto.request.SePayWebhookRequest;
+import backend.dto.response.AdminPaymentDashboardResponse;
 import backend.dto.response.PaymentResponse;
 import backend.entity.*;
 import backend.exceptions.BadRequestException;
@@ -13,6 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -627,5 +629,74 @@ public class PaymentService {
                 transactionCode
         );
         return getPaymentStatus(transactionCode);
+    }
+
+    // STATISTICS
+    @Transactional(readOnly = true)
+    public AdminPaymentDashboardResponse getAdminDashboard(){
+        BigDecimal revenue =
+                paymentRepository.getTotalRevenue();
+        Long total =
+                paymentRepository.countSuccessfulPayments();
+        List<PaymentResponse> recent =
+                paymentRepository
+                        .findTop10ByPaymentStatusOrderByPaidAtDesc("SUCCESS")
+                        .stream()
+                        .map(payment -> {
+                            Course course =
+                                    courseRepository
+                                            .findById(payment.getCourseId())
+                                            .orElse(null);
+
+
+                            User student =
+                                    userRepository
+                                            .findById(payment.getStudentId())
+                                            .orElse(null);
+
+
+                            return PaymentResponse.builder()
+                                    .paymentId(payment.getPaymentId())
+                                    .studentId(payment.getStudentId())
+                                    .studentName(
+                                            student != null ?
+                                                    student.getFullName()
+                                                    :
+                                                    "Unknown"
+                                    )
+
+                                    .courseId(payment.getCourseId())
+
+                                    .courseTitle(
+                                            course != null ?
+                                                    course.getTitle()
+                                                    :
+                                                    "Unknown"
+                                    )
+
+                                    .amount(payment.getAmount())
+
+                                    .paymentStatus(
+                                            payment.getPaymentStatus()
+                                    )
+
+                                    .transactionCode(
+                                            payment.getTransactionCode()
+                                    )
+
+                                    .paidAt(
+                                            payment.getPaidAt()
+                                    )
+
+                                    .build();
+
+                        })
+                        .toList();
+
+        return AdminPaymentDashboardResponse.builder()
+                .totalRevenue(revenue)
+                .totalTransactions(total)
+                .recentPayments(recent)
+                .build();
     }
 }
