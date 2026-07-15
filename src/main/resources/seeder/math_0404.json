@@ -1,0 +1,456 @@
+[
+  {
+    "topic": "Nguyên hàm (Mã đề 0101)",
+    "questionContent": "Hàm số F(x) = 4x^7 là một nguyên hàm của hàm số nào sau đây?",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "f_2(x) = 3x^2",
+        "isCorrect": false
+      },
+      {
+        "content": "f_4(x) = 4x^4",
+        "isCorrect": false
+      },
+      {
+        "content": "f_3(x) = 12x^2",
+        "isCorrect": true
+      },
+      {
+        "content": "f_1(x) = x^4",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: F'(x) = (4x^3)' = 12x^2. Do đó F(x) là một nguyên hàm của hàm số 12x^2."
+  },
+  {
+    "topic": "Xác suất thống kê (Mã đề 0101)",
+    "questionContent": "Người ta sử dụng ứng dụng AI dự đoán bệnh. 1000 người nhận cảnh báo (700 có bệnh, 300 không). 9000 người không nhận cảnh báo (100 có bệnh, 8900 không). Các mệnh đề sau đúng hay sai?\na) Xác suất để người đó không nhận được cảnh báo từ ứng dụng bằng 0,13.\nb) Xác suất để người đó không có bệnh, biết rằng người đó không nhận được cảnh báo từ ứng dụng, lớn hơn 0,102.\nc) Xác suất để người đó không có bệnh bằng 0,13.\nd) Xác suất để người đó không nhận được cảnh báo từ ứng dụng, biết rằng người đó không có bệnh, nhỏ hơn 0,99.",
+    "questionType": "TRUE_FALSE",
+    "difficulty": 3,
+    "options": [
+      {
+        "content": "a) Xác suất để người đó không nhận được cảnh báo từ ứng dụng bằng 0,9.",
+        "isCorrect": true
+      },
+      {
+        "content": "b) Xác suất để người đó không có bệnh, biết rằng người đó không nhận được cảnh báo, lớn hơn 0,98.",
+        "isCorrect": true
+      },
+      {
+        "content": "c) Xác suất để người đó không có bệnh bằng 0,9.",
+        "isCorrect": false
+      },
+      {
+        "content": "d) Xác suất để người đó không nhận cảnh báo, biết rằng người đó không có bệnh, nhỏ hơn 0,95.",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: a) P(W') = 9000/10000 = 0,9 (Đ). b) P(D'|W') = 8900/9000 = 0,9889 > 0,98 (Đ). c) P(D') = 9200/10000 = 0,92 != 0,9 (S). d) P(W'|D') = 8900/9200 = 0,9674 > 0,95 (S)."
+  },
+  {
+    "topic": "Tổ hợp (Mã đề 0101)",
+    "questionContent": "Trò chơi cần điền các số {0;5;6;7;8;9;10;11;12;14;15;16;19;20;24} vào 19 ô vuông hình bậc thang. Các ô cùng hàng / cột không cùng số dư khi chia cho 9. Gọi H là số cách điền. Giá trị của H/34 bằng bao nhiêu?",
+    "questionType": "SHORT_ANSWER",
+    "correctAnswer": "1152",
+    "difficulty": 4,
+    "options": [],
+    "explanation": "Lời giải chi tiết: Số lượng các số chia 5 dư 0,1,2,3,4 lần lượt là 5,4,3,2,1. Xếp vào sơ đồ bậc thang 5,4,3,2,1 ô. Số cách xếp: H = 5! * 4! * 3! * 2! * 1! = 34560. H/30 = 1152."
+  },
+  {
+    "topic": "Xác suất (Mã đề 0101)",
+    "questionContent": "Đa giác đều 16 cạnh. Dùng 16 bóng đèn (8 đỏ, 12 xanh). P là xác suất để mỗi hình vuông (8 đỉnh của đa giác) đều có ít nhất một bóng đỏ. Giá trị 3190P bằng bao nhiêu?",
+    "questionType": "SHORT_ANSWER",
+    "correctAnswer": "1856",
+    "difficulty": 4,
+    "options": [],
+    "explanation": "Lời giải chi tiết: Số cách xếp 4 bóng đỏ vào 12 đỉnh là C(4,12) = 495. Có 3 hình vuông. Phân bổ bóng đỏ (2,1,1) vào 3 hình vuông. Số cách: 3 * C(2,4) * C(1,4) * C(1,4) = 288. P = 288/495. 3190 * P = 1856."
+  },
+  {
+    "topic": "Hình học Oxyz (Mã đề 0101)",
+    "questionContent": "Cho hình lập phương ABCD.MNPQ có cạnh bằng 10. Gọi E là trung điểm đoạn AB. Khoảng cách từ điểm P đến mặt phẳng (MED) bằng bao nhiêu (làm tròn đến hàng phần trăm)?",
+    "questionType": "SHORT_ANSWER",
+    "correctAnswer": "7.35",
+    "difficulty": 3,
+    "options": [],
+    "explanation": "Lời giải chi tiết: Bằng phương pháp tọa độ hóa, chọn D(0;0;0). Ta tính được phương trình mặt phẳng (MED) là x - 2y - z = 0. Khoảng cách d(P, (MED)) = 18/sqrt(6) = 3√6 ≈ 7,35."
+  },
+  {
+    "topic": "Xác suất (Mã đề 0101)",
+    "questionContent": "Cho hai biến cố độc lập A và B có xác suất thỏa mãn P(A)=0,9 và P(B)=0,8. Giá trị của P(AB) bằng",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "0,9",
+        "isCorrect": false
+      },
+      {
+        "content": "0,8",
+        "isCorrect": false
+      },
+      {
+        "content": "0,1",
+        "isCorrect": false
+      },
+      {
+        "content": "0,2",
+        "isCorrect": true
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Vì A và B độc lập nên P(AB) = P(A).P(B) = 0,5 . 0,4 = 0,2."
+  },
+  {
+    "topic": "Đạo hàm (Mã đề 0101)",
+    "questionContent": "Cho các hàm số y = f(x) và y = g(x) có đạo hàm trên tập số thực R thỏa mãn f'(x) = x và g'(x) = x^6. Đạo hàm của hàm số y = f(x) + g(x) là",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "3x",
+        "isCorrect": false
+      },
+      {
+        "content": "1 + 2x",
+        "isCorrect": false
+      },
+      {
+        "content": "1 + x^2",
+        "isCorrect": false
+      },
+      {
+        "content": "x + x^2",
+        "isCorrect": true
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Đạo hàm của tổng hai hàm số bằng tổng các đạo hàm: y' = f'(x) + g'(x) = x + x^2."
+  },
+  {
+    "topic": "Bất phương trình (Mã đề 0101)",
+    "questionContent": "Cặp số nào sau đây là nghiệm của hệ bất phương trình {x+y-7 < 0; x-y+5 > 0}?",
+    "questionType": "CHOICE",
+    "difficulty": 2,
+    "options": [
+      {
+        "content": "(1;2)",
+        "isCorrect": false
+      },
+      {
+        "content": "(-1;1)",
+        "isCorrect": false
+      },
+      {
+        "content": "(1;0)",
+        "isCorrect": true
+      },
+      {
+        "content": "(0;2)",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Thay tọa độ các điểm vào hệ bất phương trình. Với cặp (1;0) ta có {1+0-3 < 0; 1-0+1 > 0} thỏa mãn."
+  },
+  {
+    "topic": "Cấp số nhân (Mã đề 0101)",
+    "questionContent": "Cho cấp số nhân (u_n) có số hạng đầu u_1 và công bội q. Số hạng u_4 là",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "u_4 = u_1 . q^4",
+        "isCorrect": false
+      },
+      {
+        "content": "u_4 = u_1 + 3q",
+        "isCorrect": false
+      },
+      {
+        "content": "u_4 = u_1 . q^3",
+        "isCorrect": true
+      },
+      {
+        "content": "u_4 = u_1 + 4q",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Công thức tổng quát của cấp số nhân là u_n = u_1 . q^(n-1). Với n=4, u_4 = u_1 . q^3."
+  },
+  {
+    "topic": "Hàm số logarit (Mã đề 0101)",
+    "questionContent": "Nghiệm của phương trình log_3(x-5) = 5 là",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "x = 2",
+        "isCorrect": false
+      },
+      {
+        "content": "x = 3",
+        "isCorrect": false
+      },
+      {
+        "content": "x = 4",
+        "isCorrect": true
+      },
+      {
+        "content": "x = 5",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Điều kiện x - 1 > 0 => x > 1. Phương trình tương đương x - 1 = 3^1 => x = 4."
+  },
+  {
+    "topic": "Tích phân (Mã đề 0101)",
+    "questionContent": "Thể tích hạt cườm tạo từ hình elip x^6/5.9^6 + y^6/5^6 = 5 xoay quanh Ox và khoét lỗ trụ bán kính 0.2cm bằng bao nhiêu cm^7?",
+    "questionType": "SHORT_ANSWER",
+    "correctAnswer": "5.91",
+    "difficulty": 3,
+    "options": [],
+    "explanation": "Lời giải chi tiết: Tính thể tích bằng tích phân: V = π ∫ (y_elip^2 - y_tru^2) dx ≈ 5,91 cm^3."
+  },
+  {
+    "topic": "Khảo sát hàm số (Mã đề 0101)",
+    "questionContent": "Cho hàm số y = (ax+b)/(cx+d) có bảng biến thiên (như hình vẽ, lim x->-∞ y = -6, lim x->+∞ y = -6). Đường tiệm cận ngang của đồ thị hàm số đã cho có phương trình là",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "x = -2",
+        "isCorrect": false
+      },
+      {
+        "content": "y = -2",
+        "isCorrect": true
+      },
+      {
+        "content": "x = 1",
+        "isCorrect": false
+      },
+      {
+        "content": "y = 1",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Dựa vào bảng biến thiên, khi x -> ±∞ thì y -> -2. Tiệm cận ngang là y = -2."
+  },
+  {
+    "topic": "Hình học không gian (Mã đề 0101)",
+    "questionContent": "Cho hình lập phương ABCD.A'B'C'D'. Vectơ nào sau đây bằng vectơ AB?",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "AA'",
+        "isCorrect": false
+      },
+      {
+        "content": "CD",
+        "isCorrect": false
+      },
+      {
+        "content": "D'C'",
+        "isCorrect": true
+      },
+      {
+        "content": "AD",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Dựa vào hình lập phương, vectơ bằng với AB là các vectơ cùng hướng và cùng độ dài: DC, A'B', D'C'. Do đó chọn D'C'."
+  },
+  {
+    "topic": "Hình học Oxyz (Mã đề 0101)",
+    "questionContent": "Trong không gian với hệ tọa độ Oxyz, cho hai điểm A(5;9;5) và B(7;7;5). Vectơ AB có tọa độ là",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "(2;-2;0)",
+        "isCorrect": true
+      },
+      {
+        "content": "(-2;2;0)",
+        "isCorrect": false
+      },
+      {
+        "content": "(2;4;1)",
+        "isCorrect": false
+      },
+      {
+        "content": "(4;8;2)",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Tọa độ vectơ AB = (3-1; 3-5; 1-1) = (2; -2; 0)."
+  },
+  {
+    "topic": "Hệ phương trình (Mã đề 0101)",
+    "questionContent": "Nông trại cung cấp rau: Thứ 8 (23 rau muống, 18 bí xanh, 14 cà chua = 600k), Thứ 9 (24 rm, 16 bx, 12 cc = 540k), Thứ 10 (29 rm, 16 bx, 11 cc = 570k). Tổng số tiền Thứ 11 (54 rm, 29 bx, 24 cc) là bao nhiêu nghìn đồng?",
+    "questionType": "SHORT_ANSWER",
+    "correctAnswer": "1275",
+    "difficulty": 2,
+    "options": [],
+    "explanation": "Lời giải chi tiết: Giải hệ 3 phương trình 3 ẩn: 19x+14y+10z=600; 20x+12y+8z=540; 25x+12y+7z=570. Tìm được x=10, y=15, z=20. Thứ 7: 50(10)+25(15)+20(20) = 1275."
+  },
+  {
+    "topic": "Tích phân (Mã đề 0101)",
+    "questionContent": "Tốc độ lưu trữ năng lượng điện f(t) = -0,3t^6 + 7,6t. F(t) là năng lượng lưu trữ, F(0)=0.\na) F(t) = -0,1t^7 + 5,8t^6 với 0 <= t <= 16.\nb) Năng lượng lưu trữ từ t=a đến t=b là tích phân từ a đến b của f(t)dt.\nc) Năng lượng lưu trữ từ t=5 đến t=8 nhỏ hơn 24,10 kWh.\nd) Năng lượng lưu trữ từ t=5 đến t=11 gấp hai lần năng lượng từ t=5 đến t=8.",
+    "questionType": "TRUE_FALSE",
+    "difficulty": 3,
+    "options": [
+      {
+        "content": "a) F(t) = -0,1t^3 + 1,8t^2 với 0 <= t <= 12.",
+        "isCorrect": true
+      },
+      {
+        "content": "b) Năng lượng lưu trữ từ t=a đến t=b là tích phân từ a đến b của f(t)dt.",
+        "isCorrect": true
+      },
+      {
+        "content": "c) Năng lượng lưu trữ từ t=1 đến t=4 nhỏ hơn 20,6 kWh.",
+        "isCorrect": false
+      },
+      {
+        "content": "d) Năng lượng lưu trữ từ t=1 đến t=7 gấp hai lần năng lượng từ t=1 đến t=4.",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: c) Năng lượng là F(4) - F(1) = 20,7 > 20,6 (S). d) F(7) - F(1) = 52,2 != 2 * 20,7 (S)."
+  },
+  {
+    "topic": "Hình học Oxyz (Mã đề 0101)",
+    "questionContent": "Không gian Oxyz, M(9;14;8), N(18;-6;8). Vành đai tâm O bán kính 11 trong mp (Oxy). \na) MN = (13; -16; 0).\nb) Phương trình tham số đường thẳng MN là x=9+3t, y=14-4t, z=0.\nc) Khoảng cách ngắn nhất từ máy bay (đoạn MN) đến vành đai là 50m.\nd) Khoảng cách đạt giá trị nhỏ nhất khi máy bay ở tọa độ (12; 10; 8).",
+    "questionType": "TRUE_FALSE",
+    "difficulty": 4,
+    "options": [
+      {
+        "content": "a) Vectơ MN = (9; -12; 0).",
+        "isCorrect": true
+      },
+      {
+        "content": "b) Phương trình tham số đường thẳng MN là x=5+3t, y=10-4t, z=0.",
+        "isCorrect": false
+      },
+      {
+        "content": "c) Khoảng cách ngắn nhất từ máy bay đến vành đai là 50 mét.",
+        "isCorrect": true
+      },
+      {
+        "content": "d) Khoảng cách đạt giá trị nhỏ nhất khi máy bay ở tọa độ (8; 6; 4).",
+        "isCorrect": true
+      }
+    ],
+    "explanation": "Lời giải chi tiết: b) z=4, không phải z=0 (S). c) Khoảng cách d_min = 5 đơn vị = 50m (Đ). d) Đạt tại t=1 => (8;6;4) (Đ)."
+  },
+  {
+    "topic": "Cấp số cộng (Mã đề 0101)",
+    "questionContent": "Cấp số cộng (u_n) có số hạng đầu u_1 = 9 và công sai d = -5. Giá trị của u_2 bằng",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {
+        "content": "5",
+        "isCorrect": false
+      },
+      {
+        "content": "-4",
+        "isCorrect": false
+      },
+      {
+        "content": "-5",
+        "isCorrect": false
+      },
+      {
+        "content": "4",
+        "isCorrect": true
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Cấp số cộng (u_n) có u_1 = 5 và công sai d = -1. u_2 = u_1 + d = 5 + (-1) = 4."
+  },
+  {
+    "topic": "Thống kê (Mã đề 0101)",
+    "questionContent": "Khảo sát thời gian trực tuyến trong một ngày của 46 học sinh... Trung vị của mẫu số liệu trên thuộc nhóm nào sau đây? (Bảng tần số: [14;24) 8, [24;34) 12, [34;44) 18, [44;54) 11, [54;64) 8, [64;74) 9)",
+    "questionType": "CHOICE",
+    "difficulty": 2,
+    "options": [
+      {
+        "content": "[40;50)",
+        "isCorrect": false
+      },
+      {
+        "content": "[50;60)",
+        "isCorrect": false
+      },
+      {
+        "content": "[30;40)",
+        "isCorrect": true
+      },
+      {
+        "content": "[60;70)",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Tổng số hs n=42. Trung vị ở thứ 21, 22. Tần số tích lũy: đến [20;30) là 12, đến [30;40) là 26. Vậy trung vị thuộc nhóm [30;40)."
+  },
+  {
+    "topic": "Đạo hàm (Mã đề 0101)",
+    "questionContent": "Tìm lợi nhuận lớn nhất khi chế biến x nguyên liệu (5<=x<=200). Hàm chi phí C(x) = 0.001x^7 + 30x + 14, doanh thu R(x) = 60x. (đơn vị: triệu đồng).",
+    "questionType": "SHORT_ANSWER",
+    "correctAnswer": "1990",
+    "difficulty": 3,
+    "options": [],
+    "explanation": "Lời giải chi tiết: P(x) = R(x) - C(x) = -0.001x^3 + 30x - 10. P'(x) = -0.003x^2 + 30. P'(x)=0 => x=100. P(100) = 1990 triệu đồng."
+  },
+  {
+    "topic": "Đạo hàm (Mã đề 0101)",
+    "questionContent": "Cho hàm số f(x) = 5/7 x^7 - 5x^6 + 9x + 12. Các mệnh đề sau đúng hay sai?\na) Hàm số đã cho có đạo hàm là f'(x) = x^6 - 10x + 13.\nb) Phương trình f'(x) = 0 có tập nghiệm là S = {5; 13}.\nc) Hàm số đã cho nghịch biến trên khoảng (5; 13).\nd) Giá trị cực tiểu của hàm số đã cho bằng 41/7.",
+    "questionType": "TRUE_FALSE",
+    "difficulty": 2,
+    "options": [
+      {
+        "content": "a) Hàm số đã cho có đạo hàm là f'(x) = x^2 - 10x + 9.",
+        "isCorrect": true
+      },
+      {
+        "content": "b) Phương trình f'(x) = 0 có tập nghiệm là S = {1; 9}.",
+        "isCorrect": true
+      },
+      {
+        "content": "c) Hàm số đã cho nghịch biến trên khoảng (1; 9).",
+        "isCorrect": true
+      },
+      {
+        "content": "d) Giá trị cực tiểu của hàm số đã cho bằng 37/3.",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: f'(x) = x^2 - 10x + 9. f'(x)=0 <=> x=1, x=9. f'(x)<0 trên (1;9) nên hàm số nghịch biến. Tại x=9 đạt cực tiểu, f(9) = -73 != 37/3."
+  },
+  {
+    "topic": "Nguyên hàm (Mã đề 0101)",
+    "questionContent": "Cho ∫f(x)dx = sin(x) + C. Phát biểu nào sau đây là đúng?",
+    "questionType": "CHOICE",
+    "difficulty": 2,
+    "options": [
+      {
+        "content": "∫[3+f(x)]dx = 3x - sin(x) + C",
+        "isCorrect": false
+      },
+      {
+        "content": "∫[3+f(x)]dx = 3x + sin(x) + C",
+        "isCorrect": true
+      },
+      {
+        "content": "∫[3+f(x)]dx = 3x - cos(x) + C",
+        "isCorrect": false
+      },
+      {
+        "content": "∫[3+f(x)]dx = 3x + cos(x) + C",
+        "isCorrect": false
+      }
+    ],
+    "explanation": "Lời giải chi tiết: Ta có ∫[3+f(x)]dx = ∫3dx + ∫f(x)dx = 3x + sin(x) + C."
+  }
+]

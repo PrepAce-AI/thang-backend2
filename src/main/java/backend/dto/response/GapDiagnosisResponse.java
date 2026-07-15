@@ -22,8 +22,10 @@ public class GapDiagnosisResponse {
     @Data
     @Builder
     public static class GapView {
-        /** Tên chủ đề (topic) — ví dụ "Phương trình bậc nhất" */
+        /** Môn học — ví dụ "Toán", "Vật Lý" */
         private String subject;
+        /** Tên chủ đề (topic) — ví dụ "Phương trình bậc nhất" */
+        private String topic;
         /** Hổng nặng | Chưa vững | Cần tinh chỉnh */
         private String severity;
         private String color;

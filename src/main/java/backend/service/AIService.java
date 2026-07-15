@@ -48,6 +48,19 @@ public class AIService {
     private final EnrollmentRepository enrollmentRepository;
     private final PracticeAnswerRepository practiceAnswerRepository;
     private final ObjectMapper objectMapper;
+    
+    // --- CACHE ĐƠN GIẢN CHO AI ---
+    // Key format: "studentId_type" (VD: "1_forecastScore")
+    private final Map<String, Object> aiCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Long> aiCacheExpiry = new java.util.concurrent.ConcurrentHashMap<>();
+    private final long CACHE_DURATION_MS = 60 * 60 * 1000; // 1 giờ
+    
+    public void clearCache(Integer studentId) {
+        String prefix = studentId + "_";
+        aiCache.keySet().removeIf(k -> k.startsWith(prefix));
+        aiCacheExpiry.keySet().removeIf(k -> k.startsWith(prefix));
+    }
+    // -----------------------------
 
     private static final String SYSTEM_CONTEXT = """
         Bạn là PrepAce AI, trợ lý học tập chính thức của nền tảng PrepAce dành cho học sinh THPT Việt Nam.
@@ -614,6 +627,11 @@ public class AIService {
      */
     @Transactional
     public GapDiagnosisResponse diagnoseGaps(Integer studentId) {
+        String cacheKey = studentId + "_gapDiagnosis";
+        if (aiCache.containsKey(cacheKey) && aiCacheExpiry.get(cacheKey) > System.currentTimeMillis()) {
+            return (GapDiagnosisResponse) aiCache.get(cacheKey);
+        }
+
         List<TopicStat> topicStats = computeTopicStats(studentId);
         int totalAnswered = topicStats.stream().mapToInt(TopicStat::total).sum();
 
@@ -646,7 +664,8 @@ public class AIService {
                                     + "đọc kỹ lời giải các câu sai trong lịch sử làm bài rồi luyện lại đề %s để củng cố.",
                             t.topic(), t.subject(), t.wrong(), t.total(), acc, t.subject());
                     return GapDiagnosisResponse.GapView.builder()
-                            .subject(t.topic())
+                            .subject(t.subject())
+                            .topic(t.topic())
                             .severity(severity)
                             .color(color)
                             .accuracy(acc)
@@ -662,12 +681,17 @@ public class AIService {
         saveAIHistory(studentId, "Phân tích lỗ hổng kiến thức", aiSummary, "GAP_DIAGNOSIS");
         log.info("Gap Diagnosis — studentId={}, overallAccuracy={}%, weakTopics={}", studentId, overallAccuracy, weak.size());
 
-        return GapDiagnosisResponse.builder()
+        GapDiagnosisResponse res = GapDiagnosisResponse.builder()
                 .hasData(true)
                 .overallAccuracy(overallAccuracy)
                 .summary(aiSummary)
                 .gaps(gaps)
                 .build();
+                
+        aiCache.put(cacheKey, res);
+        aiCacheExpiry.put(cacheKey, System.currentTimeMillis() + CACHE_DURATION_MS);
+        
+        return res;
     }
 
     // ─── UC-27: Adaptive Path Generation ────────────────────────────────────────
@@ -813,6 +837,11 @@ public class AIService {
     /** Dự đoán điểm theo TỪNG MÔN dựa trên độ chính xác thật + xu hướng các lượt gần đây. */
     @Transactional
     public ScoreForecastResponse forecastScore(Integer studentId) {
+        String cacheKey = studentId + "_forecastScore";
+        if (aiCache.containsKey(cacheKey) && aiCacheExpiry.get(cacheKey) > System.currentTimeMillis()) {
+            return (ScoreForecastResponse) aiCache.get(cacheKey);
+        }
+
         List<TopicStat> topicStats = computeTopicStats(studentId);
         int totalAnswered = topicStats.stream().mapToInt(TopicStat::total).sum();
 
@@ -866,15 +895,20 @@ public class AIService {
         saveAIHistory(studentId, "Dự đoán điểm thi THPT QG", summary, "SCORE_FORECAST");
         log.info("Score Forecast — studentId={}, current={}, predicted={}", studentId, currentTotal, predictedTotal);
 
-        return ScoreForecastResponse.builder()
+        ScoreForecastResponse res = ScoreForecastResponse.builder()
                 .hasData(true)
                 .currentTotal(currentTotal)
                 .predictedTotal(predictedTotal)
-                .trend(trendLabel)
                 .confidence(confidence)
-                .subjects(subjects)
+                .trend(trendLabel)
                 .summary(summary)
+                .subjects(subjects)
                 .build();
+                
+        aiCache.put(cacheKey, res);
+        aiCacheExpiry.put(cacheKey, System.currentTimeMillis() + CACHE_DURATION_MS);
+        
+        return res;
     }
 
     // ─── UC-30: AI University Advising ──────────────────────────────────────────
@@ -938,6 +972,11 @@ public class AIService {
     @Transactional
     public UniversityAdvisingResponse getUniversityAdvising(Integer studentId, String block) {
         String normalizedBlock = BLOCK_SUBJECTS.containsKey(block) ? block : "A00";
+        String cacheKey = studentId + "_universityAdvising_" + normalizedBlock;
+        if (aiCache.containsKey(cacheKey) && aiCacheExpiry.get(cacheKey) > System.currentTimeMillis()) {
+            return (UniversityAdvisingResponse) aiCache.get(cacheKey);
+        }
+
         List<TopicStat> topicStats = computeTopicStats(studentId);
         int totalAnswered = topicStats.stream().mapToInt(TopicStat::total).sum();
 
@@ -1014,13 +1053,18 @@ public class AIService {
         saveAIHistory(studentId, "Tư vấn chọn ngành & trường (khối " + normalizedBlock + ")", summary, "UNIVERSITY_ADVISE");
         log.info("University Advising — studentId={}, block={}, predictedScore={}", studentId, normalizedBlock, predictedScore);
 
-        return UniversityAdvisingResponse.builder()
+        UniversityAdvisingResponse res = UniversityAdvisingResponse.builder()
                 .hasData(true)
                 .block(normalizedBlock)
                 .predictedScore(predictedScore)
                 .summary(summary)
                 .suggestions(suggestions)
                 .build();
+                
+        aiCache.put(studentId + "_universityAdvising_" + normalizedBlock, res);
+        aiCacheExpiry.put(studentId + "_universityAdvising_" + normalizedBlock, System.currentTimeMillis() + CACHE_DURATION_MS);
+        
+        return res;
     }
 
     // ─── Private helpers ────────────────────────────────────────────────────────
@@ -1092,6 +1136,7 @@ public class AIService {
             Question q = pa.getQuestion();
             String subject = (q.getSubject() != null && !q.getSubject().isBlank()) ? q.getSubject() : "Khác";
             String topic = (q.getTopic() != null && !q.getTopic().isBlank()) ? q.getTopic() : subject;
+            topic = topic.replaceAll(" \\(Mã đề .*?\\)", "").trim(); // Xóa chuỗi " (Mã đề ...)" để gộp chuẩn xác
             int[] c = agg.computeIfAbsent(subject + "||" + topic, k -> new int[2]);
             c[0]++;
             if (!Boolean.TRUE.equals(pa.getIsCorrect())) c[1]++;

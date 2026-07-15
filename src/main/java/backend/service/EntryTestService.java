@@ -104,36 +104,56 @@ public class EntryTestService {
 
         for (Question q : questions) {
             String selectedText = answers.get(q.getQuestionId());
+            boolean isCorrect = false;
+            String correctAnsText = null;
 
-            QuestionOption correctOption = q.getOptions().stream()
-                    .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
-                    .findFirst()
-                    .orElse(null);
-                    
-            QuestionOption selectedOption = q.getOptions().stream()
-                    .filter(o -> o.getOptionContent().equals(selectedText))
-                    .findFirst()
-                    .orElse(null);
+            if ("SHORT_ANSWER".equals(q.getQuestionType())) {
+                correctAnsText = q.getCorrectAnswer();
+                if (correctAnsText != null && selectedText != null && selectedText.trim().equalsIgnoreCase(correctAnsText.trim())) {
+                    isCorrect = true;
+                }
+            } else {
+                QuestionOption correctOption = q.getOptions().stream()
+                        .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                        .findFirst()
+                        .orElse(null);
+                        
+                QuestionOption selectedOption = q.getOptions().stream()
+                        .filter(o -> o.getOptionContent().equals(selectedText))
+                        .findFirst()
+                        .orElse(null);
 
-            // So sánh theo nội dung text (FE cũ gửi text đáp án thay vì optionId)
-            boolean isCorrect = correctOption != null
-                    && selectedText != null
-                    && correctOption.getOptionContent().equals(selectedText);
+                correctAnsText = correctOption != null ? correctOption.getOptionContent() : null;
+                isCorrect = correctOption != null && selectedText != null && correctOption.getOptionContent().equals(selectedText);
+                
+                PracticeAnswer pa = new PracticeAnswer();
+                pa.setAttempt(attempt);
+                pa.setQuestion(q);
+                pa.setSelectedOptionId(selectedOption != null ? selectedOption.getOptionId() : null);
+                pa.setIsCorrect(isCorrect);
+                pa.setQuestionOrder(orderIndex++);
+                practiceAnswersToSave.add(pa);
+            }
+
             if (isCorrect) correctCount++;
             
-            PracticeAnswer pa = new PracticeAnswer();
-            pa.setAttempt(attempt);
-            pa.setQuestion(q);
-            pa.setSelectedOptionId(selectedOption != null ? selectedOption.getOptionId() : null);
-            pa.setIsCorrect(isCorrect);
-            pa.setQuestionOrder(orderIndex++);
-            practiceAnswersToSave.add(pa);
+            // For SHORT_ANSWER, we don't need to save to PracticeAnswers because Entry Test history currently ignores pa records anyway,
+            // but just to be safe, let's also save it if it's SHORT_ANSWER
+            if ("SHORT_ANSWER".equals(q.getQuestionType())) {
+                PracticeAnswer pa = new PracticeAnswer();
+                pa.setAttempt(attempt);
+                pa.setQuestion(q);
+                pa.setEssayAnswer(selectedText);
+                pa.setIsCorrect(isCorrect);
+                pa.setQuestionOrder(orderIndex++);
+                practiceAnswersToSave.add(pa);
+            }
 
             details.add(QuizResultResponse.QuestionResultDetail.builder()
                     .questionId(q.getQuestionId())
                     .questionContent(q.getQuestionContent())
                     .selectedAnswer(selectedText)
-                    .correctAnswer(correctOption != null ? correctOption.getOptionContent() : null)
+                    .correctAnswer(correctAnsText)
                     .isCorrect(isCorrect)
                     .explanation(q.getExplanation())
                     .topic(q.getTopic())
@@ -227,6 +247,7 @@ public class EntryTestService {
                 .map(q -> QuizResponse.QuestionResponse.builder()
                         .questionId(q.getQuestionId())
                         .questionContent(q.getQuestionContent())
+                        .questionType(q.getQuestionType())
                         .options(q.getOptions().stream()
                                 .map(o -> QuizResponse.OptionResponse.builder()
                                         .optionId(o.getOptionId())
@@ -328,6 +349,7 @@ public class EntryTestService {
                         QuizResponse.QuestionResponse.builder()
                                 .questionId(q.getQuestionId())
                                 .questionContent(q.getQuestionContent())
+                                .questionType(q.getQuestionType())
                                 .options(q.getOptions().stream()
                                         .map(o -> QuizResponse.OptionResponse.builder()
                                                 .optionId(o.getOptionId())
