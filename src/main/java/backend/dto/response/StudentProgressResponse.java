@@ -7,6 +7,8 @@ public class StudentProgressResponse {
     private int userId;
     private String userFullName;
     private int lessonId;
+    private Boolean chapterCompleted;
+    private Integer chapterId;
     private Boolean isCompleted;
     private Double score;
     private Date lastAccessed;
@@ -14,11 +16,13 @@ public class StudentProgressResponse {
 
     public StudentProgressResponse() {}
 
-    public StudentProgressResponse(Integer id, int userId, String userFullName, int lessonId, Boolean isCompleted, Double score, Date lastAccessed, Double lastVideoTime) {
+    public StudentProgressResponse(Integer id, int userId, String userFullName, int lessonId, Boolean chapterCompleted, Integer chapterId, Boolean isCompleted, Double score, Date lastAccessed, Double lastVideoTime) {
         this.id = id;
         this.userId = userId;
         this.userFullName = userFullName;
         this.lessonId = lessonId;
+        this.chapterCompleted = chapterCompleted;
+        this.chapterId = chapterId;
         this.isCompleted = isCompleted;
         this.score = score;
         this.lastAccessed = lastAccessed;
@@ -87,5 +91,29 @@ public class StudentProgressResponse {
 
     public void setLastVideoTime(Double lastVideoTime) {
         this.lastVideoTime = lastVideoTime;
+    }
+
+    public Boolean getChapterCompleted() {
+        return chapterCompleted;
+    }
+
+    public void setChapterCompleted(Boolean chapterCompleted) {
+        this.chapterCompleted = chapterCompleted;
+    }
+
+    public Integer getChapterId() {
+        return chapterId;
+    }
+
+    public void setChapterId(Integer chapterId) {
+        this.chapterId = chapterId;
+    }
+
+    public Boolean getCompleted() {
+        return isCompleted;
+    }
+
+    public void setCompleted(Boolean completed) {
+        isCompleted = completed;
     }
 }

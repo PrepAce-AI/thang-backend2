@@ -8,15 +8,14 @@ import backend.entity.Course;
 import backend.entity.Lesson;
 import backend.entity.StudentProgress;
 import backend.entity.User;
-import backend.repository.CourseRepository;
-import backend.repository.LessonRepository;
-import backend.repository.StudentProgressRepository;
-import backend.repository.UserRepository;
+import backend.repository.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+@Slf4j
 @Service
 public class StudentProgressService {
 
@@ -32,33 +31,61 @@ public class StudentProgressService {
     @Autowired
     private CourseRepository courseRepository;
 
+    @Autowired
+    private AIChapterSummaryRepository aiChapterSummaryRepository;
+
+    @Autowired
+    private AIChapterSummaryService aiChapterSummaryService;
+
     public StudentProgressResponse saveProgress(User user, StudentProgressRequest request) {
+
         Lesson lesson = lessonRepository.findById(request.getLessonId())
                 .orElseThrow(() -> new RuntimeException("Lesson not found"));
 
-        StudentProgress progress = studentProgressRepository.findByUserIdAndLessonId(user.getId(), lesson.getId())
+        StudentProgress progress = studentProgressRepository
+                .findByUserIdAndLessonId(user.getId(), lesson.getId())
                 .orElse(new StudentProgress());
 
         progress.setUser(user);
         progress.setLesson(lesson);
-        
+
         if (request.getIsCompleted() != null) {
             progress.setIsCompleted(request.getIsCompleted());
         }
+
         if (request.getScore() != null) {
             progress.setScore(request.getScore());
         }
+
         if (request.getLastVideoTime() != null) {
             progress.setLastVideoTime(request.getLastVideoTime());
         }
 
         StudentProgress saved = studentProgressRepository.save(progress);
 
+        boolean chapterCompleted = false;
+
+        if (Boolean.TRUE.equals(saved.getIsCompleted())) {
+
+            checkChapterCompleted(user, lesson);
+
+            chapterCompleted = aiChapterSummaryRepository
+                    .findByStudent_IdAndChapter_Id(
+                            user.getId(),
+                            lesson.getChapter().getId()
+                    )
+                    .isPresent();
+        }
+
         return new StudentProgressResponse(
                 saved.getId(),
                 user.getId(),
                 user.getFullName(),
                 lesson.getId(),
+                chapterCompleted,
+                lesson.getChapter() != null
+                        ? lesson.getChapter().getId()
+                        : null,
                 saved.getIsCompleted(),
                 saved.getScore(),
                 saved.getLastAccessed(),
@@ -66,9 +93,90 @@ public class StudentProgressService {
         );
     }
 
+    private void checkChapterCompleted(User user, Lesson lesson) {
+
+        Chapter chapter = lesson.getChapter();
+
+        if (chapter == null) {
+            return;
+        }
+
+        List<Lesson> lessons = chapter.getLessons();
+
+        if (lessons == null || lessons.isEmpty()) {
+            log.warn("Chapter {} has no lessons.", chapter.getId());
+            return;
+        }
+
+        // Kiểm tra toàn bộ lesson đã hoàn thành chưa
+        for (Lesson l : lessons) {
+
+            Optional<StudentProgress> progress =
+                    studentProgressRepository.findByUserIdAndLessonId(
+                            user.getId(),
+                            l.getId()
+                    );
+
+            if (progress.isEmpty()
+                    || !Boolean.TRUE.equals(progress.get().getIsCompleted())) {
+
+                return;
+            }
+        }
+
+        // Đã sinh summary rồi thì thôi
+        if (aiChapterSummaryRepository
+                .findByStudent_IdAndChapter_Id(
+                        user.getId(),
+                        chapter.getId())
+                .isPresent()) {
+
+            return;
+        }
+
+        // Sinh AI Summary
+        aiChapterSummaryService.generateSummary(
+                user.getId(),
+                chapter.getCourse().getCourseId(),
+                chapter.getId()
+        );
+
+        log.info("Chapter {} completed by user {} -> AI Summary generated.",
+                chapter.getId(),
+                user.getId());
+    }
+
     public StudentProgressResponse getProgress(User user, int lessonId) {
-        return studentProgressRepository.findByUserIdAndLessonId(user.getId(), lessonId)
-                .map(p -> new StudentProgressResponse(p.getId(), user.getId(), user.getFullName(), lessonId, p.getIsCompleted(), p.getScore(), p.getLastAccessed(), p.getLastVideoTime()))
+        return studentProgressRepository
+                .findByUserIdAndLessonId(user.getId(), lessonId)
+                .map(p -> {
+                    Lesson lesson = p.getLesson();
+                    Chapter chapter = lesson.getChapter();
+                    boolean chapterCompleted = false;
+                    Integer chapterId = null;
+
+                    if (chapter != null) {
+                        chapterId = chapter.getId();
+                        chapterCompleted = aiChapterSummaryRepository
+                                .findByStudent_IdAndChapter_Id(
+                                        user.getId(),
+                                        chapterId
+                                )
+                                .isPresent();
+                    }
+                    return new StudentProgressResponse(
+                            p.getId(),
+                            user.getId(),
+                            user.getFullName(),
+                            lessonId,
+                            chapterCompleted,
+                            chapterId,
+                            p.getIsCompleted(),
+                            p.getScore(),
+                            p.getLastAccessed(),
+                            p.getLastVideoTime()
+                    );
+                })
                 .orElse(null);
     }
 

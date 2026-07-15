@@ -43,16 +43,11 @@ public class PracticeAnswer {
     /** Thứ tự câu hỏi trong đề (1..25) để render lại đúng thứ tự */
     @Column(name = "question_order", nullable = false)
     private Integer questionOrder = 0;
-
-    /** Đáp án dạng chữ do học sinh nhập (cho câu Trả lời ngắn / Tự luận) */
-    @Column(name = "essay_answer", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "essay_answer")
     private String essayAnswer;
-
-    /** Điểm do AI chấm (nếu là tự luận/trả lời ngắn) */
     @Column(name = "score")
-    private Float score;
+    private Double score;
 
-    /** Nhận xét của AI */
-    @Column(name = "teacher_comment", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "teacher_comment")
     private String teacherComment;
 }

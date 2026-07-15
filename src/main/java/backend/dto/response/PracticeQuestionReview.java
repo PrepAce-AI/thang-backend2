@@ -26,9 +26,8 @@ public class PracticeQuestionReview {
 
     /** Lời giải chi tiết — nguồn dữ liệu cho box "Giải thích lỗi sai ở đâu" */
     private String explanation;
-
-    private String questionType;
     private String essayAnswer;
-    private Float score;
+    private String questionType; // CHOICE, ESSAY, SHORT_ANSWER
+    private Double score;
     private String teacherComment;
 }

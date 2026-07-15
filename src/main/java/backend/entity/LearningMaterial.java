@@ -22,6 +22,9 @@ public class LearningMaterial {
     @Column(name = "file_url", nullable = false)
     private String fileUrl;
 
+    @Column(name = "content", columnDefinition = "NVARCHAR(MAX)")
+    private String content;
+
     @Column(name = "uploaded_at")
     @Temporal(TemporalType.TIMESTAMP)
     private Date uploadedAt = new Date();

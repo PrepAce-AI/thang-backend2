@@ -143,6 +143,11 @@ public class AiDataSeederController {
 
         for (Quiz quiz : quizzes) {
             if ("ENTRY_TEST".equals(quiz.getQuizType()) || "PRACTICE".equals(quiz.getQuizType()) || "MOCK_EXAM".equals(quiz.getQuizType())) {
+
+                if (quiz.getQuizTitle() != null && quiz.getQuizTitle().contains("Hệ Thống Chấm Điểm")) {
+                    continue; // Bỏ qua không bơm câu hỏi rác vào đề này
+                }
+
                 String subject = quiz.getSubject() != null ? quiz.getSubject().trim().toLowerCase() : "toán";
                 String subName = "Toán";
                 String[] jsonResources = {

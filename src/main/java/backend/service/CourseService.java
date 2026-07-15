@@ -31,11 +31,30 @@ public class CourseService {
             dto.setPrice(course.getPrice());
             dto.setIsPublished(course.getIsPublished());
 
+// 🔥 ĐỒNG BỘ THÔNG TIN MÔN HỌC (SUBJECT)
             if (course.getSubject() != null) {
                 dto.setSubjectId(course.getSubject().getId());
                 dto.setSubjectName(course.getSubject().getSubjectName());
             } else {
                 dto.setSubjectId(course.getSubjectId());
+                dto.setSubjectName("Chung");
+            }
+
+            // 🔥 ĐỒNG BỘ THÔNG TIN GIÁO VIÊN (TEACHER)
+            if (course.getTeacher() != null) {
+                dto.setTeacherId(course.getTeacher().getId());
+                dto.setTeacherName(course.getTeacher().getFullName());
+            } else {
+                dto.setTeacherId(course.getTeacherId());
+                dto.setTeacherName("Giáo viên");
+            }
+
+            dto.setTeacherId(course.getTeacherId());
+
+            if (course.getTeacherId() != null) {
+                userRepository.findById(course.getTeacherId()).ifPresent(user -> {
+                    dto.setTeacherName(user.getFullName());
+                });
             }
 
             return dto;
@@ -84,8 +103,22 @@ public class CourseService {
                 course.setCategoryId(Integer.parseInt(String.valueOf(updates.get("categoryId"))));
             } catch (Exception e) {}
         }
+        if (updates.containsKey("thumbnailUrl")) {
+            course.setThumbnailUrl((String) updates.get("thumbnailUrl"));
+        }
+        if (updates.containsKey("thumbnail_url")) {
+            course.setThumbnailUrl((String) updates.get("thumbnail_url"));
+        }
+        if (updates.containsKey("price")) {
+            try {
+                course.setPrice(new java.math.BigDecimal(String.valueOf(updates.get("price"))));
+            } catch (Exception e) {}
+        }
         return courseRepository.save(course);
     }
+
+    @Autowired
+    private backend.repository.UserRepository userRepository;
 
     // Hàm thực hiện chuyển đổi Entity -> DTO thủ công
     private CourseDetailResponse mapToResponse(Course course) {
@@ -95,6 +128,13 @@ public class CourseService {
         response.setDescription(course.getDescription());
         response.setThumbnailUrl(course.getThumbnailUrl());
         response.setPrice(course.getPrice());
+        response.setTeacherId(course.getTeacherId());
+
+        if (course.getTeacherId() != null) {
+            userRepository.findById(course.getTeacherId()).ifPresent(user -> {
+                response.setTeacherName(user.getFullName());
+            });
+        }
 
         // Map danh sách Chapter
         response.setChapters(course.getChapters().stream().map(chapter -> {

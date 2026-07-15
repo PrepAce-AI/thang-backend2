@@ -398,24 +398,17 @@ public class EntryTestService {
                 .attemptId(attempt.getAttemptId())
                 .quizId(quiz.getQuizId())
                 .quizTitle(quiz.getQuizTitle())
-
                 .score(attempt.getScore())
-
                 .totalQuestions(total)
                 .correctCount(correct)
                 .correctAnswers(correct)
-
                 .percentage(percentage)
                 .accuracyPercent(percentage)
-
                 .level(level)
                 .levelColor(levelColor)
-
                 .summary(generateSummary(level, percentage))
                 .recommendedStartLevel(level)
-
                 .recommendations(generateRecommendations(level))
-
                 // Chưa lưu chi tiết từng câu vào DB nên tạm thời trả rỗng
                 .details(Collections.emptyList())
 
