@@ -16,6 +16,8 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Integer>
 
     List<Enrollment> findByStudentId(Integer studentId);
 
+    int countByCourseId(Integer courseId);
+
     @Query("SELECT COUNT(e) > 0 FROM Enrollment e WHERE e.studentId = :studentId AND e.courseId = :courseId")
     boolean existsByStudentIdAndCourseId(@Param("studentId") Integer studentId, @Param("courseId") Integer courseId);
 }
