@@ -14,5 +14,6 @@ public class PracticeQuestionDto {
     private Integer questionId;
     private String questionContent;
     private String topic;
+    private String questionType;
     private List<PracticeOptionDto> options;
 }

@@ -12,6 +12,10 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Google Gemini Service
+ * Stable version
+ */
 @Service
 @Slf4j
 public class GeminiService {
@@ -141,4 +145,5 @@ public class GeminiService {
             return null;
         }
     }
+
 }
