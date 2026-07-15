@@ -133,17 +133,26 @@ public class StudentProgressService {
 
             return;
         }
-
         // Sinh AI Summary
-        aiChapterSummaryService.generateSummary(
-                user.getId(),
-                chapter.getCourse().getCourseId(),
-                chapter.getId()
-        );
-
-        log.info("Chapter {} completed by user {} -> AI Summary generated.",
-                chapter.getId(),
-                user.getId());
+        try {
+            aiChapterSummaryService.generateSummary(
+                    user.getId(),
+                    chapter.getCourse().getCourseId(),
+                    chapter.getId()
+            );
+            log.info(
+                    "Chapter {} completed by user {} -> AI Summary generated.",
+                    chapter.getId(),
+                    user.getId()
+            );
+        } catch (Exception e) {
+            log.error(
+                    "Generate AI Summary failed. chapter={}, user={}",
+                    chapter.getId(),
+                    user.getId(),
+                    e
+            );
+        }
     }
 
     public StudentProgressResponse getProgress(User user, int lessonId) {

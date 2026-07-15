@@ -12,10 +12,6 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Google Gemini Service
- * Stable version
- */
 @Service
 @Slf4j
 public class GeminiService {
@@ -39,40 +35,39 @@ public class GeminiService {
 
     public String ask(String systemContext, String userPrompt) {
 
-        String fullPrompt = systemContext + "\n\n" + userPrompt;
+        String model = "openai/gpt-oss-20b:free";
 
         Map<String, Object> body = Map.of(
-                "contents", List.of(
+
+                "model", model,
+
+                "messages", List.of(
+
                         Map.of(
-                                "parts", List.of(
-                                        Map.of("text", fullPrompt)
-                                )
+                                "role", "system",
+                                "content", systemContext
+                        ),
+
+                        Map.of(
+                                "role", "user",
+                                "content", userPrompt
                         )
-                ),
-                "generationConfig", Map.of(
-                        "temperature", 0.3,
-                        "topP", 0.9,
-                        "topK", 40,
-                        "maxOutputTokens", 8192
                 )
         );
 
         HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
-
-        String model = "gemini-2.5-flash";
-
-        String url =
-                apiUrl
-                        + model
-                        + ":generateContent?key="
-                        + apiKey;
 
         try {
 
+            System.out.println("========== OPENROUTER ==========");
+            System.out.println(apiUrl);
+            System.out.println("Model = " + model);
+
             ResponseEntity<Map> response =
                     restTemplate.exchange(
-                            url,
+                            apiUrl,
                             HttpMethod.POST,
                             new HttpEntity<>(body, headers),
                             Map.class
@@ -83,7 +78,7 @@ public class GeminiService {
             if (text == null || text.isBlank()) {
                 throw new GeminiException(
                         500,
-                        "Gemini returned empty response."
+                        "OpenRouter returned empty response."
                 );
             }
 
@@ -96,7 +91,7 @@ public class GeminiService {
             int status = e.getStatusCode().value();
 
             log.error(
-                    "Gemini HTTP {}:\n{}",
+                    "OpenRouter HTTP {}:\n{}",
                     status,
                     e.getResponseBodyAsString()
             );
@@ -109,7 +104,7 @@ public class GeminiService {
 
         catch (Exception e) {
 
-            log.error("Gemini API failed", e);
+            log.error("OpenRouter API failed", e);
 
             throw new GeminiException(
                     500,
@@ -119,7 +114,7 @@ public class GeminiService {
     }
 
     /**
-     * Extract generated text safely
+     * Parse OpenRouter response
      */
     private String extractTextSafe(Map<?, ?> body) {
 
@@ -127,35 +122,23 @@ public class GeminiService {
 
             if (body == null) return null;
 
-            List<?> candidates = (List<?>) body.get("candidates");
-            if (candidates == null || candidates.isEmpty()) return null;
+            List<?> choices = (List<?>) body.get("choices");
 
-            Map<?, ?> candidate = (Map<?, ?>) candidates.get(0);
-
-            Map<?, ?> content = (Map<?, ?>) candidate.get("content");
-            if (content == null) return null;
-
-            List<?> parts = (List<?>) content.get("parts");
-            if (parts == null || parts.isEmpty()) return null;
-
-            StringBuilder sb = new StringBuilder();
-
-            for (Object obj : parts) {
-                Map<?, ?> part = (Map<?, ?>) obj;
-
-                Object text = part.get("text");
-                if (text != null) {
-                    sb.append(text);
-                }
-            }
-
-            return sb.toString();
-
-        } catch (Exception e) {
-
-            log.error("Parse Gemini response failed", e);
+            if (choices == null || choices.isEmpty())
+                return null;
+            Map<?, ?> choice = (Map<?, ?>) choices.get(0);
+            Map<?, ?> message =
+                    (Map<?, ?>) choice.get("message");
+            if (message == null)
+                return null;
+            Object content = message.get("content");
+            if (content == null)
+                return null;
+            return content.toString();
+        }
+        catch (Exception e) {
+            log.error("Parse OpenRouter response failed", e);
             return null;
         }
     }
-
 }

@@ -54,6 +54,7 @@ public class AIChapterSummaryService {
         //--------------------------------------------
         // 1. Nếu đã từng sinh rồi thì trả luôn
         //--------------------------------------------
+        System.out.println("AAAAAAAAAAAA");
         Optional<AIChapterSummary> oldSummary =
                 summaryRepository.findByStudent_IdAndChapter_Id(studentId, chapterId);
 
@@ -146,11 +147,14 @@ public class AIChapterSummaryService {
         //--------------------------------------------
         // 5. Gọi Gemini
         //--------------------------------------------
-
+        System.out.println("===== CALL OPENROUTER =====");
         String aiResult = geminiService.ask(
                 SYSTEM_CONTEXT,
                 prompt
         );
+
+        System.out.println("===== OPENROUTER DONE =====");
+        System.out.println(aiResult);
 
         //--------------------------------------------
         // 6. Lưu DB
