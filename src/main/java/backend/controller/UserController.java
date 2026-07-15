@@ -157,6 +157,23 @@ public class UserController {
         return ResponseEntity.ok(Map.of("message", message));
     }
 
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(
+            @RequestBody Map<String, String> body
+    ) {
+
+        String email = body.get("email");
+
+        userService.resendOtp(email);
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "OTP has been resent successfully"
+                )
+        );
+    }
+
     //========================================================================================================
     @PostMapping("/logout")
     public ResponseEntity<?> logout(@RequestHeader("Authorization") String token){

@@ -3,18 +3,13 @@ package backend.service;
 import backend.dto.request.PurchaseRequest;
 import backend.dto.request.SePayWebhookRequest;
 import backend.dto.response.PaymentResponse;
-import backend.entity.Course;
-import backend.entity.Enrollment;
-import backend.entity.Payment;
-import backend.entity.User;
+import backend.entity.*;
 import backend.exceptions.BadRequestException;
 import backend.exceptions.ResourceNotFoundException;
-import backend.repository.CourseRepository;
-import backend.repository.EnrollmentRepository;
-import backend.repository.PaymentRepository;
-import backend.repository.UserRepository;
+import backend.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +31,9 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     // ─── Mua khóa học ───────────────────────────────────────────────────────────
 
@@ -276,15 +273,19 @@ public class PaymentService {
 
         payment.setPaymentStatus("CANCELLED");
         payment.setUpdatedAt(new Date());
-
-        paymentRepository.save(payment);
-
-
         Course course = courseRepository
                 .findById(payment.getCourseId())
                 .orElse(null);
 
+        paymentRepository.save(payment);
 
+        createNotification(
+                payment.getStudentId(),
+                "Thanh toán bị từ chối",
+                "Thanh toán khóa học \""
+                        + course.getTitle()
+                        + "\" đã bị Admin từ chối. Nếu bạn đã chuyển khoản, vui lòng liên hệ bộ phận hỗ trợ."
+        );
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
                 .studentId(payment.getStudentId())
@@ -351,6 +352,30 @@ public class PaymentService {
                             .build();
                 })
                 .toList();
+    }
+
+    private void createNotification(
+            Integer userId,
+            String title,
+            String content) {
+
+        Notification notification = new Notification();
+
+        notification.setTitle(title);
+        notification.setContent(content);
+        notification.setTargetRole("USER");
+        notification.setReceiverId(userId);
+
+        // hoặc ADMIN nếu muốn biết ai duyệt
+        notification.setCreatedBy(null);
+
+        notification.setCreatedAt(new Date());
+
+        notificationRepository.save(notification);
+        messagingTemplate.convertAndSend(
+                "/topic/notifications/" + userId,
+                notification
+        );
     }
 
     /**
@@ -437,6 +462,7 @@ public class PaymentService {
         // Nội dung chuyển khoản
         String content = req.getContent();
 
+
         if (content == null || content.isBlank()) {
             log.warn("Webhook không có nội dung chuyển khoản");
             return;
@@ -445,6 +471,9 @@ public class PaymentService {
         // Tìm payment theo transactionCode
         Payment payment = paymentRepository
                 .findByTransactionCodeContaining(content)
+                .orElse(null);
+        Course course = courseRepository
+                .findById(payment.getCourseId())
                 .orElse(null);
 
         if (payment == null) {
@@ -479,6 +508,13 @@ public class PaymentService {
 
         // Auto enroll
         autoEnroll(payment.getStudentId(), payment.getCourseId());
+        createNotification(
+                payment.getStudentId(),
+                "Thanh toán thành công",
+                "Thanh toán khóa học \""
+                        + course.getTitle()
+                        + "\" đã được Admin xác nhận. Bạn có thể bắt đầu học ngay."
+        );
 
         log.info("Payment {} SUCCESS",
                 payment.getTransactionCode());

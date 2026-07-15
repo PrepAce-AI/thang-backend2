@@ -14,6 +14,11 @@ public class CourseListResponse {
     private BigDecimal price;
     private Boolean isPublished;
 
+    private Integer subjectId;
+    private String subjectName;
+    private Integer teacherId;
+    private String teacherName;
+
     // Toàn bộ các hàm Constructor, Getter, Setter bên dưới của Toàn GIỮ NGUYÊN VẸN 100%
     public CourseListResponse() {}
 
@@ -35,20 +40,15 @@ public class CourseListResponse {
     public Boolean getIsPublished() { return isPublished; }
     public void setIsPublished(Boolean isPublished) { this.isPublished = isPublished; }
 
-    private Integer subjectId;
-    private String subjectName;
-
     public Integer getSubjectId() { return subjectId; }
     public void setSubjectId(Integer subjectId) { this.subjectId = subjectId; }
 
     public String getSubjectName() { return subjectName; }
     public void setSubjectName(String subjectName) { this.subjectName = subjectName; }
 
-    private Integer teacherId;
     public Integer getTeacherId() { return teacherId; }
     public void setTeacherId(Integer teacherId) { this.teacherId = teacherId; }
 
-    private String teacherName;
     public String getTeacherName() { return teacherName; }
     public void setTeacherName(String teacherName) { this.teacherName = teacherName; }
 }

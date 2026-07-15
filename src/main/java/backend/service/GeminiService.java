@@ -38,9 +38,7 @@ public class GeminiService {
     }
 
     public String ask(String systemContext, String userPrompt) {
-
         String model = "openai/gpt-oss-20b:free";
-
         Map<String, Object> body = Map.of(
 
                 "model", model,

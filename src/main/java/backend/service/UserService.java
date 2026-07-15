@@ -240,6 +240,36 @@ public class UserService {
         return "Verify Successfully";
     }
 
+    //ResendOTP
+    public void resendOtp(String email){
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("Email not found")
+                );
+        // Nếu đã verify rồi thì không gửi nữa
+        if ("ACTIVE".equalsIgnoreCase(user.getAccountStatus())) {
+            throw new RuntimeException(
+                    "Account already verified"
+            );
+        }
+        String otp = generateOTP();
+        user.setVerificationCode(otp);
+        user.setVerificationExpiry(
+                new Date(
+                        System.currentTimeMillis()
+                                + 5 * 60 * 1000
+                )
+        );
+        userRepository.save(user);
+        emailService.sendVerificationEmail(
+                email,
+                otp
+        );
+        System.out.println(
+                "RESEND OTP: " + otp
+        );
+    }
+
     //UPDATE AVATAR
     public void updateAvatar(String token, String avatarUrl){
         String jwt = token.replace("Bearer ", "");
