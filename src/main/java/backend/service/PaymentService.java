@@ -15,8 +15,14 @@ import backend.repository.PaymentRepository;
 import backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.Date;
 import java.util.List;
@@ -37,6 +43,9 @@ public class PaymentService {
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
+
+    @Value("${sepay.api-token}")
+    private String apiToken;
 
     // ─── Mua khóa học ───────────────────────────────────────────────────────────
 
@@ -561,8 +570,8 @@ public class PaymentService {
                 .build();
     }
 
-    // -------------------- STATUS BANKING -----------------------
-    @Transactional(readOnly = true)
+    // -------------------- STATUS BANKING (WITH SEPAY API POLLING) -----------------------
+    @Transactional
     public PaymentResponse getPaymentStatus(String transactionCode) {
 
         Payment payment = paymentRepository.findByTransactionCode(transactionCode)
@@ -571,6 +580,64 @@ public class PaymentService {
 
         Course course = courseRepository.findById(payment.getCourseId())
                 .orElse(null);
+
+        // NẾU ĐƠN HÀNG ĐANG CHỜ, CHỦ ĐỘNG GỌI SEPAY API ĐỂ KIỂM TRA MÀ KHÔNG CẦN WEBHOOK
+        if ("PENDING".equals(payment.getPaymentStatus()) || "WAITING_CONFIRM".equals(payment.getPaymentStatus())) {
+            try {
+                RestTemplate restTemplate = new RestTemplate();
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", "Bearer " + apiToken);
+                headers.set("Content-Type", "application/json");
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<Map> response = restTemplate.exchange(
+                        "https://my.sepay.vn/userapi/transactions/list",
+                        HttpMethod.GET,
+                        entity,
+                        Map.class
+                );
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    Map<String, Object> body = response.getBody();
+                    if (body.containsKey("transactions")) {
+                        List<Map<String, Object>> transactions = (List<Map<String, Object>>) body.get("transactions");
+                        
+                        // Lọc qua danh sách giao dịch gần nhất
+                        for (Map<String, Object> txn : transactions) {
+                            String content = txn.get("transaction_content") != null ? txn.get("transaction_content").toString() : "";
+                            String amountStr = txn.get("amount_in") != null ? txn.get("amount_in").toString() : "0";
+                            double amountIn = Double.parseDouble(amountStr);
+
+                            // Bỏ gạch ngang để so khớp linh hoạt
+                            String cleanContent = content.replace("-", "").toUpperCase();
+                            String cleanTxnCode = payment.getTransactionCode().replace("-", "").toUpperCase();
+
+                            if (cleanContent.contains(cleanTxnCode)) {
+                                // Kiểm tra số tiền khớp 100%
+                                if (payment.getAmount() != null && payment.getAmount().doubleValue() <= amountIn) {
+                                    // CHỐT ĐƠN!
+                                    payment.setPaymentStatus("SUCCESS");
+                                    payment.setPaidAt(new Date());
+                                    payment.setUpdatedAt(new Date());
+                                    payment.setBankTransactionId(txn.get("reference_number") != null ? txn.get("reference_number").toString() : "API_SYNC");
+                                    paymentRepository.save(payment);
+
+                                    // Mở khóa học
+                                    autoEnroll(payment.getStudentId(), payment.getCourseId());
+                                    
+                                    log.info("API POLLING SUCCESS: Tìm thấy giao dịch {} cho Payment {}", cleanContent, payment.getTransactionCode());
+                                    break;
+                                } else {
+                                    log.warn("API POLLING: Tìm thấy mã {} nhưng số tiền không khớp (Thực tế: {}, Yêu cầu: {})", cleanTxnCode, amountIn, payment.getAmount());
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Lỗi khi chủ động gọi SePay API: {}", e.getMessage());
+            }
+        }
 
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
