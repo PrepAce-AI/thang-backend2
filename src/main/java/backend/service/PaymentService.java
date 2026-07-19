@@ -13,6 +13,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.Date;
@@ -36,6 +42,9 @@ public class PaymentService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @Value("${sepay.api-token}")
+    private String apiToken;
 
     // ─── Mua khóa học ───────────────────────────────────────────────────────────
 
@@ -67,16 +76,16 @@ public class PaymentService {
         }
 
         String transactionCode =
-                "PAY-" + UUID.randomUUID()
+                "PAY" + UUID.randomUUID()
                         .toString()
                         .substring(0, 8)
                         .toUpperCase();
 
         String transferContent = "PAY " + transactionCode;
 
-        String bankBin = "970436";
-        String accountNo = "9703391695";
-        String accountName = "NGUYEN CUU THANG";
+        String bankBin = "970423"; // TPBank BIN
+        String accountNo = "10001805232";
+        String accountName = "NGUYEN VAN HAI";
 
         String qrUrl =
                 "https://img.vietqr.io/image/"
@@ -470,13 +479,39 @@ public class PaymentService {
             return;
         }
 
+        // Trích xuất mã giao dịch có dạng PAY[A-F0-9]{8} hoặc PAY-[A-F0-9]{8}
+        String txnCode = null;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("PAY-?[A-F0-9]{8}", java.util.regex.Pattern.CASE_INSENSITIVE);
+        java.util.regex.Matcher matcher = pattern.matcher(content);
+        if (matcher.find()) {
+            txnCode = matcher.group().toUpperCase();
+            if (txnCode.contains("-")) {
+                txnCode = txnCode.replace("-", ""); 
+            }
+        }
+
+        if (txnCode == null) {
+            log.warn("Không tìm thấy mã giao dịch trong nội dung: {}", content);
+            return;
+        }
+
         // Tìm payment theo transactionCode
         Payment payment = paymentRepository
-                .findByTransactionCodeContaining(content)
+                .findByTransactionCode(txnCode)
                 .orElse(null);
-        Course course = courseRepository
+                
+        // Hỗ trợ tìm ngược lại nếu DB lưu có dấu gạch ngang (VD: giao dịch cũ PAY-XXXX)
+        if (payment == null && !txnCode.contains("-")) {
+            String legacyTxnCode = txnCode.replace("PAY", "PAY-");
+            payment = paymentRepository.findByTransactionCode(legacyTxnCode).orElse(null);
+        }
+
+        Course course = null;
+        if (payment != null) {
+            course = courseRepository
                 .findById(payment.getCourseId())
                 .orElse(null);
+        }
 
         if (payment == null) {
             log.warn("Không tìm thấy payment với content={}", content);
@@ -574,8 +609,8 @@ public class PaymentService {
                 .build();
     }
 
-    // -------------------- STATUS BANKING -----------------------
-    @Transactional(readOnly = true)
+    // -------------------- STATUS BANKING (WITH SEPAY API POLLING) -----------------------
+    @Transactional
     public PaymentResponse getPaymentStatus(String transactionCode) {
 
         Payment payment = paymentRepository.findByTransactionCode(transactionCode)
@@ -584,6 +619,71 @@ public class PaymentService {
 
         Course course = courseRepository.findById(payment.getCourseId())
                 .orElse(null);
+
+        // NẾU ĐƠN HÀNG ĐANG CHỜ, CHỦ ĐỘNG GỌI SEPAY API ĐỂ KIỂM TRA MÀ KHÔNG CẦN WEBHOOK
+        if ("PENDING".equals(payment.getPaymentStatus()) || "WAITING_CONFIRM".equals(payment.getPaymentStatus())) {
+            try {
+                RestTemplate restTemplate = new RestTemplate();
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("Authorization", "Bearer " + apiToken);
+                headers.set("Content-Type", "application/json");
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+
+                ResponseEntity<Map> response = restTemplate.exchange(
+                        "https://my.sepay.vn/userapi/transactions/list",
+                        HttpMethod.GET,
+                        entity,
+                        Map.class
+                );
+
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    Map<String, Object> body = response.getBody();
+                    if (body.containsKey("transactions")) {
+                        List<Map<String, Object>> transactions = (List<Map<String, Object>>) body.get("transactions");
+                        
+                        // Lọc qua danh sách giao dịch gần nhất
+                        for (Map<String, Object> txn : transactions) {
+                            String content = txn.get("transaction_content") != null ? txn.get("transaction_content").toString() : "";
+                            String amountStr = txn.get("amount_in") != null ? txn.get("amount_in").toString() : "0";
+                            double amountIn = Double.parseDouble(amountStr);
+
+                            // Bỏ gạch ngang để so khớp linh hoạt
+                            String cleanContent = content.replace("-", "").toUpperCase();
+                            String cleanTxnCode = payment.getTransactionCode().replace("-", "").toUpperCase();
+
+                            if (cleanContent.contains(cleanTxnCode)) {
+                                // Kiểm tra số tiền khớp 100%
+                                if (payment.getAmount() != null && payment.getAmount().doubleValue() <= amountIn) {
+                                    // CHỐT ĐƠN!
+                                    payment.setPaymentStatus("SUCCESS");
+                                    payment.setPaidAt(new Date());
+                                    payment.setUpdatedAt(new Date());
+                                    payment.setBankTransactionId(txn.get("reference_number") != null ? txn.get("reference_number").toString() : "API_SYNC");
+                                    paymentRepository.save(payment);
+
+                                    // Mở khóa học
+                                    autoEnroll(payment.getStudentId(), payment.getCourseId());
+                                    createNotification(
+                                            payment.getStudentId(),
+                                            "Thanh toán thành công",
+                                            "Thanh toán khóa học \""
+                                                    + (course != null ? course.getTitle() : "")
+                                                    + "\" đã được Admin xác nhận. Bạn có thể bắt đầu học ngay."
+                                    );
+                                    
+                                    log.info("API POLLING SUCCESS: Tìm thấy giao dịch {} cho Payment {}", cleanContent, payment.getTransactionCode());
+                                    break;
+                                } else {
+                                    log.warn("API POLLING: Tìm thấy mã {} nhưng số tiền không khớp (Thực tế: {}, Yêu cầu: {})", cleanTxnCode, amountIn, payment.getAmount());
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Lỗi khi chủ động gọi SePay API: {}", e.getMessage());
+            }
+        }
 
         return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
