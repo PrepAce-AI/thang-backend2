@@ -66,10 +66,12 @@ public class EntryTestService {
 
     @Transactional
     public QuizResultResponse submitEntryTest(Integer studentId, SubmitQuizRequest request) {
-        // Lấy quiz: ưu tiên từ sessionsId (attemptId) rồi fallback quizId
+        // ===================== Lấy Quiz =====================
         Quiz quiz;
+
         if (request.getSessionsId() != null) {
             QuizAttempt existing = quizAttemptRepository.findById(request.getSessionsId()).orElse(null);
+
             if (existing != null) {
                 quiz = existing.getQuiz();
             } else {
@@ -78,142 +80,177 @@ public class EntryTestService {
             }
         } else {
             quiz = quizRepository.findById(request.getQuizId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Quiz không tồn tại: " + request.getQuizId()));
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Quiz không tồn tại: " + request.getQuizId()));
         }
 
-        // Cập nhật attempt đã tồn tại (từ startQuiz) hoặc tạo mới
+        // ===================== Attempt =====================
         QuizAttempt attempt;
+
         if (request.getSessionsId() != null) {
-            attempt = quizAttemptRepository.findById(request.getSessionsId()).orElse(new QuizAttempt());
+            attempt = quizAttemptRepository.findById(request.getSessionsId())
+                    .orElse(new QuizAttempt());
         } else {
             attempt = new QuizAttempt();
         }
 
-        // Chỉ chấm những câu học sinh ĐÃ ĐƯỢC PHÁT và trả lời — KHÔNG lấy cả kho 250 câu
-        // (kho lớn mà chấm cả quiz thì 230 câu chưa phát sẽ bị tính là sai).
-        Map<Integer, String> answers = request.getAnswers() == null ? new HashMap<>() : request.getAnswers();
+        Map<Integer, String> answers =
+                request.getAnswers() == null
+                        ? new HashMap<>()
+                        : request.getAnswers();
 
-        List<Question> questions = (answers == null || answers.isEmpty())
-                ? new ArrayList<>()
-                : questionRepository.findWithOptionsByIds(new ArrayList<>(answers.keySet()));
+        List<Question> questions =
+                answers.isEmpty()
+                        ? new ArrayList<>()
+                        : questionRepository.findWithOptionsByIds(new ArrayList<>(answers.keySet()));
 
         int correctCount = 0;
+
         List<QuizResultResponse.QuestionResultDetail> details = new ArrayList<>();
-        List<PracticeAnswer> practiceAnswersToSave = new ArrayList<>();
+        List<PracticeAnswer> practiceAnswers = new ArrayList<>();
+
         int orderIndex = 1;
-
         for (Question q : questions) {
-            String selectedText = answers.get(q.getQuestionId());
-            boolean isCorrect = false;
-            String correctAnsText = null;
 
+            boolean isCorrect = false;
+            String selectedAnswerText = null;
+            String correctAnswerText = null;
+
+            //--------------------------------------------------
+            // SHORT ANSWER
+            //--------------------------------------------------
             if ("SHORT_ANSWER".equals(q.getQuestionType())) {
-                correctAnsText = q.getCorrectAnswer();
-                if (correctAnsText != null && selectedText != null && selectedText.trim().equalsIgnoreCase(correctAnsText.trim())) {
+                selectedAnswerText = answers.get(q.getQuestionId());
+                correctAnswerText = q.getCorrectAnswer();
+                if (selectedAnswerText != null &&
+                        correctAnswerText != null &&
+                        selectedAnswerText.trim().equalsIgnoreCase(correctAnswerText.trim())) {
+
                     isCorrect = true;
                 }
-            } else {
-                QuestionOption correctOption = q.getOptions().stream()
-                        .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
-                        .findFirst()
-                        .orElse(null);
-                        
-                QuestionOption selectedOption = q.getOptions().stream()
-                        .filter(o -> o.getOptionContent().equals(selectedText))
-                        .findFirst()
-                        .orElse(null);
-
-                correctAnsText = correctOption != null ? correctOption.getOptionContent() : null;
-                isCorrect = correctOption != null && selectedText != null && correctOption.getOptionContent().equals(selectedText);
-                
                 PracticeAnswer pa = new PracticeAnswer();
                 pa.setAttempt(attempt);
                 pa.setQuestion(q);
-                pa.setSelectedOptionId(selectedOption != null ? selectedOption.getOptionId() : null);
+                pa.setEssayAnswer(selectedAnswerText);
                 pa.setIsCorrect(isCorrect);
                 pa.setQuestionOrder(orderIndex++);
-                practiceAnswersToSave.add(pa);
+
+                practiceAnswers.add(pa);
+
             }
 
-            if (isCorrect) correctCount++;
-            
-            // For SHORT_ANSWER, we don't need to save to PracticeAnswers because Entry Test history currently ignores pa records anyway,
-            // but just to be safe, let's also save it if it's SHORT_ANSWER
-            if ("SHORT_ANSWER".equals(q.getQuestionType())) {
+            //--------------------------------------------------
+            // MULTIPLE CHOICE
+            //--------------------------------------------------
+            else {
+                String answerValue = answers.get(q.getQuestionId());
+                QuestionOption selectedOption = null;
+                if (answerValue != null) {
+                    try {
+                        Integer optionId = Integer.parseInt(answerValue);
+                        selectedOption = q.getOptions()
+                                .stream()
+                                .filter(o -> o.getOptionId().equals(optionId))
+                                .findFirst()
+                                .orElse(null);
+
+                    } catch (NumberFormatException ignored) {
+
+                    }
+                }
+                QuestionOption correctOption =
+                        q.getOptions()
+                                .stream()
+                                .filter(o -> Boolean.TRUE.equals(o.getIsCorrect()))
+                                .findFirst()
+                                .orElse(null);
+                if (selectedOption != null) {
+                    selectedAnswerText = selectedOption.getOptionContent();
+                }
+                if (correctOption != null) {
+                    correctAnswerText = correctOption.getOptionContent();
+                }
+                isCorrect = selectedOption != null && Boolean.TRUE.equals(selectedOption.getIsCorrect());
                 PracticeAnswer pa = new PracticeAnswer();
                 pa.setAttempt(attempt);
                 pa.setQuestion(q);
-                pa.setEssayAnswer(selectedText);
+                pa.setSelectedOptionId(
+                        selectedOption == null
+                                ? null
+                                : selectedOption.getOptionId()
+                );
                 pa.setIsCorrect(isCorrect);
                 pa.setQuestionOrder(orderIndex++);
-                practiceAnswersToSave.add(pa);
+                practiceAnswers.add(pa);
             }
-
-            details.add(QuizResultResponse.QuestionResultDetail.builder()
-                    .questionId(q.getQuestionId())
-                    .questionContent(q.getQuestionContent())
-                    .selectedAnswer(selectedText)
-                    .correctAnswer(correctAnsText)
-                    .isCorrect(isCorrect)
-                    .explanation(q.getExplanation())
-                    .topic(q.getTopic())
-                    .build());
+            if (isCorrect) {
+                correctCount++;
+            }
+            details.add(
+                    QuizResultResponse.QuestionResultDetail.builder()
+                            .questionId(q.getQuestionId())
+                            .questionContent(q.getQuestionContent())
+                            .selectedAnswer(selectedAnswerText)
+                            .correctAnswer(correctAnswerText)
+                            .isCorrect(isCorrect)
+                            .explanation(q.getExplanation())
+                            .topic(q.getTopic())
+                            .build()
+            );
         }
 
-        // Mẫu số = số câu ĐÃ PHÁT khi start (câu bỏ trống vẫn tính là sai),
-        // fallback = số câu đã trả lời (trường hợp attempt cũ không có total)
-        int total = (attempt.getTotalQuestions() != null && attempt.getTotalQuestions() > 0)
-                ? attempt.getTotalQuestions()
-                : Math.max(questions.size(), 1);
-        double score = Math.round(((double) correctCount / total) * 100.0) / 10.0;
+        // ===================== Score =====================
+        int total =
+                attempt.getTotalQuestions() != null && attempt.getTotalQuestions() > 0
+                        ? attempt.getTotalQuestions()
+                        : Math.max(questions.size(), 1);
         double percentage = (double) correctCount / total * 100;
+        double score =
+                Math.round((percentage / 10.0) * 100.0) / 100.0;
         attempt.setQuiz(quiz);
         attempt.setStudentId(studentId);
         attempt.setScore(score);
-        attempt.setTotalQuestions(total);
         attempt.setCorrectCount(correctCount);
-        if (attempt.getStartedAt() == null) attempt.setStartedAt(new Date());
+        attempt.setTotalQuestions(total);
+        if (attempt.getStartedAt() == null) {
+            attempt.setStartedAt(new Date());
+        }
         attempt.setSubmittedAt(new Date());
+
         QuizAttempt saved = quizAttemptRepository.save(attempt);
-        practiceAnswerRepository.saveAll(practiceAnswersToSave);
-
-        log.info("Student {} submitted Entry Test quizId={}, score={}", studentId, quiz.getQuizId(), score);
-
+        practiceAnswerRepository.saveAll(practiceAnswers);
+        log.info(
+                "Student {} submitted Entry Test quizId={}, score={}",
+                studentId,
+                quiz.getQuizId(),
+                score
+        );
         String level = classifyLevel(percentage);
-
         String color = switch (level) {
             case "Giỏi" -> "#22c55e";
             case "Khá" -> "#3b82f6";
             case "Trung bình" -> "#f59e0b";
             default -> "#ef4444";
         };
-
         return QuizResultResponse.builder()
                 .attemptId(saved.getAttemptId())
                 .quizId(quiz.getQuizId())
                 .quizTitle(quiz.getQuizTitle())
-
                 .score(score)
                 .totalQuestions(total)
                 .correctCount(correctCount)
                 .correctAnswers(correctCount)
-
                 .percentage(percentage)
                 .accuracyPercent(percentage)
-
                 .level(level)
                 .levelColor(color)
-
                 .summary("Bạn đạt mức " + level + ". Hệ thống khuyến nghị tiếp tục ôn tập các chủ đề còn yếu.")
-
                 .recommendedStartLevel(level)
-
                 .recommendations(List.of(
                         "Ôn tập các câu làm sai",
                         "Luyện thêm câu hỏi cùng chủ đề",
                         "Làm lại bài kiểm tra sau khi học"
                 ))
-
                 .details(details)
                 .build();
     }

@@ -141,6 +141,13 @@ public class WordImportService {
                 for (ParsedQuestion.OptionItem oi : pq.options) {
                     QuestionOption opt = new QuestionOption();
                     opt.setQuestion(savedQuestion);
+
+                    String optionContent = oi.label + ". " + oi.content;
+
+                    System.out.println("==========================");
+                    System.out.println(optionContent.length());
+                    System.out.println(optionContent);
+
                     opt.setOptionContent(oi.label + ". " + oi.content);
                     opt.setIsCorrect(oi.isCorrect);
                     opts.add(opt);

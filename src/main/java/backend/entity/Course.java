@@ -25,7 +25,7 @@ public class Course {
     @Column(name = "course_id")
     private Integer courseId;
 
-    @Column(name = "course_title", nullable = false)
+    @Column(name = "course_title")
     private String title;
 
     @Column(name = "description")

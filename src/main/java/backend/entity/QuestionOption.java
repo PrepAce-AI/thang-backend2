@@ -19,7 +19,7 @@ public class QuestionOption {
     @JsonIgnore
     private Question question;
 
-    @Column(name = "option_content", columnDefinition = "NVARCHAR(500)", nullable = false)
+    @Column(name = "option_content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
     private String optionContent;
 
     @Column(name = "is_correct", nullable = false)
