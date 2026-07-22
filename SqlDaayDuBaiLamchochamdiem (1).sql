@@ -292,7 +292,7 @@ CREATE TABLE Questions (
 CREATE TABLE QuestionOptions (
     option_id INT IDENTITY(1,1) PRIMARY KEY,
     question_id INT NOT NULL,
-    option_content NVARCHAR(500) NOT NULL,
+    option_content NVARCHAR(MAX) NOT NULL,
     is_correct BIT DEFAULT 0 NOT NULL,
     FOREIGN KEY (question_id) REFERENCES Questions(question_id)
 );
@@ -1340,3 +1340,8 @@ SELECT * FROM Quizzes WHERE quiz_title LIKE N'%Hệ Thống Chấm Điểm%';
 SELECT * FROM Questions WHERE quiz_id = (SELECT MAX(quiz_id) FROM Quizzes);
 
 SELECT * FROM Courses
+SELECT *
+FROM StudentAnswers
+
+ALTER TABLE Questions ALTER COLUMN question_content NVARCHAR(MAX);
+ALTER TABLE QuestionOptions ALTER COLUMN option_content NVARCHAR(MAX);
