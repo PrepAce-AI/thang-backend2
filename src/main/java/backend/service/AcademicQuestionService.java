@@ -36,10 +36,13 @@ public class AcademicQuestionService {
     @Autowired
     private LessonRepository lessonRepository;
 
+    // 🔥 TIÊM NOTIFICATION SERVICE ĐỂ TỰ ĐỘNG BẮN THÔNG BÁO
+    @Autowired
+    private NotificationService notificationService;
+
     // 1. Logic Đăng câu hỏi mới
     @Transactional
     public QuestionResponse createQuestion(QuestionRequest request) {
-        // Lấy email của User đang đăng nhập từ SecurityContext (do JwtAuthenticationFilter xử lý)
         String currentUserEmail = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         User user = userRepository.findByEmail(currentUserEmail)
@@ -50,7 +53,6 @@ public class AcademicQuestionService {
         question.setTimestampSeconds(request.getTimestampSeconds());
         question.setUser(user);
 
-        // Lấy Lesson từ DB để tránh lỗi TransientPropertyValueException
         Lesson lesson = lessonRepository.findById(request.getLessonId())
                 .orElseThrow(() -> new RuntimeException("Bài học không tồn tại"));
         question.setLesson(lesson);
@@ -76,25 +78,21 @@ public class AcademicQuestionService {
         return questionRepository.findAllQuestionsWithDetails()
                 .stream()
                 .filter(q -> {
-                    // Loại bỏ các câu hỏi mà lesson, chapter, course bị null (nếu có)
                     if (q.getLesson() == null || q.getLesson().getChapter() == null || q.getLesson().getChapter().getCourse() == null) {
                         return false;
                     }
                     Integer courseTeacherId = q.getLesson().getChapter().getCourse().getTeacherId();
-                    
-                    // Chỉ hiển thị câu hỏi thuộc về khóa học do chính giáo viên này phụ trách
-                    boolean isMyCourse = (courseTeacherId != null && courseTeacherId.equals(teacherId)); 
-                    
-                    // 2. Loại trừ những câu hỏi do chính giáo viên này tự hỏi (để test)
+
+                    boolean isMyCourse = (courseTeacherId != null && courseTeacherId.equals(teacherId));
                     boolean isNotMyOwnQuestion = (q.getUser().getId() != teacherId);
-                    
+
                     return isMyCourse && isNotMyOwnQuestion;
                 })
                 .map(this::mapToTeacherResponse)
                 .collect(Collectors.toList());
     }
 
-    // 3. Logic Đăng câu trả lời
+    // 3. Logic Đăng câu trả lời + BẮN THÔNG BÁO TỰ ĐỘNG
     @Transactional
     public AnswerResponse createAnswer(Integer questionId, AnswerRequest request) {
         String currentUserEmail = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -110,7 +108,49 @@ public class AcademicQuestionService {
         answer.setQuestion(question);
 
         AcademicAnswer savedAnswer = answerRepository.save(answer);
+
+        // 🔥 TÍNH NĂNG MỚI: Tự động gửi thông báo cho tác giả của câu hỏi
+        try {
+            User questionAuthor = question.getUser();
+            // Chỉ gửi thông báo khi người trả lời KHÔNG PHẢI là chính tác giả câu hỏi
+            if (questionAuthor != null && questionAuthor.getId()!=(user.getId())) {
+                String title = "💬 Có phản hồi mới cho câu hỏi của bạn";
+                String lessonTitle = (question.getLesson() != null) ? question.getLesson().getTitle() : "Bài học";
+
+                String shortContent = request.getContent().length() > 60
+                        ? request.getContent().substring(0, 60) + "..."
+                        : request.getContent();
+
+                String content = user.getFullName() + " đã trả lời câu hỏi của bạn trong bài \"" + lessonTitle + "\": \"" + shortContent + "\"";
+                String targetRole = (questionAuthor.getRoleName() != null) ? questionAuthor.getRoleName() : "STUDENT";
+
+                // Bắn thông báo đến đúng ID của người đặt câu hỏi (receiverId = questionAuthor.getId())
+                notificationService.createNotification(title, content, targetRole, user.getId(), questionAuthor.getId());
+                System.out.println("🎉 Đã bắn thông báo phản hồi Q&A tới người dùng ID: " + questionAuthor.getId());
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Lỗi khi gửi thông báo phản hồi câu hỏi: " + e.getMessage());
+        }
+
         return mapToAnswerResponse(savedAnswer);
+    }
+
+    // 4. Logic Xóa câu hỏi thảo luận gốc
+    @Transactional
+    public void deleteQuestion(Integer questionId) {
+        if (!questionRepository.existsById(questionId)) {
+            throw new RuntimeException("Không tìm thấy câu hỏi với ID: " + questionId);
+        }
+        questionRepository.deleteById(questionId);
+    }
+
+    // 5. Logic Xóa câu trả lời / phản hồi con
+    @Transactional
+    public void deleteAnswer(Integer answerId) {
+        if (!answerRepository.existsById(answerId)) {
+            throw new RuntimeException("Không tìm thấy phản hồi với ID: " + answerId);
+        }
+        answerRepository.deleteById(answerId);
     }
 
     // Hàm phụ chuyển đổi sang DTO cho Answer
@@ -135,13 +175,13 @@ public class AcademicQuestionService {
         response.setUserFullName(question.getUser().getFullName());
         response.setUserAvatarUrl(question.getUser().getAvatarUrl());
         response.setUserRoleId(question.getUser().getRoleId());
-        
+
         List<AnswerResponse> answerResponses = answerRepository.findByQuestionIdOrderByCreatedAtAsc(question.getId())
                 .stream()
                 .map(this::mapToAnswerResponse)
                 .collect(Collectors.toList());
         response.setAnswers(answerResponses);
-        
+
         return response;
     }
 
@@ -155,8 +195,7 @@ public class AcademicQuestionService {
         response.setUserFullName(question.getUser().getFullName());
         response.setUserAvatarUrl(question.getUser().getAvatarUrl());
         response.setUserRoleId(question.getUser().getRoleId());
-        
-        // Lấy thông tin bài học, chương, khóa học
+
         if (question.getLesson() != null) {
             response.setLessonId(question.getLesson().getId());
             response.setLessonTitle(question.getLesson().getTitle());
@@ -170,7 +209,6 @@ public class AcademicQuestionService {
             }
         }
 
-        // Load danh sách answers
         List<AnswerResponse> answerResponses = answerRepository.findByQuestionIdOrderByCreatedAtAsc(question.getId())
                 .stream()
                 .map(this::mapToAnswerResponse)

@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/questions")
@@ -35,12 +36,7 @@ public class AcademicQuestionController {
     // API Lấy toàn bộ câu hỏi của tất cả các khóa học do giáo viên quản lý
     @GetMapping("/teacher/all")
     public ResponseEntity<List<backend.dto.response.TeacherQuestionResponse>> getAllQuestionsForTeacher() {
-        // Lấy email của User đang đăng nhập từ SecurityContext
         String currentUserEmail = (String) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        // Cần inject UserRepository hoặc lấy ID từ Jwt, để nhanh ta có thể truyền thẳng qua Service
-        // Hoặc ta có thể đổi getAllQuestionsForTeacher nhận email thay vì teacherId, 
-        // nhưng để giữ nguyên ta gọi userRepository ở Controller.
-        // Tốt nhất là refactor một chút, nhưng ta có thể autowire ở đây:
         backend.entity.User user = userRepository.findByEmail(currentUserEmail)
                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
@@ -53,6 +49,28 @@ public class AcademicQuestionController {
             @PathVariable Integer questionId,
             @RequestBody backend.dto.request.AnswerRequest request) {
         return ResponseEntity.ok(questionService.createAnswer(questionId, request));
+    }
+
+    // 🔥 API XÓA CÂU HỎI THẢO LUẬN GỐC (Cho Admin)
+    @DeleteMapping("/{questionId}")
+    public ResponseEntity<?> deleteQuestion(@PathVariable Integer questionId) {
+        try {
+            questionService.deleteQuestion(questionId);
+            return ResponseEntity.ok(Map.of("message", "Đã xóa câu hỏi thảo luận thành công!"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Xóa thất bại: " + e.getMessage()));
+        }
+    }
+
+    // 🔥 API XÓA BÌNH LUẬN / PHẢN HỒI CON (Cho Admin)
+    @DeleteMapping("/answers/{answerId}")
+    public ResponseEntity<?> deleteAnswer(@PathVariable Integer answerId) {
+        try {
+            questionService.deleteAnswer(answerId);
+            return ResponseEntity.ok(Map.of("message", "Đã xóa phản hồi thành công!"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Xóa thất bại: " + e.getMessage()));
+        }
     }
 
     // DEBUG API

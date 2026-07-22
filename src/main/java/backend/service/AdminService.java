@@ -4,21 +4,20 @@ import backend.entity.Notification;
 import backend.entity.Course;
 import backend.entity.User;
 import backend.entity.ViolationReport;
-
 import backend.entity.UserActivity;
-import backend.repository.UserActivityRepository;
 
+import backend.repository.UserActivityRepository;
 import backend.repository.CourseRepository;
 import backend.repository.UserRepository;
 import backend.repository.NotificationRepository;
 import backend.repository.ViolationReportRepository;
 
-import org.springframework.beans.factory.annotation.Autowired; // 🔥 ĐÃ THÊM: Import Autowired
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
-import java.util.HashMap; // 🔥 ĐÃ THÊM: Import HashMap để đóng gói dữ liệu JSON
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,14 +30,11 @@ public class AdminService {
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
     private final ViolationReportRepository violationRepository;
-
-    // 🔥 ĐÃ THÊM: Khai báo thêm Repository ghi log hoạt động
     private final UserActivityRepository userActivityRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
 
-    // 🔥 CẬP NHẬT: Constructor injection đầy đủ tất cả các Repository phục vụ quản trị
     @Autowired
     public AdminService(CourseRepository courseRepository,
                         UserRepository userRepository,
@@ -60,25 +56,85 @@ public class AdminService {
     @Transactional
     public Course updateCourseStatus(Integer id, String status, String note) {
         Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Not found"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy khóa học với ID: " + id));
 
-        course.setStatus(status); // APPROVED hoặc REJECTED
-        course.setReviewNote(note);
+        course.setStatus(status); // APPROVED, PUBLISHED, REJECTED, PENDING
+        if (note != null) {
+            course.setReviewNote(note);
+        }
 
         courseRepository.save(course);
         courseRepository.flush();
 
+        // 🔥 TỰ ĐỘNG BẮN THÔNG BÁO CHO GIÁO VIÊN KHI ĐỔI TRẠNG THÁI KHÓA HỌC
+        try {
+            Integer teacherId = course.getTeacherId();
+            if (teacherId != null) {
+                Notification notification = new Notification();
+                notification.setReceiverId(teacherId);
+                notification.setTargetRole("TEACHER");
+                notification.setCreatedAt(new Date());
+                notification.setCreatedBy(1); // Admin
+
+                String title = "";
+                String content = "";
+
+                if ("PUBLISHED".equalsIgnoreCase(status) || "APPROVED".equalsIgnoreCase(status)) {
+                    title = "🎉 Khóa học đã được phê duyệt";
+                    content = "Chúc mừng! Khóa học \"" + course.getTitle() + "\" của bạn đã được Ban quản trị phê duyệt và xuất bản công khai.";
+                } else if ("REJECTED".equalsIgnoreCase(status)) {
+                    title = "✏️ Yêu cầu chỉnh sửa khóa học";
+                    content = "Khóa học \"" + course.getTitle() + "\" cần chỉnh sửa nội dung. Lý do: \"" + (note != null ? note.trim() : "Chưa nhập lý do") + "\"";
+                } else if ("PENDING".equalsIgnoreCase(status)) {
+                    title = "⚠️ Khóa học bị hạ trạng thái";
+                    content = "Khóa học \"" + course.getTitle() + "\" đã bị hạ xuống trạng thái Chờ duyệt. Lý do: \"" + (note != null ? note.trim() : "Chưa nhập lý do") + "\"";
+                }
+
+                if (!title.isEmpty()) {
+                    notification.setTitle(title);
+                    notification.setContent(content);
+                    notificationRepository.save(notification);
+                    System.out.println("✅ Đã tự động bắn thông báo cập nhật trạng thái tới Giáo viên #" + teacherId);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Lỗi khi tự động tạo thông báo: " + e.getMessage());
+        }
+
         return course;
     }
 
-    // Xóa hoàn toàn khóa học vĩnh viễn (Hard Delete)
+    // 🔥 TỰ ĐỘNG BẮN THÔNG BÁO KHI XÓA KHÓA HỌC
     @Transactional
-    public boolean deleteCourseById(Integer courseId) {
-        if (courseRepository.existsById(courseId)) {
-            courseRepository.deleteById(courseId);
+    public boolean deleteCourseById(Integer courseId, String reason) {
+        Course course = courseRepository.findById(courseId).orElse(null);
+        if (course != null) {
+            Integer teacherId = course.getTeacherId();
+            if (teacherId != null) {
+                try {
+                    Notification notification = new Notification();
+                    notification.setReceiverId(teacherId);
+                    notification.setTitle("🗑️ Khóa học đã bị gỡ bỏ");
+                    notification.setContent("Khóa học \"" + course.getTitle() + "\" của bạn đã bị gỡ khỏi hệ thống. Lý do: \"" + (reason != null && !reason.isBlank() ? reason.trim() : "Theo quy định hệ thống") + "\"");
+                    notification.setTargetRole("TEACHER");
+                    notification.setCreatedAt(new Date());
+                    notification.setCreatedBy(1); // Admin
+                    notificationRepository.save(notification);
+                    System.out.println("✅ Đã bắn thông báo xóa khóa học tới Giáo viên #" + teacherId);
+                } catch (Exception e) {
+                    System.err.println("❌ Lỗi khi gửi thông báo xóa khóa học: " + e.getMessage());
+                }
+            }
+            courseRepository.delete(course);
             return true;
         }
         return false;
+    }
+
+    // Overload giữ nguyên tương thích cũ
+    @Transactional
+    public boolean deleteCourseById(Integer courseId) {
+        return deleteCourseById(courseId, null);
     }
 
     // ==================== USERS ====================
@@ -89,11 +145,10 @@ public class AdminService {
     @Transactional
     public User updateUserStatus(Integer userId, String status){
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng !!!"));
-        user.setAccountStatus(status); // ACTIVE hoặc BANNED
+        user.setAccountStatus(status);
         return userRepository.save(user);
     }
 
-    // Xóa hoàn toàn người dùng vĩnh viễn (Hard Delete)
     @Transactional
     public boolean deleteUser(Integer userId) {
         if (userRepository.existsById(userId)) {
@@ -131,7 +186,6 @@ public class AdminService {
         report.setAdminNote(adminNote);
         violationRepository.save(report);
 
-        // TỰ ĐỘNG GỬI THÔNG BÁO CHO USER GỬI ĐƠN
         try {
             Notification notification = new Notification();
             notification.setReceiverId(report.getReporterId());
@@ -164,20 +218,24 @@ public class AdminService {
 
     // ==================== TEACHER REQUESTS & ROLE MANAGEMENT ====================
 
-    // 1. 🔥 CẬP NHẬT: Tiếp nhận yêu cầu làm giáo viên kèm thông tin học vấn, kinh nghiệm từ Form
     @Transactional
-    public User requestToBecomeTeacher(Integer userId, String education, String experience) {
+    public User requestToBecomeTeacher(Integer userId, String education, String experience, String proofUrl) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
         user.setTeacherRequestStatus("PENDING");
-        user.setEducation(education);   // Lưu học vấn vào DB
-        user.setExperience(experience); // Lưu kinh nghiệm vào DB
+        user.setEducation(education);
+
+        // Nối URL minh chứng Cloudinary vào trường kinh nghiệm hoặc tiểu sử
+        if (proofUrl != null && !proofUrl.trim().isEmpty()) {
+            user.setExperience(experience + "\n\n📎 Minh chứng năng lực: " + proofUrl.trim());
+        } else {
+            user.setExperience(experience);
+        }
 
         return userRepository.save(user);
     }
 
-    // 2. Admin Phê duyệt / Từ chối yêu cầu ứng tuyển giáo viên
     @Transactional
     public User handleTeacherRequest(Integer userId, String decision) {
         User user = userRepository.findById(userId)
@@ -185,7 +243,7 @@ public class AdminService {
 
         if ("APPROVE".equalsIgnoreCase(decision)) {
             user.setTeacherRequestStatus("APPROVED");
-            user.setRoleId(2); // 🔥 ĐỔI THẲNG ROLE THÀNH TEACHER (Giáo viên)
+            user.setRoleId(2);
             user.setRoleName("TEACHER");
         } else {
             user.setTeacherRequestStatus("REJECTED");
@@ -193,7 +251,6 @@ public class AdminService {
         return userRepository.save(user);
     }
 
-    // 3. Admin thay đổi vai trò (Role) trực tiếp cho thành viên bất kỳ từ Select-Box
     @Transactional
     public User changeUserRole(Integer userId, Integer newRoleId) {
         User user = userRepository.findById(userId)
@@ -205,23 +262,19 @@ public class AdminService {
 
         User savedUser = userRepository.save(user);
 
-        // ÉP HIBERNATE ĐẨY DỮ LIỆU XUỐNG VÀ XÓA CACHE TRONG PHIÊN NÀY
         entityManager.flush();
         entityManager.clear();
 
         return savedUser;
     }
 
-    // 4. 🔥 Lấy chi tiết hồ sơ người dùng kèm nhật ký hoạt động hệ thống
     @Transactional(readOnly = true)
     public Map<String, Object> getUserDetailWithLogs(Integer userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        // Lấy danh sách log hoạt động từ database
         List<UserActivity> activities = userActivityRepository.findByUserIdOrderByTimestampDesc(userId);
 
-        // Đóng gói dữ liệu trả về theo đúng định dạng JSON mà Frontend chờ sẵn
         Map<String, Object> response = new HashMap<>();
         response.put("education", user.getEducation());
         response.put("experience", user.getExperience());
@@ -240,15 +293,12 @@ public class AdminService {
         userActivityRepository.save(log);
     }
 
-    // 🔥 THÊM user
     @Transactional
     public backend.entity.User createUser(backend.entity.User newUser) {
-        // Kiểm tra trùng lặp Email trước khi tạo
         if (userRepository.existsByEmail(newUser.getEmail())) {
             throw new RuntimeException("Email này đã được sử dụng trên hệ thống!");
         }
 
-        // Đồng bộ role_name tương ứng với role_id truyền lên từ Form cho khớp DB cũ của Hưng
         if (newUser.getRoleId() == 1) newUser.setRoleName("ADMIN");
         else if (newUser.getRoleId() == 2) newUser.setRoleName("TEACHER");
         else newUser.setRoleName("STUDENT");
@@ -256,7 +306,6 @@ public class AdminService {
         newUser.setAccountStatus("ACTIVE");
         newUser.setCreatedAt(new java.util.Date());
 
-        // Lưu xuống Database thông qua UserRepository hiện tại của bạn
         return userRepository.save(newUser);
     }
 }
