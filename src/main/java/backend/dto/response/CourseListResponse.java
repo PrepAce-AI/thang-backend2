@@ -13,6 +13,7 @@ public class CourseListResponse {
 
     private BigDecimal price;
     private Boolean isPublished;
+    private Integer students = 0;
 
     private Integer subjectId;
     private String subjectName;

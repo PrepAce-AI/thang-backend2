@@ -57,7 +57,15 @@ public class CourseController {
         course.setTitle((String) body.getOrDefault("title", "Khóa học nháp (Chưa đặt tên)"));
         course.setDescription((String) body.getOrDefault("description", ""));
         course.setIsPublished(false);
-        course.setPrice(java.math.BigDecimal.ZERO);
+        if (body.containsKey("price")) {
+            try {
+                course.setPrice(new java.math.BigDecimal(String.valueOf(body.get("price"))));
+            } catch (Exception e) {
+                course.setPrice(java.math.BigDecimal.ZERO);
+            }
+        } else {
+            course.setPrice(java.math.BigDecimal.ZERO);
+        }
 
         if (body.containsKey("teacher_id")) {
             try {
@@ -70,7 +78,7 @@ public class CourseController {
                 course.setSubjectId(Integer.parseInt(String.valueOf(body.get("subjectId"))));
             } catch (Exception e) {}
         }
-        
+
         if (body.containsKey("categoryId")) {
             try {
                 course.setCategoryId(Integer.parseInt(String.valueOf(body.get("categoryId"))));
@@ -119,6 +127,15 @@ public class CourseController {
             if (user == null) {
                 return ResponseEntity.ok(Map.of("isEnrolled", false));
             }
+
+            // 🔥 ĐẶC QUYỀN ADMIN: Kiểm tra trực tiếp bằng kiểu Integer & RoleName
+            boolean isAdmin = (user.getRoleName() != null && "ADMIN".equalsIgnoreCase(user.getRoleName()))
+                    || (user.getRoleId() == 1);
+
+            if (isAdmin) {
+                return ResponseEntity.ok(Map.of("isEnrolled", true));
+            }
+
             boolean isEnrolled = enrollmentRepository.existsByStudentIdAndCourseId(user.getId(), courseId);
             return ResponseEntity.ok(Map.of("isEnrolled", isEnrolled));
         } catch (Exception e) {

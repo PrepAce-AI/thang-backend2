@@ -86,6 +86,10 @@ public class TestService {
     // Nộp từng đáp án (Auto-save khi làm bài)
     @Transactional
     public void submitAnswer(int sessionsId, SubmitAnswerRequest requests, int studentId){
+        System.out.println("========== SUBMIT ANSWER ==========");
+        System.out.println("Question = " + requests.getQuestionId());
+        System.out.println("OptionId = " + requests.getSelectedOptionId());
+        System.out.println("Essay    = " + requests.getEssayAnswer());
         TestSession session = testSessionRepository.findBySessionsIdAndStudentId(sessionsId, studentId)
                 .orElseThrow(() -> new RuntimeException("Phiên thi không tồn tại"));
         Question question = questionRepository.findById(requests.getQuestionId())

@@ -17,9 +17,14 @@ public class CategoryController {
         this.categoryRepository = categoryRepository;
     }
 
-    // 🔥 ĐÃ CẬP NHẬT: Dùng đúng hàm lọc danh mục không bị ẩn của bạn
+    // 🔥 SỬA CHUẨN: Lấy tất cả và giữ lại các danh mục KHÔNG ẨN (kể cả giá trị NULL)
     @GetMapping("/public/categories")
     public ResponseEntity<List<Category>> getAllCategories() {
-        return ResponseEntity.ok(categoryRepository.findByIsHiddenFalse());
+        List<Category> allCategories = categoryRepository.findAll();
+        List<Category> visibleCategories = allCategories.stream()
+                .filter(c -> c.getIsHidden() == null || !c.getIsHidden())
+                .toList();
+
+        return ResponseEntity.ok(visibleCategories);
     }
 }

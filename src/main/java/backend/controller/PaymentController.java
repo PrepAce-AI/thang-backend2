@@ -153,4 +153,12 @@ public class PaymentController {
 
         return ResponseEntity.ok("OK");
     }
+
+    //STATISTICS
+    @GetMapping("/admin/dashboard")
+    public ResponseEntity<?> getAdminDashboard(){
+        return ResponseEntity.ok(
+                paymentService.getAdminDashboard()
+        );
+    }
 }

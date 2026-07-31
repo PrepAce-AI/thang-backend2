@@ -63,29 +63,32 @@ public class PracticeTestService {
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getQuizzes(String type, String subject) {
         List<Quiz> quizzes = quizRepository.findExamQuizzes(type, subject);
-        
-        // Nhóm các đề thi theo môn học, chỉ trả về 1 thẻ đại diện cho mỗi môn
+
+        // Thay đổi: Gộp nhóm theo cặp mã chuỗi kết hợp
         Map<String, Map<String, Object>> grouped = new LinkedHashMap<>();
-        
+
         for (Quiz q : quizzes) {
             String subj = q.getSubject() == null ? "Khác" : q.getSubject();
-            if (!grouped.containsKey(subj)) {
+            String qType = q.getQuizType() == null ? "PRACTICE" : q.getQuizType();
+
+            // 🔥 TẠO KEY KẾT HỢP: Ngăn chặn việc đề ENTRY_TEST nuốt chửng đề PRACTICE
+            String groupKey = subj + "_" + qType;
+
+            if (!grouped.containsKey(groupKey)) {
                 Map<String, Object> m = new LinkedHashMap<>();
-                m.put("quizId", q.getQuizId()); // Dùng ID của 1 đề bất kỳ làm mỏ neo
+                m.put("quizId", q.getQuizId());
                 m.put("quizTitle", "Đề Thi " + subj);
                 m.put("subject", subj);
-                m.put("quizType", q.getQuizType());
+                m.put("quizType", qType); // Trả về đúng loại đề của phân nhóm này
                 m.put("durationMinutes", q.getDurationMinutes() == null ? 30 : q.getDurationMinutes());
-                m.put("questionsPerTest", questionsPerTest(q.getQuizType()));
-                // Không count từng đề để tăng tốc độ, để mặc định bankSize lớn
-                m.put("bankSize", 250); 
-                m.put("quizIds", new ArrayList<Integer>()); // Lưu danh sách các đề cùng môn
-                grouped.put(subj, m);
+                m.put("questionsPerTest", questionsPerTest(qType));
+                m.put("bankSize", 250);
+                m.put("quizIds", new ArrayList<Integer>());
+                grouped.put(groupKey, m);
             }
-            // Thêm quizId vào danh sách để bốc random sau này
-            ((List<Integer>) grouped.get(subj).get("quizIds")).add(q.getQuizId());
+            ((List<Integer>) grouped.get(groupKey).get("quizIds")).add(q.getQuizId());
         }
-        
+
         return new ArrayList<>(grouped.values());
     }
 
@@ -223,7 +226,7 @@ public class PracticeTestService {
             }
 
             // PHÂN LOẠI XỬ LÝ LOGIC THEO KIỂU CÂU HỎI:
-            if ("CHOICE".equals(qType) || qType == null) {
+            if ("CHOICE".equals(qType) || qType == null|| "MULTIPLE_CHOICE".equals(qType)) {
                 // Trường hợp 1: Trắc nghiệm truyền thống
                 Integer selectedId = Integer.parseInt(userValue);
                 QuestionOption selected = question.getOptions().stream()

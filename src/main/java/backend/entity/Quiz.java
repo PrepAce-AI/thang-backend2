@@ -21,8 +21,7 @@ public class Quiz {
     private Integer quizId;
 
 
-
-    @ManyToOne(fetch = FetchType.EAGER) // Đổi sang EAGER để lấy được thông tin Course
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "course_id", nullable = false)
 // Không dùng @JsonIgnore ở đây để Frontend đọc được object course
     private Course course;

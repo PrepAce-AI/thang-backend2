@@ -11,6 +11,7 @@ public class CourseDetailResponse {
     private String thumbnailUrl;
     private java.math.BigDecimal price;
     private List<ChapterDto> chapters;
+    private Integer students = 0;
     
     private Integer teacherId;
     private String teacherName;
