@@ -7,7 +7,6 @@ import backend.entity.Lesson;
 import backend.entity.User;
 import backend.repository.AcademicQuestionRepository;
 import backend.repository.UserRepository;
-import backend.repository.CourseRepository;
 import backend.repository.AcademicAnswerRepository;
 import backend.repository.LessonRepository;
 import backend.dto.request.AnswerRequest;
@@ -19,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,11 +36,10 @@ public class AcademicQuestionService {
     @Autowired
     private LessonRepository lessonRepository;
 
-    // 🔥 TIÊM NOTIFICATION SERVICE ĐỂ TỰ ĐỘNG BẮN THÔNG BÁO
     @Autowired
     private NotificationService notificationService;
 
-    // 1. Logic Đăng câu hỏi mới
+    // 1. Đăng câu hỏi mới
     @Transactional
     public QuestionResponse createQuestion(QuestionRequest request) {
         String currentUserEmail = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -61,18 +60,26 @@ public class AcademicQuestionService {
         return mapToResponse(savedQuestion);
     }
 
-    // 2. Logic Lấy danh sách câu hỏi theo bài học
+    // 2. Lấy danh sách câu hỏi theo bài học
     @Transactional(readOnly = true)
     public List<QuestionResponse> getQuestionsByLesson(Integer lessonId) {
         List<AcademicQuestion> questions = questionRepository.findByLessonIdOrderByCreatedAtDesc(lessonId);
         return questions.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
-    public List<AcademicQuestion> getAllRawQuestions() {
-        return questionRepository.findAll();
+    // 3. Xóa câu hỏi (Dành cho Admin)
+    @Transactional
+    public void deleteQuestion(Integer questionId) {
+        questionRepository.deleteById(questionId);
     }
 
-    // 2.5 Logic Lấy danh sách câu hỏi theo giáo viên (Centralized Q&A)
+    // 4. Xóa câu trả lời (Dành cho Admin)
+    @Transactional
+    public void deleteAnswer(Integer answerId) {
+        answerRepository.deleteById(answerId);
+    }
+
+    // 5. Lấy câu hỏi cho giáo viên
     @Transactional(readOnly = true)
     public List<backend.dto.response.TeacherQuestionResponse> getAllQuestionsForTeacher(Integer teacherId) {
         return questionRepository.findAllQuestionsWithDetails()
@@ -82,21 +89,19 @@ public class AcademicQuestionService {
                         return false;
                     }
                     Integer courseTeacherId = q.getLesson().getChapter().getCourse().getTeacherId();
-
                     boolean isMyCourse = (courseTeacherId != null && courseTeacherId.equals(teacherId));
                     boolean isNotMyOwnQuestion = (q.getUser().getId() != teacherId);
-
                     return isMyCourse && isNotMyOwnQuestion;
                 })
                 .map(this::mapToTeacherResponse)
                 .collect(Collectors.toList());
     }
 
-    // 3. Logic Đăng câu trả lời + BẮN THÔNG BÁO TỰ ĐỘNG
+    // 6. Đăng câu trả lời & Tự động bắn thông báo
     @Transactional
     public AnswerResponse createAnswer(Integer questionId, AnswerRequest request) {
         String currentUserEmail = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        User user = userRepository.findByEmail(currentUserEmail)
+        User replier = userRepository.findByEmail(currentUserEmail)
                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
         AcademicQuestion question = questionRepository.findById(questionId)
@@ -104,56 +109,27 @@ public class AcademicQuestionService {
 
         AcademicAnswer answer = new AcademicAnswer();
         answer.setContent(request.getContent());
-        answer.setUser(user);
+        answer.setUser(replier);
         answer.setQuestion(question);
-
         AcademicAnswer savedAnswer = answerRepository.save(answer);
 
-        // 🔥 TÍNH NĂNG MỚI: Tự động gửi thông báo cho tác giả của câu hỏi
-        try {
-            User questionAuthor = question.getUser();
-            // Chỉ gửi thông báo khi người trả lời KHÔNG PHẢI là chính tác giả câu hỏi
-            if (questionAuthor != null && questionAuthor.getId()!=(user.getId())) {
-                String title = "💬 Có phản hồi mới cho câu hỏi của bạn";
-                String lessonTitle = (question.getLesson() != null) ? question.getLesson().getTitle() : "Bài học";
+        if (question.getUser() != null && !Objects.equals(question.getUser().getId(), replier.getId())) {
+            String contentSummary = request.getContent().length() > 30
+                    ? request.getContent().substring(0, 30) + "..."
+                    : request.getContent();
 
-                String shortContent = request.getContent().length() > 60
-                        ? request.getContent().substring(0, 60) + "..."
-                        : request.getContent();
-
-                String content = user.getFullName() + " đã trả lời câu hỏi của bạn trong bài \"" + lessonTitle + "\": \"" + shortContent + "\"";
-                String targetRole = (questionAuthor.getRoleName() != null) ? questionAuthor.getRoleName() : "STUDENT";
-
-                // Bắn thông báo đến đúng ID của người đặt câu hỏi (receiverId = questionAuthor.getId())
-                notificationService.createNotification(title, content, targetRole, user.getId(), questionAuthor.getId());
-                System.out.println("🎉 Đã bắn thông báo phản hồi Q&A tới người dùng ID: " + questionAuthor.getId());
-            }
-        } catch (Exception e) {
-            System.err.println("⚠️ Lỗi khi gửi thông báo phản hồi câu hỏi: " + e.getMessage());
+            notificationService.sendReplyNotification(
+                    question.getUser().getId(),
+                    replier.getFullName(),
+                    contentSummary,
+                    replier.getId()
+            );
         }
 
         return mapToAnswerResponse(savedAnswer);
     }
 
-    // 4. Logic Xóa câu hỏi thảo luận gốc
-    @Transactional
-    public void deleteQuestion(Integer questionId) {
-        if (!questionRepository.existsById(questionId)) {
-            throw new RuntimeException("Không tìm thấy câu hỏi với ID: " + questionId);
-        }
-        questionRepository.deleteById(questionId);
-    }
-
-    // 5. Logic Xóa câu trả lời / phản hồi con
-    @Transactional
-    public void deleteAnswer(Integer answerId) {
-        if (!answerRepository.existsById(answerId)) {
-            throw new RuntimeException("Không tìm thấy phản hồi với ID: " + answerId);
-        }
-        answerRepository.deleteById(answerId);
-    }
-
-    // Hàm phụ chuyển đổi sang DTO cho Answer
+    // --- CÁC HÀM MAP DTO ---
     private AnswerResponse mapToAnswerResponse(AcademicAnswer answer) {
         AnswerResponse response = new AnswerResponse();
         response.setId(answer.getId());
@@ -165,7 +141,6 @@ public class AcademicQuestionService {
         return response;
     }
 
-    // Hàm phụ chuyển đổi sang DTO cho Question
     private QuestionResponse mapToResponse(AcademicQuestion question) {
         QuestionResponse response = new QuestionResponse();
         response.setQuestionId(question.getId());
@@ -185,7 +160,6 @@ public class AcademicQuestionService {
         return response;
     }
 
-    // Hàm phụ chuyển đổi sang Teacher DTO
     private backend.dto.response.TeacherQuestionResponse mapToTeacherResponse(AcademicQuestion question) {
         backend.dto.response.TeacherQuestionResponse response = new backend.dto.response.TeacherQuestionResponse();
         response.setQuestionId(question.getId());

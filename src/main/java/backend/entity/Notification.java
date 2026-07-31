@@ -1,7 +1,7 @@
 package backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonIgnore; // 🔥 THÊM DÒNG IMPORT NÀY
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.Date;
@@ -34,15 +34,25 @@ public class Notification {
     @Column(name = "created_by")
     private Integer createdBy;
 
-    // =========================================================
-    // 🔥 SỬA TẠI ĐÂY: Thêm @JsonIgnore để chặn đứng lỗi 500 JSON
-    // =========================================================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", insertable = false, updatable = false)
-    @JsonIgnore // 👈 THÊM DÒNG NÀY VÀO
+    @JsonIgnore
     private User creator;
 
-    @Column(name = "user_id")
+    // =========================================================================
+    // 🔥 ĐÃ SỬA: Ép quyền ghi nhận giá trị (insertable/updatable) cho biến số.
+    // Chống tình trạng Hibernate ưu tiên Object liên kết khiến cột bị dính NULL.
+    // =========================================================================
+    @Column(name = "user_id", insertable = true, updatable = true)
     @JsonProperty("user_id")
     private Integer receiverId;
+
+    // =========================================================================
+    // 💡 PHÒNG NGỪA: Nếu trong file Entity cũ từng có khai báo Object liên kết
+    // đến User nhận thông báo (đè lên cột user_id), hãy đảm bảo nó được chặn ghi đè:
+    // =========================================================================
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false) // Chặn object này tranh quyền lưu với receiverId
+    @JsonIgnore
+    private User receiverUser;
 }
