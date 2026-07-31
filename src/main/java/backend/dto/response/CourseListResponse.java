@@ -41,6 +41,14 @@ public class CourseListResponse {
     public Boolean getIsPublished() { return isPublished; }
     public void setIsPublished(Boolean isPublished) { this.isPublished = isPublished; }
 
+    public Integer getStudents() {
+        return students;
+    }
+
+    public void setStudents(Integer students) {
+        this.students = students;
+    }
+
     public Integer getSubjectId() { return subjectId; }
     public void setSubjectId(Integer subjectId) { this.subjectId = subjectId; }
 
