@@ -43,9 +43,6 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
-    @Value("${sepay.api-token}")
-    private String apiToken;
-
     // ─── Mua khóa học ───────────────────────────────────────────────────────────
 
     @Transactional
@@ -511,7 +508,9 @@ public class PaymentService {
             course = courseRepository
                 .findById(payment.getCourseId())
                 .orElse(null);
-        }
+        Course course = courseRepository
+                .findById(payment.getCourseId())
+                .orElse(null);
 
         if (payment == null) {
             log.warn("Không tìm thấy payment với content={}", content);
