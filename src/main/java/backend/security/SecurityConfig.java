@@ -3,6 +3,7 @@ package backend.security;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -50,6 +51,10 @@ public class SecurityConfig {
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)
                         .requestMatchers("/api/materials/**").authenticated()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/users/instructor/**"
+                        ).permitAll()
                         // Đảm bảo chỉ những ai đã đăng nhập mới được thao tác xây dựng đề cương khóa học
                         .requestMatchers("/api/outlines/**").authenticated()
                         .requestMatchers("/api/payments/**").authenticated()

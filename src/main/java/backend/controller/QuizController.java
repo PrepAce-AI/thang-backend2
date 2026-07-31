@@ -3,9 +3,9 @@ package backend.controller;
 import backend.entity.Question;
 import backend.entity.QuestionOption;
 import backend.entity.Quiz;
-import backend.repository.QuizRepository;
-import backend.repository.CourseRepository;
+import backend.repository.*;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -18,11 +18,19 @@ import java.util.Map;
 @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE})
 public class QuizController {
     private final QuizRepository quizRepository;
+    private final PracticeAnswerRepository practiceAnswerRepository;
+    private final QuestionRepository questionRepository;
     private final CourseRepository courseRepository;
+    private final QuestionOptionRepository questionOptionRepository;
+    private final StudentAnswerRepository studentAnswerRepository;
 
-    public QuizController(QuizRepository quizRepository, CourseRepository courseRepository) {
+    public QuizController(QuizRepository quizRepository, StudentAnswerRepository studentAnswerRepository ,CourseRepository courseRepository, QuestionOptionRepository questionOptionRepository ,PracticeAnswerRepository practiceAnswerRepository, QuestionRepository questionRepository) {
         this.quizRepository = quizRepository;
         this.courseRepository = courseRepository;
+        this.practiceAnswerRepository = practiceAnswerRepository;
+        this.questionRepository = questionRepository;
+        this.questionOptionRepository = questionOptionRepository;
+        this.studentAnswerRepository = studentAnswerRepository;
     }
 
 // 🔥 1. Lấy tất cả
@@ -155,14 +163,25 @@ public class QuizController {
 
     // 6. XÓA ĐỀ THI
     @DeleteMapping("/{quizId}")
+    @Transactional
     public ResponseEntity<?> deleteQuiz(@PathVariable Integer quizId) {
-        try {
-            Quiz quiz = quizRepository.findById(quizId)
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy đề thi để xóa"));
-            quizRepository.delete(quiz);
-            return ResponseEntity.ok("Đã xóa thành công!");
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Lỗi khi xóa: " + e.getMessage());
+        Quiz quiz = quizRepository.findByIdWithQuestions(quizId)
+                .orElseThrow(() ->
+                        new RuntimeException("Không tìm thấy quiz"));
+
+        for (Question question : quiz.getQuestions()) {
+
+            Integer questionId = question.getQuestionId();
+
+            // Xóa các bảng con trước
+            studentAnswerRepository.deleteByQuestionId(questionId);
+            practiceAnswerRepository.deleteByQuestionId(questionId);
+            questionOptionRepository.deleteByQuestionId(questionId);
         }
+
+        // Hibernate sẽ tự xóa Questions nhờ Cascade + orphanRemoval
+        quizRepository.delete(quiz);
+
+        return ResponseEntity.ok("Đã xóa thành công");
     }
 }

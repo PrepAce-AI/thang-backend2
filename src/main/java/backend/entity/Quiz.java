@@ -26,7 +26,11 @@ public class Quiz {
 // Không dùng @JsonIgnore ở đây để Frontend đọc được object course
     private Course course;
 
-    @OneToMany(mappedBy = "quiz", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(
+            mappedBy = "quiz",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     @JsonManagedReference // Quét dữ liệu xuôi xuống Question khi xem chi tiết đề
     @org.hibernate.annotations.BatchSize(size = 50)
     private List<Question> questions = new ArrayList<>();

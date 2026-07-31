@@ -62,34 +62,28 @@ public class PracticeTestService {
     /** Danh sách đề thi (metadata) — lọc theo loại (ENTRY_TEST/PRACTICE/MOCK_EXAM) và môn */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getQuizzes(String type, String subject) {
-        List<Quiz> quizzes = quizRepository.findExamQuizzes(type, subject);
 
-        // Thay đổi: Gộp nhóm theo cặp mã chuỗi kết hợp
-        Map<String, Map<String, Object>> grouped = new LinkedHashMap<>();
+        List<Quiz> quizzes =
+                quizRepository.findExamQuizzes(type, subject);
+
+        List<Map<String, Object>> result = new ArrayList<>();
 
         for (Quiz q : quizzes) {
-            String subj = q.getSubject() == null ? "Khác" : q.getSubject();
-            String qType = q.getQuizType() == null ? "PRACTICE" : q.getQuizType();
 
-            // 🔥 TẠO KEY KẾT HỢP: Ngăn chặn việc đề ENTRY_TEST nuốt chửng đề PRACTICE
-            String groupKey = subj + "_" + qType;
+            Map<String, Object> m = new LinkedHashMap<>();
 
-            if (!grouped.containsKey(groupKey)) {
-                Map<String, Object> m = new LinkedHashMap<>();
-                m.put("quizId", q.getQuizId());
-                m.put("quizTitle", "Đề Thi " + subj);
-                m.put("subject", subj);
-                m.put("quizType", qType); // Trả về đúng loại đề của phân nhóm này
-                m.put("durationMinutes", q.getDurationMinutes() == null ? 30 : q.getDurationMinutes());
-                m.put("questionsPerTest", questionsPerTest(qType));
-                m.put("bankSize", 250);
-                m.put("quizIds", new ArrayList<Integer>());
-                grouped.put(groupKey, m);
-            }
-            ((List<Integer>) grouped.get(groupKey).get("quizIds")).add(q.getQuizId());
+            m.put("quizId", q.getQuizId());
+            m.put("quizTitle", q.getQuizTitle());
+            m.put("subject", q.getSubject());
+            m.put("quizType", q.getQuizType());
+            m.put("durationMinutes", q.getDurationMinutes());
+            m.put("questionsPerTest", questionsPerTest(q.getQuizType()));
+            m.put("bankSize", 250);
+
+            result.add(m);
         }
 
-        return new ArrayList<>(grouped.values());
+        return result;
     }
 
     // ─── BẮT ĐẦU THI ─────────────────────────────────────────────────────────────
