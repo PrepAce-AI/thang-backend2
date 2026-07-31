@@ -1,8 +1,9 @@
 package backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore; // 🔥 THÊM DÒNG IMPORT NÀY
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.util.Date;
 
 @Entity
@@ -24,7 +25,7 @@ public class Notification {
     private String content;
 
     @Column(name = "target_role", nullable = false)
-    private String targetRole;   // ALL, STUDENT, TEACHER
+    private String targetRole;
 
     @Column(name = "created_at")
     @Temporal(TemporalType.TIMESTAMP)
@@ -33,8 +34,15 @@ public class Notification {
     @Column(name = "created_by")
     private Integer createdBy;
 
-    // Relationship với User (người tạo thông báo)
+    // =========================================================
+    // 🔥 SỬA TẠI ĐÂY: Thêm @JsonIgnore để chặn đứng lỗi 500 JSON
+    // =========================================================
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", insertable = false, updatable = false)
+    @JsonIgnore // 👈 THÊM DÒNG NÀY VÀO
     private User creator;
+
+    @Column(name = "user_id")
+    @JsonProperty("user_id")
+    private Integer receiverId;
 }

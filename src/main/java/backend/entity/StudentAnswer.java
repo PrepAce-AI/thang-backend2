@@ -13,11 +13,11 @@ import java.util.Date;
 public class StudentAnswer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "answer_id")
+    @Column(name = "id")
     private int answerId;
 
     @ManyToOne
-    @JoinColumn(name = "session_id", nullable = false)
+    @JoinColumn(name = "attempt_id", nullable = false)
     @JsonIgnore
     private TestSession session;
 
@@ -27,9 +27,18 @@ public class StudentAnswer {
     private Question question;
 
     @ManyToOne
-    @JoinColumn(name = "selected_option_id")
+    @JoinColumn(name = "selected_option_id", nullable = true)
     @JsonIgnore
     private QuestionOption selectedOption;
+
+    @Column(name = "essay_answer", columnDefinition = "NVARCHAR(MAX)")
+    private String essayAnswer; // Lưu bài làm tự luận của học sinh
+
+    @Column(name = "score")
+    private Float score; // Lưu điểm riêng của câu này (phục vụ chấm câu tự luận)
+
+    @Column(name = "teacher_comment", columnDefinition = "NVARCHAR(MAX)")
+    private String teacherComment;
 
     @Column(name = "answered_at")
     @Temporal(TemporalType.TIMESTAMP)

@@ -1,0 +1,42 @@
+package backend.controller;
+
+import backend.service.CloudinaryService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
+
+@RestController
+@CrossOrigin(origins = "http://localhost:5173")
+@RequestMapping("/api/upload")
+public class UploadController {
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
+
+    @PostMapping("/video")
+    public ResponseEntity<?> uploadVideo(@RequestParam("file") MultipartFile file) {
+        try {
+            // Sử dụng Cloudinary để upload video (Tối ưu cho việc chia sẻ và lưu trữ không tốn dung lượng máy)
+            String fileUrl = cloudinaryService.uploadVideo(file);
+            return ResponseEntity.ok(Map.of("url", fileUrl));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Lỗi khi upload video lên Cloudinary: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/file")
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+        try {
+            // Sử dụng Cloudinary để upload tài liệu/ảnh (Đảm bảo an toàn, bảo mật và chia sẻ dễ dàng)
+            String fileUrl = cloudinaryService.uploadFile(file);
+            return ResponseEntity.ok(Map.of("url", fileUrl));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Lỗi khi upload tài liệu/ảnh lên Cloudinary: " + e.getMessage()));
+        }
+    }
+}

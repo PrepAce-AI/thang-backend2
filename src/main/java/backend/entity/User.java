@@ -1,10 +1,20 @@
 package backend.entity;
-
+import lombok.*;
 import jakarta.persistence.*;
 import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "Users")
+@JsonIgnoreProperties({
+        "hibernateLazyInitializer",
+        "handler"
+})
 public class User {
 
     @Id
@@ -12,7 +22,8 @@ public class User {
     @Column(name = "user_id")
     private int id;
 
-    @Column(name = "full_name", nullable = false)
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu họ tên tiếng Việt đầy đủ dấu
+    @Column(name = "full_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String fullName;
 
     @Column(name = "email", nullable = false, unique = true)
@@ -30,7 +41,8 @@ public class User {
     @Column(name = "role_id", nullable = false)
     private int roleId;
 
-    @Column(name = "account_status")
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu trạng thái (Ví dụ: "Hoạt động", "Bị khóa")
+    @Column(name = "account_status", columnDefinition = "NVARCHAR(50)")
     private String accountStatus;
 
     @Column(name = "created_at")
@@ -43,128 +55,23 @@ public class User {
     @Column(name = "verification_expiry")
     private Date verificationExpiry;
 
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu tên trường học tiếng Việt
+    @Column(name = "school", columnDefinition = "NVARCHAR(255)")
     private String school;
 
+    // 🔥 ĐÃ SỬA: Thêm NVARCHAR(MAX) để lưu tiểu sử/giới thiệu bản thân
+    @Column(name = "bio", columnDefinition = "NVARCHAR(MAX)")
     private String bio;
 
     @Column(name = "role_name")
     private String roleName;
 
-//    private boolean verified = false;
+    @Column(name = "teacher_request_status")
+    private String teacherRequestStatus; // Giá trị: NULL (Bình thường), "PENDING" (Đang chờ duyệt), "APPROVED", "REJECTED"
 
-    public User() {}
+    @Column(name = "education")
+    private String education;
 
-    // getters & setters
-
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public String getFullName() {
-        return fullName;
-    }
-
-    public void setFullName(String fullName) {
-        this.fullName = fullName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
-    }
-
-    public String getAvatarUrl() {
-        return avatarUrl;
-    }
-
-    public void setAvatarUrl(String avatarUrl) {
-        this.avatarUrl = avatarUrl;
-    }
-
-    public int getRoleId() {
-        return roleId;
-    }
-
-    public void setRoleId(int roleId) {
-        this.roleId = roleId;
-    }
-
-    public String getAccountStatus() {
-        return accountStatus;
-    }
-
-    public void setAccountStatus(String accountStatus) {
-        this.accountStatus = accountStatus;
-    }
-
-    public Date getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Date createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public String getVerificationCode() {
-        return verificationCode;
-    }
-
-    public void setVerificationCode(String verificationCode) {
-        this.verificationCode = verificationCode;
-    }
-
-    public Date getVerificationExpiry() {
-        return verificationExpiry;
-    }
-
-    public void setVerificationExpiry(Date verificationExpiry) {
-        this.verificationExpiry = verificationExpiry;
-    }
-
-    public String getSchool() {
-        return school;
-    }
-
-    public void setSchool(String school) {
-        this.school = school;
-    }
-
-    public String getBio() {
-        return bio;
-    }
-
-    public void setBio(String bio) {
-        this.bio = bio;
-    }
-
-    public String getRoleName() {
-        return roleName;
-    }
-
-    public void setRoleName(String roleName) {
-        this.roleName = roleName;
-    }
+    @Column(name = "experience")
+    private String experience;
 }

@@ -1,0 +1,67 @@
+[
+  {
+    "topic": "Sắp xếp câu",
+    "questionContent": "Mark the letter A, B, C or D to indicate the best arrangement of sentences:\na. Inhabitants of coastal regions housing large-scale facilities have reported that the low hum impairs sleep.\nb. Nevertheless, the argument for transitioning is not entirely convincing.\nc. With the infrastructure in place, operational expenditures are substantially lower.\nd. Wind power has been promoted as a notably clean substitute for fossil fuels.\ne. Progress on a country's renewable targets necessitates balancing initiatives against burdens.",
+    "questionType": "CHOICE",
+    "difficulty": 3,
+    "options": [
+      {"content": "e – b – a – c – d", "isCorrect": false},
+      {"content": "c – e – d – b – a", "isCorrect": false},
+      {"content": "d – c – b – a – e", "isCorrect": true},
+      {"content": "a – d – c – e – b", "isCorrect": false}
+    ],
+    "explanation": "Lời giải chi tiết: d là câu giới thiệu chủ đề. c mô tả lợi ích cụ thể. b là câu chuyển ý (Tuy nhiên). a giải thích tác động tiêu cực. e là câu kết luận rút ra."
+  },
+  {
+    "topic": "Giao tiếp",
+    "questionContent": "Mark the letter A, B, C or D to indicate the best arrangement of utterances:\na. Diner: Excuse me, I’ve been waiting so long for my order.\nb. Diner: Thanks for your help.\nc. Waiter: I’m sorry! I’ll check with the kitchen and get back to you immediately.",
+    "questionType": "CHOICE",
+    "difficulty": 1,
+    "options": [
+      {"content": "a – b – c", "isCorrect": false},
+      {"content": "b – c – a", "isCorrect": false},
+      {"content": "c – b – a", "isCorrect": false},
+      {"content": "a – c – b", "isCorrect": true}
+    ],
+    "explanation": "Lời giải chi tiết: Khách hàng phàn nàn (a), phục vụ xin lỗi và đề xuất cách giải quyết (c), khách hàng cảm ơn (b)."
+  },
+  {
+    "topic": "Đọc hiểu điền từ",
+    "questionContent": "Money has many ironies, and here is an important one: wealth is what you do not see. On spotting a Ferrari driving around, (6) ____. In reality, however, many drivers of expensive cars turn out to be only mediocre successes.",
+    "questionType": "CHOICE",
+    "difficulty": 2,
+    "options": [
+      {"content": "you might assume that the owner of the car must be rich", "isCorrect": true},
+      {"content": "you might be assumed to be the rich owner of the car", "isCorrect": false},
+      {"content": "people might assume you must be the rich owner of the car", "isCorrect": false},
+      {"content": "the car might be assumed to be owned by a rich person", "isCorrect": false}
+    ],
+    "explanation": "Lời giải chi tiết: Dựa vào ngữ cảnh, 'bạn có thể cho rằng chủ nhân chiếc xe chắc hẳn rất giàu' phù hợp nhất về mặt logic và ngữ pháp."
+  },
+  {
+    "topic": "Đọc hiểu",
+    "questionContent": "The word 'astounded' in paragraph 2 is OPPOSITE in meaning to ______.",
+    "questionType": "CHOICE",
+    "difficulty": 2,
+    "options": [
+      {"content": "brave", "isCorrect": false},
+      {"content": "honest", "isCorrect": false},
+      {"content": "calm", "isCorrect": true},
+      {"content": "anxious", "isCorrect": false}
+    ],
+    "explanation": "Lời giải chi tiết: 'Astounded' mang nghĩa kinh ngạc, sốc. Trái nghĩa với nó là 'calm' (bình tĩnh)."
+  },
+  {
+    "topic": "Ngữ pháp",
+    "questionContent": "GREEN HANDS, CLEAN LAND\nThe theme for Green Week 2026, “Green Hands, Clean Land”, puts (35) ____ on the role of our community in protecting the environment.",
+    "questionType": "CHOICE",
+    "difficulty": 2,
+    "options": [
+      {"content": "intention", "isCorrect": false},
+      {"content": "influence", "isCorrect": false},
+      {"content": "emphasis", "isCorrect": true},
+      {"content": "example", "isCorrect": false}
+    ],
+    "explanation": "Lời giải chi tiết: Cụm từ cố định 'put emphasis on' có nghĩa là nhấn mạnh vào điều gì đó."
+  }
+]

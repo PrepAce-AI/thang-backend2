@@ -37,16 +37,18 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public Map<String, String> login(
+    public ResponseEntity<?> login(
             @RequestBody LoginRequest request
     ){
-        String token = userService.login(
+        // Nhận Map từ Service chứa cả token và user
+        Map<String, Object> authData = userService.login(
                 request.getEmail(),
                 request.getPassword()
         );
-        return Map.of("token", token);
-    }
 
+        // Trả về kèm HTTP 200 OK
+        return ResponseEntity.ok(authData);
+    }
     @PostMapping("/google")
     public ResponseEntity<?> googleAuth(@RequestBody Map<String, String> body) {
 
@@ -124,7 +126,7 @@ public class UserController {
 
 
 
-    //FORGET - RESET - CHANGE PASSWORD ======================================================================
+    //FORGET - RESET - CHANGE PASSWORD - LOGOUT ======================================================================
 
     @PutMapping("/change-password")
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest req, @RequestHeader("Authorization") String token){
@@ -153,5 +155,29 @@ public class UserController {
         String message = userService.verifyEmail(req);
 
         return ResponseEntity.ok(Map.of("message", message));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<?> resendOtp(
+            @RequestBody Map<String, String> body
+    ) {
+
+        String email = body.get("email");
+
+        userService.resendOtp(email);
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "OTP has been resent successfully"
+                )
+        );
+    }
+
+    //========================================================================================================
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader("Authorization") String token){
+        userService.logout(token);
+        return ResponseEntity.ok(Map.of("message", "Logout Successfully"));
     }
 }
