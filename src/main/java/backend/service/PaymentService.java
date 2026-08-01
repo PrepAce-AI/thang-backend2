@@ -126,19 +126,21 @@ public class PaymentService {
 
             CheckoutResponseData data = payOS.createPaymentLink(paymentData);
             checkoutUrl = data.getCheckoutUrl();
-        } catch (Exception e) {
-            log.error("Failed to create PayOS payment link", e);
-            throw new BadRequestException("Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.");
-        }
-
-        log.info(
+            
+            // Lấy thêm thông tin cho frontend
+            String accountNumber = data.getAccountNumber();
+            String accountName = data.getAccountName();
+            String bin = data.getBin();
+            String description = data.getDescription();
+            
+            log.info(
                 "Create payment: student={}, course={}, txn={}",
                 studentId,
                 course.getCourseId(),
                 transactionCode
-        );
-
-        return PaymentResponse.builder()
+            );
+            
+            return PaymentResponse.builder()
                 .paymentId(payment.getPaymentId())
                 .studentId(studentId)
                 .courseId(course.getCourseId())
@@ -147,10 +149,19 @@ public class PaymentService {
                 .paymentMethod("BANK")
                 .paymentStatus("PENDING")
                 .transactionCode(transactionCode)
+                .orderCode(orderCode)
                 .checkoutUrl(checkoutUrl)
+                .accountNumber(accountNumber)
+                .accountName(accountName)
+                .bin(bin)
+                .description(description)
                 .createdAt(payment.getCreatedAt())
                 .message("Đã tạo giao dịch.")
                 .build();
+        } catch (Exception e) {
+            log.error("Failed to create PayOS payment link: ", e);
+            throw new BadRequestException("Lỗi PayOS: " + e.getMessage());
+        }
     }
 
     /**
@@ -632,8 +643,38 @@ public class PaymentService {
         Course course = courseRepository.findById(payment.getCourseId())
                 .orElse(null);
 
-        // NẾU ĐƠN HÀNG ĐANG CHỜ, CHỦ ĐỘNG GỌI SEPAY API ĐỂ KIỂM TRA MÀ KHÔNG CẦN WEBHOOK
+        // NẾU ĐƠN HÀNG ĐANG CHỜ, CHỦ ĐỘNG GỌI PAYOS/SEPAY API ĐỂ KIỂM TRA MÀ KHÔNG CẦN WEBHOOK
         if ("PENDING".equals(payment.getPaymentStatus()) || "WAITING_CONFIRM".equals(payment.getPaymentStatus())) {
+            // 1. CHỦ ĐỘNG KIỂM TRA TRẠNG THÁI PAYOS TRƯỚC
+            try {
+                long orderCode = Long.parseLong(payment.getTransactionCode());
+                vn.payos.type.PaymentLinkData linkData = payOS.getPaymentLinkInformation(orderCode);
+                
+                if (linkData != null && "PAID".equals(linkData.getStatus())) {
+                    payment.setPaymentStatus("SUCCESS");
+                    payment.setPaidAt(new Date());
+                    payment.setUpdatedAt(new Date());
+                    payment.setBankTransactionId(linkData.getId()); // ID giao dịch của PayOS
+                    paymentRepository.save(payment);
+
+                    // Mở khóa học
+                    autoEnroll(payment.getStudentId(), payment.getCourseId());
+                    createNotification(
+                            payment.getStudentId(),
+                            "Thanh toán thành công",
+                            "Thanh toán khóa học \""
+                                    + (course != null ? course.getTitle() : "")
+                                    + "\" đã được hệ thống xác nhận. Bạn có thể bắt đầu học ngay."
+                    );
+                    
+                    log.info("PAYOS API POLLING SUCCESS: Payment {}", payment.getTransactionCode());
+                }
+            } catch (Exception ex) {
+                log.debug("PAYOS POLLING: Không thể check status PayOS cho đơn hàng {} - {}", payment.getTransactionCode(), ex.getMessage());
+            }
+
+            // 2. NẾU VẪN PENDING THÌ KIỂM TRA SEPAY (Dành cho các đơn SePay cũ nếu có)
+            if ("PENDING".equals(payment.getPaymentStatus()) || "WAITING_CONFIRM".equals(payment.getPaymentStatus())) {
             try {
                 RestTemplate restTemplate = new RestTemplate();
                 HttpHeaders headers = new HttpHeaders();
@@ -694,6 +735,7 @@ public class PaymentService {
                 }
             } catch (Exception e) {
                 log.error("Lỗi khi chủ động gọi SePay API: {}", e.getMessage());
+            }
             }
         }
 
