@@ -26,20 +26,20 @@ public class Question {
     @JsonBackReference // Thay cho @JsonIgnore để phối hợp đồng bộ với @JsonManagedReference từ Quiz
     private Quiz quiz;
 
-    @Column(name = "question_content", columnDefinition = "NVARCHAR(MAX)", nullable = false)
+    @Column(name = "question_content", columnDefinition = "LONGTEXT", nullable = false)
     private String questionContent;
 
-    @Column(name = "explanation", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "explanation", columnDefinition = "LONGTEXT")
     private String explanation;
 
     // 🌟 THÊM TRƯỜNG NÀY ĐỂ LƯU ĐÁP ÁN ĐIỀN/NGẮN CHO HỆ THỐNG TỰ SO KHỚP
-    @Column(name = "correct_answer", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "correct_answer", columnDefinition = "LONGTEXT")
     private String correctAnswer;
 
-    @Column(name = "topic", columnDefinition = "NVARCHAR(255)")
+    @Column(name = "topic", columnDefinition = "VARCHAR(255)")
     private String topic;
 
-    @Column(name = "subject", columnDefinition = "NVARCHAR(255)")
+    @Column(name = "subject", columnDefinition = "VARCHAR(255)")
     private String subject;
 
     @Column(name = "created_at", insertable = false, updatable = true)

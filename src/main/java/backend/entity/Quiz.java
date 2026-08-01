@@ -35,7 +35,7 @@ public class Quiz {
     @org.hibernate.annotations.BatchSize(size = 50)
     private List<Question> questions = new ArrayList<>();
 
-    @Column(name = "quiz_title", columnDefinition = "NVARCHAR(255)")
+    @Column(name = "quiz_title", columnDefinition = "VARCHAR(255)")
     private String quizTitle;
 
     @Column(name = "duration_minutes")

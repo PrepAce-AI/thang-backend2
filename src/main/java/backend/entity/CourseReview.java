@@ -17,8 +17,8 @@ public class CourseReview {
     @Column(name = "rating", nullable = false)
     private Integer rating;
 
-    // Giữ nguyên NVARCHAR(MAX) để lưu đánh giá tiếng Việt
-    @Column(name = "comment", columnDefinition = "NVARCHAR(MAX)")
+    // Giữ nguyên LONGTEXT để lưu đánh giá tiếng Việt
+    @Column(name = "comment", columnDefinition = "LONGTEXT")
     private String comment;
 
     /** Cột student_id (NOT NULL trong DB) — luôn gán = user.id khi tạo review */

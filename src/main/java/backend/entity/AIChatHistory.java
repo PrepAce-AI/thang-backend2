@@ -20,10 +20,10 @@ public class AIChatHistory {
     @Column(name = "student_id", nullable = false)
     private Integer studentId;
 
-    @Column(name = "question", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "question", columnDefinition = "LONGTEXT")
     private String question;
 
-    @Column(name = "ai_response", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "ai_response", columnDefinition = "LONGTEXT")
     private String aiResponse;
 
     @Column(name = "created_at")

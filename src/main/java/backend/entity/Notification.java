@@ -21,7 +21,7 @@ public class Notification {
     @Column(name = "title", nullable = false)
     private String title;
 
-    @Column(name = "content", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "content", columnDefinition = "LONGTEXT")
     private String content;
 
     @Column(name = "target_role", nullable = false)
