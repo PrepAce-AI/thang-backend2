@@ -145,14 +145,14 @@ public class PaymentController {
         );
     }
 
-    @PostMapping("/webhook/sepay")
-    public ResponseEntity<String> webhook(
-            @RequestBody SePayWebhookRequest request){
-
-        paymentService.handleSePayWebhook(request);
-
-        return ResponseEntity.ok("OK");
-    }
+//    @PostMapping("/webhook/sepay")
+//    public ResponseEntity<String> webhook(
+//            @RequestBody SePayWebhookRequest request){
+//
+//        paymentService.handleSePayWebhook(request);
+//
+//        return ResponseEntity.ok("OK");
+//    }
 
     //STATISTICS
     @GetMapping("/admin/dashboard")

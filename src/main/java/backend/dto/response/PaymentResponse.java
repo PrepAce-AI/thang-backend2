@@ -34,6 +34,9 @@ public class PaymentResponse {
     // URL QR để frontend hiển thị
     private String qrUrl;
 
+    // URL checkout của PayOS
+    private String checkoutUrl;
+
     // Nội dung chuyển khoản
     private String transferContent;
 

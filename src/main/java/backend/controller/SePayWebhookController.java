@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.beans.factory.annotation.Value;
 
 @RestController
 @RequestMapping("/api/webhook")
@@ -16,8 +17,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 public class SePayWebhookController {
     private final PaymentService paymentService;
     
-    // Khóa API SePay của bạn
-    private static final String SEPAY_API_KEY = "2QA7PYLJECXFM9EHNAI1N2ZKIFKHSCKGQYYYAJI3ZHWRDJLKOWJVV8T09TEMO6N0";
+    @Value("${sepay.api-key}")
+    private String sepayApiKey;
 
     @PostMapping("/sepay")
     public ResponseEntity<?> handleSePay(
@@ -25,7 +26,7 @@ public class SePayWebhookController {
             @RequestBody SePayWebhookRequest request) {
 
         // Validate API Key
-        if (authHeader == null || !authHeader.equals("Apikey " + SEPAY_API_KEY)) {
+        if (authHeader == null || !authHeader.equals("Apikey " + sepayApiKey)) {
             return ResponseEntity.status(403).body("Invalid API Key");
         }
 

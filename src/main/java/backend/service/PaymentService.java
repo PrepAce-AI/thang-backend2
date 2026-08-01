@@ -31,6 +31,11 @@ import java.util.UUID;
  * Xử lý giao dịch mua khóa học. Sau khi thanh toán thành công → tự động enroll.
  * Kiến trúc hiện tại: mock/simulate gateway, dễ tích hợp VNPAY/MOMO sau.
  */
+import vn.payos.PayOS;
+import vn.payos.type.PaymentData;
+import vn.payos.type.CheckoutResponseData;
+import vn.payos.type.ItemData;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -42,9 +47,13 @@ public class PaymentService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final PayOS payOS;
 
     @Value("${sepay.api-token}")
     private String apiToken;
+
+    @Value("${frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     // ─── Mua khóa học ───────────────────────────────────────────────────────────
 
@@ -75,30 +84,8 @@ public class PaymentService {
             throw new BadRequestException("Bạn đã đăng ký khóa học này.");
         }
 
-        String transactionCode =
-                "PAY" + UUID.randomUUID()
-                        .toString()
-                        .substring(0, 8)
-                        .toUpperCase();
-
-        String transferContent = "PAY " + transactionCode;
-
-        String bankBin = "970423"; // TPBank BIN
-        String accountNo = "10001805232";
-        String accountName = "NGUYEN VAN HAI";
-
-        String qrUrl =
-                "https://img.vietqr.io/image/"
-                        + bankBin
-                        + "-"
-                        + accountNo
-                        + "-compact2.jpg"
-                        + "?amount="
-                        + course.getPrice().intValue()
-                        + "&addInfo="
-                        + transferContent
-                        + "&accountName="
-                        + accountName.replace(" ", "%20");
+        long orderCode = Long.parseLong(String.valueOf(System.currentTimeMillis()).substring(3, 13));
+        String transactionCode = String.valueOf(orderCode);
 
         Payment payment = new Payment();
 
@@ -117,6 +104,33 @@ public class PaymentService {
 
         paymentRepository.save(payment);
 
+        String checkoutUrl = "";
+        try {
+            ItemData item = ItemData.builder()
+                .name(course.getTitle())
+                .price(course.getPrice().intValue())
+                .quantity(1)
+                .build();
+
+            String returnUrl = frontendUrl + "/payment/return";
+            String cancelUrl = frontendUrl + "/checkout/" + course.getCourseId();
+
+            PaymentData paymentData = PaymentData.builder()
+                .orderCode(orderCode)
+                .amount(course.getPrice().intValue())
+                .description("Thanh toan khoa hoc")
+                .returnUrl(returnUrl)
+                .cancelUrl(cancelUrl)
+                .item(item)
+                .build();
+
+            CheckoutResponseData data = payOS.createPaymentLink(paymentData);
+            checkoutUrl = data.getCheckoutUrl();
+        } catch (Exception e) {
+            log.error("Failed to create PayOS payment link", e);
+            throw new BadRequestException("Không thể tạo liên kết thanh toán. Vui lòng thử lại sau.");
+        }
+
         log.info(
                 "Create payment: student={}, course={}, txn={}",
                 studentId,
@@ -133,10 +147,9 @@ public class PaymentService {
                 .paymentMethod("BANK")
                 .paymentStatus("PENDING")
                 .transactionCode(transactionCode)
-                .transferContent(transferContent)
-                .qrUrl(qrUrl)
+                .checkoutUrl(checkoutUrl)
                 .createdAt(payment.getCreatedAt())
-                .message("Đã tạo giao dịch. Vui lòng chuyển khoản đúng nội dung.")
+                .message("Đã tạo giao dịch.")
                 .build();
     }
 
@@ -507,18 +520,15 @@ public class PaymentService {
         }
 
         Course course = null;
-        if (payment != null) {
-            course = courseRepository
-                .findById(payment.getCourseId())
-                .orElse(null);
-        Course course1 = courseRepository
-                .findById(payment.getCourseId())
-                .orElse(null);
 
         if (payment == null) {
             log.warn("Không tìm thấy payment với content={}", content);
             return;
         }
+
+        course = courseRepository
+            .findById(payment.getCourseId())
+            .orElse(null);
 
         // Đã xử lý rồi
         if ("SUCCESS".equals(payment.getPaymentStatus())) {
@@ -551,7 +561,7 @@ public class PaymentService {
                 payment.getStudentId(),
                 "Thanh toán thành công",
                 "Thanh toán khóa học \""
-                        + course.getTitle()
+                        + (course != null ? course.getTitle() : "")
                         + "\" đã được Admin xác nhận. Bạn có thể bắt đầu học ngay."
         );
 
@@ -559,8 +569,7 @@ public class PaymentService {
                 payment.getTransactionCode());
 
         log.info("=========================");
-        }
-    };
+    }
 
     @Transactional
     public PaymentResponse purchaseCourse(Integer studentId, PurchaseRequest request) {
@@ -801,5 +810,45 @@ public class PaymentService {
                 .totalTransactions(total)
                 .recentPayments(recent)
                 .build();
+    }
+
+    @Transactional
+    public void handlePayOSWebhook(vn.payos.type.WebhookData data) {
+        String transactionCode = String.valueOf(data.getOrderCode());
+
+        Payment payment = paymentRepository.findByTransactionCode(transactionCode).orElse(null);
+
+        if (payment == null) {
+            log.warn("Không tìm thấy payment với orderCode={}", data.getOrderCode());
+            return;
+        }
+
+        Course course = courseRepository.findById(payment.getCourseId()).orElse(null);
+
+        if ("SUCCESS".equals(payment.getPaymentStatus())) {
+            log.info("Payment {} đã SUCCESS trước đó", transactionCode);
+            return;
+        }
+
+        if (data.getAmount() == 0 || payment.getAmount().compareTo(java.math.BigDecimal.valueOf(data.getAmount())) != 0) {
+            log.warn("Sai số tiền. DB={} Webhook={}", payment.getAmount(), data.getAmount());
+            return;
+        }
+
+        payment.setPaymentStatus("SUCCESS");
+        payment.setPaidAt(new Date());
+        payment.setUpdatedAt(new Date());
+        payment.setBankTransactionId(data.getReference());
+
+        paymentRepository.save(payment);
+
+        autoEnroll(payment.getStudentId(), payment.getCourseId());
+        createNotification(
+                payment.getStudentId(),
+                "Thanh toán thành công",
+                "Thanh toán khóa học \"" + (course != null ? course.getTitle() : "") + "\" đã được xác nhận. Bạn có thể bắt đầu học ngay."
+        );
+
+        log.info("Payment {} SUCCESS", transactionCode);
     }
 }
