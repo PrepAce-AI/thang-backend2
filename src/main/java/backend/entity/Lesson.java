@@ -15,7 +15,7 @@ public class Lesson {
     private Integer id;
 
     // 🔥 ĐÃ SỬA: Thêm VARCHAR cho tiêu đề bài học
-    @Column(name = "lesson_title", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "lesson_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
     // 🔥 ĐÃ SỬA: Thêm LONGTEXT cho mô tả bài học

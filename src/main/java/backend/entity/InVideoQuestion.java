@@ -18,16 +18,16 @@ public class InVideoQuestion {
     @Column(name = "question_text", nullable = false, columnDefinition = "LONGTEXT")
     private String questionText;
 
-    @Column(name = "option_a", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "option_a", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String optionA;
 
-    @Column(name = "option_b", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "option_b", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String optionB;
 
-    @Column(name = "option_c", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "option_c", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String optionC;
 
-    @Column(name = "option_d", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "option_d", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String optionD;
 
     @Column(name = "correct_option", nullable = false, length = 1)

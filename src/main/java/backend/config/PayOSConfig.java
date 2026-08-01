@@ -26,8 +26,8 @@ public class PayOSConfig {
             for (java.lang.reflect.Field field : payos.getClass().getDeclaredFields()) {
                 if (field.getType().getName().equals("com.fasterxml.jackson.databind.ObjectMapper")) {
                     field.setAccessible(true);
-                    com.fasterxml.jackson.databind.ObjectMapper mapper = 
-                        (com.fasterxml.jackson.databind.ObjectMapper) field.get(payos);
+                    com.fasterxml.jackson.databind.ObjectMapper mapper =
+                            (com.fasterxml.jackson.databind.ObjectMapper) field.get(payos);
                     if (mapper != null) {
                         mapper.configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
                     }
