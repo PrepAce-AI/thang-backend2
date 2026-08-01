@@ -15,14 +15,14 @@ public class LearningMaterial {
     @Column(name = "material_id")
     private Integer id;
 
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu tiêu đề tài liệu tiếng Việt
-    @Column(name = "material_title", nullable = false, columnDefinition = "NVARCHAR(255)")
+    // 🔥 ĐÃ SỬA: Thêm VARCHAR để lưu tiêu đề tài liệu tiếng Việt
+    @Column(name = "material_title", nullable = false, columnDefinition = "VARCHAR(255)")
     private String title;
 
     @Column(name = "file_url", nullable = false)
     private String fileUrl;
 
-    @Column(name = "content", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "content", columnDefinition = "LONGTEXT")
     private String content;
 
     @Column(name = "uploaded_at")

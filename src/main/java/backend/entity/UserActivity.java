@@ -26,7 +26,7 @@ public class UserActivity {
     CREATE TABLE User_Activities (
         id INT IDENTITY(1,1) PRIMARY KEY,
         user_id INT,
-        action NVARCHAR(MAX) NOT NULL,
+        action LONGTEXT NOT NULL,
         timestamp DATETIME DEFAULT GETDATE()
     );
     */

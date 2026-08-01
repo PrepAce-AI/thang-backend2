@@ -28,7 +28,7 @@ public class AIChapterSummary {
     @Column(name = "ai_model")
     private String aiModel;
 
-    @Column(name = "summary_content", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "summary_content", columnDefinition = "LONGTEXT")
     private String summaryContent;
 
     @Temporal(TemporalType.TIMESTAMP)

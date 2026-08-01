@@ -14,12 +14,12 @@ public class Lesson {
     @Column(name = "lesson_id")
     private Integer id;
 
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR cho tiêu đề bài học
-    @Column(name = "lesson_title", nullable = false, columnDefinition = "NVARCHAR(255)")
+    // 🔥 ĐÃ SỬA: Thêm VARCHAR cho tiêu đề bài học
+    @Column(name = "lesson_title", nullable = false, columnDefinition = "VARCHAR(255)")
     private String title;
 
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR(MAX) cho mô tả bài học
-    @Column(name = "lesson_description", columnDefinition = "NVARCHAR(MAX)")
+    // 🔥 ĐÃ SỬA: Thêm LONGTEXT cho mô tả bài học
+    @Column(name = "lesson_description", columnDefinition = "LONGTEXT")
     private String description;
 
     @Column(name = "is_preview", columnDefinition = "BIT DEFAULT 0")
