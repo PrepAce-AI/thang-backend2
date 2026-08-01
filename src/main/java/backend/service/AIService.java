@@ -743,10 +743,10 @@ public class AIService {
         for (AdaptivePathViewResponse.SkillView skill : skills) {
             if (skill.getScore() < 40) {
                 String icon = "🚨";
-                String action = "Xem lộ trình cấp cứu";
-                if (skill.getSubject().toLowerCase().contains("anh")) action = "Lấy lại gốc Tiếng Anh";
-                else if (skill.getSubject().toLowerCase().contains("lý") || skill.getSubject().toLowerCase().contains("hóa")) action = "Ôn khẩn cấp lý thuyết";
-                else if (skill.getSubject().toLowerCase().contains("toán")) action = "Cày lại chuyên đề Toán";
+                String action = "Vào khóa học để cấp cứu môn này";
+                if (skill.getSubject().toLowerCase().contains("anh")) action = "Vào khóa học lấy lại gốc Tiếng Anh";
+                else if (skill.getSubject().toLowerCase().contains("lý") || skill.getSubject().toLowerCase().contains("hóa")) action = "Vào khóa học ôn khẩn cấp lý thuyết";
+                else if (skill.getSubject().toLowerCase().contains("toán")) action = "Vào khóa học cày lại chuyên đề Toán";
                 
                 path.add(AdaptivePathViewResponse.PathStepView.builder()
                         .type("video").icon(icon)
@@ -759,39 +759,20 @@ public class AIService {
         }
         
         if (!weak.isEmpty()) {
-            TopicStat w1 = weak.get(0);
-            int acc1 = accuracyPercent(w1.total(), w1.wrong());
-            
-            String icon = "🔄";
-            String action = "Luyện lại chủ đề này";
-            if (w1.subject().toLowerCase().contains("anh")) {
-                icon = "🎬";
-                action = "Xem Video bài giảng Tiếng Anh";
-            } else if (w1.subject().toLowerCase().contains("lý") || w1.subject().toLowerCase().contains("hóa")) {
-                icon = "🔬";
-                action = "Ôn tập lại công thức và lý thuyết nền tảng";
-            } else if (w1.subject().toLowerCase().contains("toán")) {
-                icon = "📐";
-                action = "Luyện thêm bài tập chuyên đề để phản xạ nhanh hơn";
-            }
+            String subjectsStr = weak.stream()
+                    .map(TopicStat::subject)
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+
+            int totalWrong = weak.stream().mapToInt(TopicStat::wrong).sum();
+            int totalQuestions = weak.stream().mapToInt(TopicStat::total).sum();
 
             path.add(AdaptivePathViewResponse.PathStepView.builder()
-                    .type("practice").icon(icon)
-                    .title("Ôn tập bù lỗ hổng: " + w1.topic())
-                    .subject(w1.subject())
-                    .reason("AI phát hiện: bạn sai " + w1.wrong() + "/" + w1.total() + " câu dạng này (đúng " + acc1 + "%).")
-                    .action(action)
-                    .build());
-        }
-        if (weak.size() > 1) {
-            TopicStat w2 = weak.get(1);
-            int acc2 = accuracyPercent(w2.total(), w2.wrong());
-            path.add(AdaptivePathViewResponse.PathStepView.builder()
-                    .type("practice").icon("⚡")
-                    .title("Bài tập củng cố: " + w2.topic())
-                    .subject(w2.subject())
-                    .reason("Tỉ lệ đúng đang ở mức " + acc2 + "% — cần luyện thêm để không mất điểm ở phần này.")
-                    .action("Luyện 25 câu trắc nghiệm")
+                    .type("practice").icon("🔄")
+                    .title("Ôn tập bù lỗ hổng")
+                    .subject("")
+                    .reason("AI phát hiện bạn bị hổng kiến thức ở các môn: " + subjectsStr + " (tổng cộng sai " + totalWrong + "/" + totalQuestions + " câu).")
+                    .action("Vào luyện đề ngay")
                     .build());
         }
         if (!strong.isEmpty()) {
@@ -1134,7 +1115,8 @@ public class AIService {
         Map<String, int[]> agg = new LinkedHashMap<>(); // key "subject||topic" -> [total, wrong]
         for (PracticeAnswer pa : answers) {
             Question q = pa.getQuestion();
-            String subject = (q.getSubject() != null && !q.getSubject().isBlank()) ? q.getSubject() : "Khác";
+            String quizSubject = (q.getQuiz() != null && q.getQuiz().getSubject() != null && !q.getQuiz().getSubject().isBlank()) ? q.getQuiz().getSubject() : "Khác";
+            String subject = (q.getSubject() != null && !q.getSubject().isBlank()) ? q.getSubject() : quizSubject;
             String topic = (q.getTopic() != null && !q.getTopic().isBlank()) ? q.getTopic() : subject;
             topic = topic.replaceAll(" \\(Mã đề .*?\\)", "").trim(); // Xóa chuỗi " (Mã đề ...)" để gộp chuẩn xác
             int[] c = agg.computeIfAbsent(subject + "||" + topic, k -> new int[2]);
