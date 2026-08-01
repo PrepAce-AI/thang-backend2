@@ -743,10 +743,10 @@ public class AIService {
         for (AdaptivePathViewResponse.SkillView skill : skills) {
             if (skill.getScore() < 40) {
                 String icon = "🚨";
-                String action = "Xem lộ trình cấp cứu";
-                if (skill.getSubject().toLowerCase().contains("anh")) action = "Lấy lại gốc Tiếng Anh";
-                else if (skill.getSubject().toLowerCase().contains("lý") || skill.getSubject().toLowerCase().contains("hóa")) action = "Ôn khẩn cấp lý thuyết";
-                else if (skill.getSubject().toLowerCase().contains("toán")) action = "Cày lại chuyên đề Toán";
+                String action = "Vào khóa học để cấp cứu môn này";
+                if (skill.getSubject().toLowerCase().contains("anh")) action = "Vào khóa học lấy lại gốc Tiếng Anh";
+                else if (skill.getSubject().toLowerCase().contains("lý") || skill.getSubject().toLowerCase().contains("hóa")) action = "Vào khóa học ôn khẩn cấp lý thuyết";
+                else if (skill.getSubject().toLowerCase().contains("toán")) action = "Vào khóa học cày lại chuyên đề Toán";
                 
                 path.add(AdaptivePathViewResponse.PathStepView.builder()
                         .type("video").icon(icon)
@@ -758,40 +758,39 @@ public class AIService {
             }
         }
         
-        if (!weak.isEmpty()) {
-            TopicStat w1 = weak.get(0);
-            int acc1 = accuracyPercent(w1.total(), w1.wrong());
-            
+        Map<String, List<TopicStat>> weakBySubject = weak.stream()
+                .collect(Collectors.groupingBy(TopicStat::subject, LinkedHashMap::new, Collectors.toList()));
+
+        for (Map.Entry<String, List<TopicStat>> entry : weakBySubject.entrySet()) {
+            String subjectName = entry.getKey();
+            List<TopicStat> subjectWeak = entry.getValue();
+
             String icon = "🔄";
-            String action = "Luyện lại chủ đề này";
-            if (w1.subject().toLowerCase().contains("anh")) {
+            String action = "Vào khóa học để luyện lại";
+            if (subjectName.toLowerCase().contains("anh")) {
                 icon = "🎬";
                 action = "Xem Video bài giảng Tiếng Anh";
-            } else if (w1.subject().toLowerCase().contains("lý") || w1.subject().toLowerCase().contains("hóa")) {
+            } else if (subjectName.toLowerCase().contains("lý") || subjectName.toLowerCase().contains("hóa")) {
                 icon = "🔬";
-                action = "Ôn tập lại công thức và lý thuyết nền tảng";
-            } else if (w1.subject().toLowerCase().contains("toán")) {
+                action = "Ôn lại công thức và lý thuyết";
+            } else if (subjectName.toLowerCase().contains("toán")) {
                 icon = "📐";
-                action = "Luyện thêm bài tập chuyên đề để phản xạ nhanh hơn";
+                action = "Luyện chuyên đề phản xạ nhanh";
             }
 
+            String topicsStr = subjectWeak.stream().limit(2).map(TopicStat::topic).collect(Collectors.joining(", "));
+            if (subjectWeak.size() > 2) topicsStr += " và các phần khác...";
+
+            int totalWrong = subjectWeak.stream().mapToInt(TopicStat::wrong).sum();
+            int totalQuestions = subjectWeak.stream().mapToInt(TopicStat::total).sum();
+            int acc = accuracyPercent(totalQuestions, totalWrong);
+
             path.add(AdaptivePathViewResponse.PathStepView.builder()
-                    .type("practice").icon(icon)
-                    .title("Ôn tập bù lỗ hổng: " + w1.topic())
-                    .subject(w1.subject())
-                    .reason("AI phát hiện: bạn sai " + w1.wrong() + "/" + w1.total() + " câu dạng này (đúng " + acc1 + "%).")
+                    .type("review").icon(icon)
+                    .title("Ôn tập bù lỗ hổng: " + subjectName)
+                    .subject(subjectName)
+                    .reason("AI phát hiện: bạn hổng kiến thức phần " + topicsStr + " (sai " + totalWrong + "/" + totalQuestions + " câu).")
                     .action(action)
-                    .build());
-        }
-        if (weak.size() > 1) {
-            TopicStat w2 = weak.get(1);
-            int acc2 = accuracyPercent(w2.total(), w2.wrong());
-            path.add(AdaptivePathViewResponse.PathStepView.builder()
-                    .type("practice").icon("⚡")
-                    .title("Bài tập củng cố: " + w2.topic())
-                    .subject(w2.subject())
-                    .reason("Tỉ lệ đúng đang ở mức " + acc2 + "% — cần luyện thêm để không mất điểm ở phần này.")
-                    .action("Luyện 25 câu trắc nghiệm")
                     .build());
         }
         if (!strong.isEmpty()) {
@@ -1134,7 +1133,8 @@ public class AIService {
         Map<String, int[]> agg = new LinkedHashMap<>(); // key "subject||topic" -> [total, wrong]
         for (PracticeAnswer pa : answers) {
             Question q = pa.getQuestion();
-            String subject = (q.getSubject() != null && !q.getSubject().isBlank()) ? q.getSubject() : "Khác";
+            String quizSubject = (q.getQuiz() != null && q.getQuiz().getSubject() != null && !q.getQuiz().getSubject().isBlank()) ? q.getQuiz().getSubject() : "Khác";
+            String subject = (q.getSubject() != null && !q.getSubject().isBlank()) ? q.getSubject() : quizSubject;
             String topic = (q.getTopic() != null && !q.getTopic().isBlank()) ? q.getTopic() : subject;
             topic = topic.replaceAll(" \\(Mã đề .*?\\)", "").trim(); // Xóa chuỗi " (Mã đề ...)" để gộp chuẩn xác
             int[] c = agg.computeIfAbsent(subject + "||" + topic, k -> new int[2]);
