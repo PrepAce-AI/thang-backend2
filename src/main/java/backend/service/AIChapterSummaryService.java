@@ -170,13 +170,23 @@ public class AIChapterSummaryService {
         );
 
         //--------------------------------------------
-        // 5. Gọi Gemini
+        // 5. Gọi Gemini (Có Fallback)
         //--------------------------------------------
         System.out.println("===== CALL OPENROUTER =====");
-        String aiResult = geminiService.ask(
-                SYSTEM_CONTEXT,
-                prompt
-        );
+        String aiResult;
+        try {
+            aiResult = geminiService.ask(
+                    SYSTEM_CONTEXT,
+                    prompt
+            );
+        } catch (backend.exceptions.GeminiException e) {
+            log.warn("Gemini error (status={}): {}", e.getStatusCode(), e.getMessage());
+            aiResult = "⚠️ **Hệ thống AI hiện đang quá tải hoặc hết lượt sử dụng.**\n\n"
+                     + "Đây là tóm tắt tự động dự phòng:\n"
+                     + "1. **Tổng quan:** Bạn đã hoàn thành xuất sắc các bài học trong chương này.\n"
+                     + "2. **Kiến thức trọng tâm:** Hãy ôn tập lại các video bài giảng để nắm vững các khái niệm cơ bản.\n"
+                     + "3. **Lời khuyên:** Đừng quên làm các bài tập thực hành để củng cố kiến thức trước khi bước sang chương tiếp theo nhé!";
+        }
 
         System.out.println("===== OPENROUTER DONE =====");
         System.out.println(aiResult);
