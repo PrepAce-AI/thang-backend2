@@ -15,4 +15,7 @@ public class CourseDetailResponse {
     
     private Integer teacherId;
     private String teacherName;
+    
+    private Integer subjectId;
+    private String subjectName;
 }

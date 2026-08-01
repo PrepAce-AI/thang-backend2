@@ -28,13 +28,21 @@ public class CloudinaryService {
     }
 
     public String uploadVideo(MultipartFile file) throws IOException {
-        // Chỉ dùng UUID để tránh URL quá dài vượt qua 255 ký tự của Database
         String uniqueFilename = UUID.randomUUID().toString();
-        Map uploadResult = cloudinary.uploader().uploadLarge(file.getBytes(), ObjectUtils.asMap(
-                "resource_type", "video",
-                "public_id", "videos/" + uniqueFilename
-        ));
-        return uploadResult.get("secure_url").toString();
+        
+        // Tạo file tạm để tránh lỗi tràn RAM (OutOfMemoryError) với video lớn
+        java.io.File tempFile = java.io.File.createTempFile("video-", ".tmp");
+        file.transferTo(tempFile);
+        
+        try {
+            Map uploadResult = cloudinary.uploader().uploadLarge(tempFile, ObjectUtils.asMap(
+                    "resource_type", "video",
+                    "public_id", "videos/" + uniqueFilename
+            ));
+            return uploadResult.get("secure_url").toString();
+        } finally {
+            tempFile.delete(); // Luôn xóa file tạm sau khi upload xong
+        }
     }
 
     public String uploadFile(MultipartFile file) throws IOException {

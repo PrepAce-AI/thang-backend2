@@ -48,6 +48,7 @@ public class AutoSeederConfig {
                 // 0. Xóa sổ 100% dữ liệu rác (Font lỗi) theo thứ bậc khóa ngoại
                 try { jdbcTemplate.execute("DELETE FROM Notifications WHERE title LIKE '%?%' OR content LIKE '%?%'"); } catch (Exception ignored) {}
                 
+                /*
                 // Xóa StudentAnswers -> PracticeAnswers -> QuizAttempts -> EntryTestSessions
                 try { jdbcTemplate.execute("DELETE FROM StudentAnswers WHERE question_id IN (SELECT question_id FROM Questions WHERE question_content LIKE N'%Câu hỏi mẫu số%' OR subject LIKE '%?%' OR topic LIKE '%?%')"); } catch (Exception ignored) {}
                 try { jdbcTemplate.execute("DELETE FROM PracticeAnswers WHERE question_id IN (SELECT question_id FROM Questions WHERE question_content LIKE N'%Câu hỏi mẫu số%' OR subject LIKE '%?%' OR topic LIKE '%?%')"); } catch (Exception ignored) {}
@@ -61,7 +62,8 @@ public class AutoSeederConfig {
                 try { jdbcTemplate.execute("UPDATE Courses SET subject = N'Toán' WHERE subject LIKE N'%?%'"); } catch (Exception ignored) {}
                 try { jdbcTemplate.execute("UPDATE Quizzes SET title = N'Đề thi thử Toán' WHERE title LIKE N'%?%'"); } catch (Exception ignored) {}
                 try { jdbcTemplate.execute("UPDATE Quizzes SET subject = N'Toán' WHERE subject LIKE N'%?%'"); } catch (Exception ignored) {}
-                log.info("-> Đã xóa tận gốc dữ liệu câu hỏi bị lỗi font chữ (chứa dấu ?).");
+                */
+                log.info("-> Đã vô hiệu hóa việc tự động xóa/đổi tên dữ liệu (tránh hỏng DB khi import).");
 
                 // 1. Tự động sinh 250 câu hỏi
                 aiDataSeederController.seedQuestions();

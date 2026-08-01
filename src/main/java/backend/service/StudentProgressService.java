@@ -70,7 +70,7 @@ public class StudentProgressService {
             checkChapterCompleted(user, lesson);
 
             chapterCompleted = aiChapterSummaryRepository
-                    .findByStudent_IdAndChapter_Id(
+                    .findFirstByStudent_IdAndChapter_Id(
                             user.getId(),
                             lesson.getChapter().getId()
                     )
@@ -126,7 +126,7 @@ public class StudentProgressService {
 
         // Đã sinh summary rồi thì thôi
         if (aiChapterSummaryRepository
-                .findByStudent_IdAndChapter_Id(
+                .findFirstByStudent_IdAndChapter_Id(
                         user.getId(),
                         chapter.getId())
                 .isPresent()) {
@@ -167,7 +167,7 @@ public class StudentProgressService {
                     if (chapter != null) {
                         chapterId = chapter.getId();
                         chapterCompleted = aiChapterSummaryRepository
-                                .findByStudent_IdAndChapter_Id(
+                                .findFirstByStudent_IdAndChapter_Id(
                                         user.getId(),
                                         chapterId
                                 )
