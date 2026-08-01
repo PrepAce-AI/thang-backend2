@@ -81,7 +81,7 @@ public class AIChapterSummaryService {
         //--------------------------------------------
         System.out.println("AAAAAAAAAAAA");
         Optional<AIChapterSummary> oldSummary =
-                summaryRepository.findByStudent_IdAndChapter_Id(studentId, chapterId);
+                summaryRepository.findFirstByStudent_IdAndChapter_Id(studentId, chapterId);
 
         if (oldSummary.isPresent()) {
             return oldSummary.get();
@@ -210,7 +210,7 @@ public class AIChapterSummaryService {
     ) {
 
         AIChapterSummary summary = summaryRepository
-                .findByStudent_IdAndChapter_Id(studentId, chapterId)
+                .findFirstByStudent_IdAndChapter_Id(studentId, chapterId)
                 .orElse(null);
 
         if (summary == null) {

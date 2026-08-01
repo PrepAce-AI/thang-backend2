@@ -140,6 +140,14 @@ public class CourseService {
             });
         }
 
+        if (course.getSubject() != null) {
+            response.setSubjectId(course.getSubject().getId());
+            response.setSubjectName(course.getSubject().getSubjectName());
+        } else {
+            response.setSubjectId(course.getSubjectId());
+            response.setSubjectName("Chung");
+        }
+
         // Map danh sách Chapter
         response.setChapters(course.getChapters().stream().map(chapter -> {
             ChapterDto chapterDto = new ChapterDto();
