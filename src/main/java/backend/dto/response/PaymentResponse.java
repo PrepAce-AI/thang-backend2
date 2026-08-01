@@ -28,6 +28,9 @@ public class PaymentResponse {
 
     private String transactionCode;
 
+    // PayOS orderCode (= transactionCode as Long)
+    private Long orderCode;
+
     // Mã giao dịch phía ngân hàng (nếu có)
     private String bankTransactionId;
 
@@ -39,6 +42,11 @@ public class PaymentResponse {
 
     // Nội dung chuyển khoản
     private String transferContent;
+
+    private String accountNumber;
+    private String accountName;
+    private String bin;
+    private String description;
 
     private Date createdAt;
 
