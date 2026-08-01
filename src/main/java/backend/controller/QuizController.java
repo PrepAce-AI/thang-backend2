@@ -1,8 +1,6 @@
 package backend.controller;
 
-import backend.entity.Question;
-import backend.entity.QuestionOption;
-import backend.entity.Quiz;
+import backend.entity.*;
 import backend.repository.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +21,18 @@ public class QuizController {
     private final CourseRepository courseRepository;
     private final QuestionOptionRepository questionOptionRepository;
     private final StudentAnswerRepository studentAnswerRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
+    private final TestSessionRepository testSessionRepository;
 
-    public QuizController(QuizRepository quizRepository, StudentAnswerRepository studentAnswerRepository ,CourseRepository courseRepository, QuestionOptionRepository questionOptionRepository ,PracticeAnswerRepository practiceAnswerRepository, QuestionRepository questionRepository) {
+    public QuizController(QuizRepository quizRepository,TestSessionRepository testSessionRepository ,QuizAttemptRepository quizAttemptRepository ,StudentAnswerRepository studentAnswerRepository ,CourseRepository courseRepository, QuestionOptionRepository questionOptionRepository ,PracticeAnswerRepository practiceAnswerRepository, QuestionRepository questionRepository) {
         this.quizRepository = quizRepository;
         this.courseRepository = courseRepository;
         this.practiceAnswerRepository = practiceAnswerRepository;
         this.questionRepository = questionRepository;
         this.questionOptionRepository = questionOptionRepository;
         this.studentAnswerRepository = studentAnswerRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
+        this.testSessionRepository = testSessionRepository;
     }
 
 // 🔥 1. Lấy tất cả
@@ -161,27 +163,67 @@ public class QuizController {
         }
     }
 
-    // 6. XÓA ĐỀ THI
     @DeleteMapping("/{quizId}")
     @Transactional
-    public ResponseEntity<?> deleteQuiz(@PathVariable Integer quizId) {
+    public ResponseEntity<?> deleteQuiz(
+            @PathVariable Integer quizId
+    ) {
         Quiz quiz = quizRepository.findByIdWithQuestions(quizId)
                 .orElseThrow(() ->
                         new RuntimeException("Không tìm thấy quiz"));
-
-        for (Question question : quiz.getQuestions()) {
-
-            Integer questionId = question.getQuestionId();
-
-            // Xóa các bảng con trước
-            studentAnswerRepository.deleteByQuestionId(questionId);
-            practiceAnswerRepository.deleteByQuestionId(questionId);
-            questionOptionRepository.deleteByQuestionId(questionId);
+    /*
+        1. Xóa PracticeAnswers
+    */
+        List<QuizAttempt> attempts =
+                quizAttemptRepository.findByQuiz_QuizId(quizId);
+        for (QuizAttempt attempt : attempts) {
+            practiceAnswerRepository
+                    .deleteByAttempt_AttemptId(
+                            attempt.getAttemptId()
+                    );
         }
-
-        // Hibernate sẽ tự xóa Questions nhờ Cascade + orphanRemoval
+    /*
+        2. Xóa QuizAttempts
+    */
+        quizAttemptRepository.deleteAll(attempts);
+    /*
+        3. Xóa StudentAnswers
+        thông qua TestSession
+    */
+        List<TestSession> sessions =
+                testSessionRepository.findByQuiz_QuizId(quizId);
+        for(TestSession session : sessions){
+            studentAnswerRepository
+                    .deleteBySession_SessionsId(
+                            session.getSessionsId()
+                    );
+        }
+    /*
+        4. Xóa TestSessions
+    */
+        testSessionRepository.deleteAll(sessions);
+    /*
+        5. Xóa Questions
+    */
+        for(Question question : quiz.getQuestions()){
+            Integer questionId =
+                    question.getQuestionId();
+            practiceAnswerRepository
+                    .deleteByQuestionId(questionId);
+            studentAnswerRepository
+                    .deleteByQuestionId(questionId);
+            questionOptionRepository
+                    .deleteByQuestionId(questionId);
+        }
+    /*
+        6. Xóa Quiz
+    */
         quizRepository.delete(quiz);
-
-        return ResponseEntity.ok("Đã xóa thành công");
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "Delete quiz successfully"
+                )
+        );
     }
 }

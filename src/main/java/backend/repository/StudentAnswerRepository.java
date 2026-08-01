@@ -22,4 +22,6 @@ public interface StudentAnswerRepository extends JpaRepository<StudentAnswer, In
             nativeQuery = true
     )
     void deleteByQuestionId(@Param("questionId") Integer questionId);
+
+    void deleteBySession_SessionsId(Integer sessionsId);
 }
