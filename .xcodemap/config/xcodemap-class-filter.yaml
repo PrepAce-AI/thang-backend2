@@ -1,6 +1,7 @@
 autoDeleteData: false
 autoDetectedPackages:
 - backend
+- vn.payos.type
 autoKeepDataNum: 10
 enableAutoDetect: true
 entryDisplayConfig:
