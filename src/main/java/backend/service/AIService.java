@@ -758,39 +758,21 @@ public class AIService {
             }
         }
         
-        Map<String, List<TopicStat>> weakBySubject = weak.stream()
-                .collect(Collectors.groupingBy(TopicStat::subject, LinkedHashMap::new, Collectors.toList()));
+        if (!weak.isEmpty()) {
+            String subjectsStr = weak.stream()
+                    .map(TopicStat::subject)
+                    .distinct()
+                    .collect(Collectors.joining(", "));
 
-        for (Map.Entry<String, List<TopicStat>> entry : weakBySubject.entrySet()) {
-            String subjectName = entry.getKey();
-            List<TopicStat> subjectWeak = entry.getValue();
-
-            String icon = "🔄";
-            String action = "Vào khóa học để luyện lại";
-            if (subjectName.toLowerCase().contains("anh")) {
-                icon = "🎬";
-                action = "Xem Video bài giảng Tiếng Anh";
-            } else if (subjectName.toLowerCase().contains("lý") || subjectName.toLowerCase().contains("hóa")) {
-                icon = "🔬";
-                action = "Ôn lại công thức và lý thuyết";
-            } else if (subjectName.toLowerCase().contains("toán")) {
-                icon = "📐";
-                action = "Luyện chuyên đề phản xạ nhanh";
-            }
-
-            String topicsStr = subjectWeak.stream().limit(2).map(TopicStat::topic).collect(Collectors.joining(", "));
-            if (subjectWeak.size() > 2) topicsStr += " và các phần khác...";
-
-            int totalWrong = subjectWeak.stream().mapToInt(TopicStat::wrong).sum();
-            int totalQuestions = subjectWeak.stream().mapToInt(TopicStat::total).sum();
-            int acc = accuracyPercent(totalQuestions, totalWrong);
+            int totalWrong = weak.stream().mapToInt(TopicStat::wrong).sum();
+            int totalQuestions = weak.stream().mapToInt(TopicStat::total).sum();
 
             path.add(AdaptivePathViewResponse.PathStepView.builder()
-                    .type("review").icon(icon)
-                    .title("Ôn tập bù lỗ hổng: " + subjectName)
-                    .subject(subjectName)
-                    .reason("AI phát hiện: bạn hổng kiến thức phần " + topicsStr + " (sai " + totalWrong + "/" + totalQuestions + " câu).")
-                    .action(action)
+                    .type("practice").icon("🔄")
+                    .title("Ôn tập bù lỗ hổng")
+                    .subject("")
+                    .reason("AI phát hiện bạn bị hổng kiến thức ở các môn: " + subjectsStr + " (tổng cộng sai " + totalWrong + "/" + totalQuestions + " câu).")
+                    .action("Vào luyện đề ngay")
                     .build());
         }
         if (!strong.isEmpty()) {
