@@ -46,7 +46,8 @@ public class SecurityConfig {
 //                                "/api/entry-test/submit",
 //                                "/api/entry-test/history",
                                 "/api/ai/**",
-                                "/uploads/**"
+                                "/uploads/**",
+                                "/api/webhook/**"
                         ).permitAll()
 
                         // 🔥 ĐÃ THÊM: Ép endpoint tải tài liệu phải .authenticated() (Bắt buộc mang theo Token)
