@@ -48,9 +48,11 @@ public class Question {
     @Column(name = "difficulty")
     private Integer difficulty;
 
-    @OneToMany(mappedBy = "question",
-            fetch = FetchType.EAGER,
-            cascade = CascadeType.ALL)
+    @OneToMany(
+            mappedBy = "question",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     @org.hibernate.annotations.BatchSize(size = 50)
     private List<QuestionOption> options = new ArrayList<>();
 

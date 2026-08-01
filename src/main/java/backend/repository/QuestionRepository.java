@@ -2,9 +2,11 @@ package backend.repository;
 import backend.entity.Question;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -38,6 +40,14 @@ WHERE q.quiz.quizId = :quizId
             WHERE q.questionId IN :ids
             """)
     List<Question> findWithOptionsByIds(@Param("ids") List<Integer> ids);
+
+    @Modifying
+    @Transactional
+    @Query("""
+       DELETE FROM Question q
+       WHERE q.quiz.quizId = :quizId
+       """)
+    void deleteByQuizId(Integer quizId);
 
     /** Đếm số câu trong kho của 1 quiz */
     long countByQuiz_QuizId(Integer quizId);

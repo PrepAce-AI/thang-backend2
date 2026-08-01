@@ -43,6 +43,9 @@ public class PaymentService {
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
+    @Value("${sepay.api-token}")
+    private String apiToken;
+
     // ─── Mua khóa học ───────────────────────────────────────────────────────────
 
     @Transactional
@@ -508,7 +511,7 @@ public class PaymentService {
             course = courseRepository
                 .findById(payment.getCourseId())
                 .orElse(null);
-        Course course = courseRepository
+        Course course1 = courseRepository
                 .findById(payment.getCourseId())
                 .orElse(null);
 
@@ -556,7 +559,8 @@ public class PaymentService {
                 payment.getTransactionCode());
 
         log.info("=========================");
-    }
+        }
+    };
 
     @Transactional
     public PaymentResponse purchaseCourse(Integer studentId, PurchaseRequest request) {
