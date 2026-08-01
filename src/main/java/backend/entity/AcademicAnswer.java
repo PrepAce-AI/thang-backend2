@@ -15,7 +15,7 @@ public class AcademicAnswer {
     @Column(name = "answer_id")
     private Integer id;
 
-    @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "content", nullable = false, columnDefinition = "LONGTEXT")
     private String content;
 
     @Column(name = "created_at")

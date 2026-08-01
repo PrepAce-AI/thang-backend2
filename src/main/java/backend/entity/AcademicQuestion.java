@@ -14,8 +14,8 @@ public class AcademicQuestion {
     @Column(name = "question_id")
     private Integer id;
 
-    // Giữ nguyên NVARCHAR(MAX) để lưu câu hỏi dài có tiếng Việt
-    @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
+    // Giữ nguyên LONGTEXT để lưu câu hỏi dài có tiếng Việt
+    @Column(name = "content", nullable = false, columnDefinition = "LONGTEXT")
     private String content;
 
     @Column(name = "created_at")

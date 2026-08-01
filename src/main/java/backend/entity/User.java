@@ -22,8 +22,8 @@ public class User {
     @Column(name = "user_id")
     private int id;
 
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu họ tên tiếng Việt đầy đủ dấu
-    @Column(name = "full_name", nullable = false, columnDefinition = "NVARCHAR(255)")
+    // 🔥 ĐÃ SỬA: Thêm VARCHAR để lưu họ tên tiếng Việt đầy đủ dấu
+    @Column(name = "full_name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String fullName;
 
     @Column(name = "email", nullable = false, unique = true)
@@ -41,8 +41,8 @@ public class User {
     @Column(name = "role_id", nullable = false)
     private int roleId;
 
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu trạng thái (Ví dụ: "Hoạt động", "Bị khóa")
-    @Column(name = "account_status", columnDefinition = "NVARCHAR(50)")
+    // 🔥 ĐÃ SỬA: Thêm VARCHAR để lưu trạng thái (Ví dụ: "Hoạt động", "Bị khóa")
+    @Column(name = "account_status", columnDefinition = "VARCHAR(50)")
     private String accountStatus;
 
     @Column(name = "created_at")
@@ -55,12 +55,12 @@ public class User {
     @Column(name = "verification_expiry")
     private Date verificationExpiry;
 
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR để lưu tên trường học tiếng Việt
-    @Column(name = "school", columnDefinition = "NVARCHAR(255)")
+    // 🔥 ĐÃ SỬA: Thêm VARCHAR để lưu tên trường học tiếng Việt
+    @Column(name = "school", columnDefinition = "VARCHAR(255)")
     private String school;
 
-    // 🔥 ĐÃ SỬA: Thêm NVARCHAR(MAX) để lưu tiểu sử/giới thiệu bản thân
-    @Column(name = "bio", columnDefinition = "NVARCHAR(MAX)")
+    // 🔥 ĐÃ SỬA: Thêm LONGTEXT để lưu tiểu sử/giới thiệu bản thân
+    @Column(name = "bio", columnDefinition = "LONGTEXT")
     private String bio;
 
     @Column(name = "role_name")

@@ -11,7 +11,7 @@ public class FlashQuizQuestion {
     @Column(name = "question_id")
     private Integer questionId;
 
-    @Column(name = "question", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "question", columnDefinition = "LONGTEXT")
     private String question;
 
     @Column(name = "option_a")
@@ -29,7 +29,7 @@ public class FlashQuizQuestion {
     @Column(name = "correct_answer")
     private String correctAnswer;
 
-    @Column(name = "explanation", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "explanation", columnDefinition = "LONGTEXT")
     private String explanation;
 
     @ManyToOne(fetch = FetchType.LAZY)

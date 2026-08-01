@@ -31,13 +31,13 @@ public class StudentAnswer {
     @JsonIgnore
     private QuestionOption selectedOption;
 
-    @Column(name = "essay_answer", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "essay_answer", columnDefinition = "LONGTEXT")
     private String essayAnswer; // Lưu bài làm tự luận của học sinh
 
     @Column(name = "score")
     private Float score; // Lưu điểm riêng của câu này (phục vụ chấm câu tự luận)
 
-    @Column(name = "teacher_comment", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "teacher_comment", columnDefinition = "LONGTEXT")
     private String teacherComment;
 
     @Column(name = "answered_at")
