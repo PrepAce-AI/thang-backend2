@@ -8,7 +8,7 @@ import java.util.Optional;
 public interface AIChapterSummaryRepository
         extends JpaRepository<AIChapterSummary, Integer> {
 
-    Optional<AIChapterSummary> findByStudent_IdAndChapter_Id(
+    Optional<AIChapterSummary> findFirstByStudent_IdAndChapter_Id(
             Integer studentId,
             Integer chapterId
     );
