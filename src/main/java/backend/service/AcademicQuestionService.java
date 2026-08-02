@@ -2,21 +2,17 @@ package backend.service;
 
 import backend.dto.request.QuestionRequest;
 import backend.dto.response.QuestionResponse;
-import backend.entity.AcademicQuestion;
-import backend.entity.Lesson;
-import backend.entity.User;
-import backend.repository.AcademicQuestionRepository;
-import backend.repository.UserRepository;
-import backend.repository.AcademicAnswerRepository;
-import backend.repository.LessonRepository;
+import backend.entity.*;
+import backend.repository.*;
 import backend.dto.request.AnswerRequest;
 import backend.dto.response.AnswerResponse;
-import backend.entity.AcademicAnswer;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -32,6 +28,12 @@ public class AcademicQuestionService {
 
     @Autowired
     private AcademicAnswerRepository answerRepository;
+
+    @Autowired
+    private ViolationReportRepository violationReportRepository;
+
+    @Autowired
+    private UserService userService;
 
     @Autowired
     private LessonRepository lessonRepository;
@@ -190,5 +192,36 @@ public class AcademicQuestionService {
         response.setAnswers(answerResponses);
 
         return response;
+    }
+
+    public void reportAnswer(Integer answerId, String reason) {
+
+        Authentication auth = SecurityContextHolder
+                .getContext()
+                .getAuthentication();
+
+        User user = userService.getByEmail(auth.getName());
+
+        ViolationReport report = new ViolationReport();
+
+        report.setReporterId(user.getId());
+
+        AcademicAnswer answer = answerRepository
+                .findById(answerId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phản hồi"));
+        report.setReportedTarget(
+                "Phản hồi của " +
+                        answer.getUser().getFullName() +
+                        ": " +
+                        answer.getContent()
+        );
+
+        report.setReason(reason);
+
+        report.setStatus("PENDING");
+
+        report.setCreatedAt(new Date());
+
+        violationReportRepository.save(report);
     }
 }

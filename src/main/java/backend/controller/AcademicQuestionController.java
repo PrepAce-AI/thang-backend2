@@ -1,11 +1,15 @@
 package backend.controller;
 
+import backend.dto.request.AnswerReportRequest;
 import backend.dto.request.AnswerRequest;
 import backend.dto.request.QuestionRequest;
 import backend.dto.response.AnswerResponse;
 import backend.dto.response.QuestionResponse;
 import backend.dto.response.TeacherQuestionResponse;
+import backend.entity.AcademicAnswer;
+import backend.repository.AcademicAnswerRepository;
 import backend.service.AcademicQuestionService;
+import backend.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +24,12 @@ public class AcademicQuestionController {
 
     @Autowired
     private AcademicQuestionService questionService;
+    private EmailService emailService;
+    private final AcademicAnswerRepository answerRepository;
+
+    public AcademicQuestionController(AcademicAnswerRepository answerRepository) {
+        this.answerRepository = answerRepository;
+    }
 
     // 1. Đăng câu hỏi mới
     @PostMapping("")
@@ -60,5 +70,19 @@ public class AcademicQuestionController {
     @GetMapping("/teacher/{teacherId}")
     public ResponseEntity<List<TeacherQuestionResponse>> getAllQuestionsForTeacher(@PathVariable Integer teacherId) {
         return ResponseEntity.ok(questionService.getAllQuestionsForTeacher(teacherId));
+    }
+
+    //7. Report answer
+    @PostMapping("/answers/{answerId}/report")
+    public ResponseEntity<?> reportAnswer(
+            @PathVariable Integer answerId,
+            @RequestBody Map<String, String> request
+    ) {
+        questionService.reportAnswer(
+                answerId,
+                request.get("reason")
+        );
+
+        return ResponseEntity.ok("Đã gửi báo cáo");
     }
 }

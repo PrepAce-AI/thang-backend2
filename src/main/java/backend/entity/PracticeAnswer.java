@@ -43,11 +43,11 @@ public class PracticeAnswer {
     /** Thứ tự câu hỏi trong đề (1..25) để render lại đúng thứ tự */
     @Column(name = "question_order", nullable = false)
     private Integer questionOrder = 0;
-    @Column(name = "essay_answer")
+    @Column(name = "essay_answer", columnDefinition = "NVARCHAR(MAX)")
     private String essayAnswer;
     @Column(name = "score")
     private Double score;
 
-    @Column(name = "teacher_comment")
+    @Column(name = "teacher_comment", columnDefinition = "NVARCHAR(MAX)")
     private String teacherComment;
 }
