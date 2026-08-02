@@ -107,57 +107,57 @@ public class PaymentService {
         String checkoutUrl = "";
         try {
             ItemData item = ItemData.builder()
-                .name(course.getTitle())
-                .price(course.getPrice().intValue())
-                .quantity(1)
-                .build();
+                    .name(course.getTitle())
+                    .price(course.getPrice().intValue())
+                    .quantity(1)
+                    .build();
 
             String returnUrl = frontendUrl + "/payment/return";
             String cancelUrl = frontendUrl + "/checkout/" + course.getCourseId();
 
             PaymentData paymentData = PaymentData.builder()
-                .orderCode(orderCode)
-                .amount(course.getPrice().intValue())
-                .description("Thanh toan khoa hoc")
-                .returnUrl(returnUrl)
-                .cancelUrl(cancelUrl)
-                .item(item)
-                .build();
+                    .orderCode(orderCode)
+                    .amount(course.getPrice().intValue())
+                    .description("Thanh toan khoa hoc")
+                    .returnUrl(returnUrl)
+                    .cancelUrl(cancelUrl)
+                    .item(item)
+                    .build();
 
             CheckoutResponseData data = payOS.createPaymentLink(paymentData);
             checkoutUrl = data.getCheckoutUrl();
-            
+
             // Lấy thêm thông tin cho frontend
             String accountNumber = data.getAccountNumber();
             String accountName = data.getAccountName();
             String bin = data.getBin();
             String description = data.getDescription();
-            
+
             log.info(
-                "Create payment: student={}, course={}, txn={}",
-                studentId,
-                course.getCourseId(),
-                transactionCode
+                    "Create payment: student={}, course={}, txn={}",
+                    studentId,
+                    course.getCourseId(),
+                    transactionCode
             );
-            
+
             return PaymentResponse.builder()
-                .paymentId(payment.getPaymentId())
-                .studentId(studentId)
-                .courseId(course.getCourseId())
-                .courseTitle(course.getTitle())
-                .amount(course.getPrice())
-                .paymentMethod("BANK")
-                .paymentStatus("PENDING")
-                .transactionCode(transactionCode)
-                .orderCode(orderCode)
-                .checkoutUrl(checkoutUrl)
-                .accountNumber(accountNumber)
-                .accountName(accountName)
-                .bin(bin)
-                .description(description)
-                .createdAt(payment.getCreatedAt())
-                .message("Đã tạo giao dịch.")
-                .build();
+                    .paymentId(payment.getPaymentId())
+                    .studentId(studentId)
+                    .courseId(course.getCourseId())
+                    .courseTitle(course.getTitle())
+                    .amount(course.getPrice())
+                    .paymentMethod("BANK")
+                    .paymentStatus("PENDING")
+                    .transactionCode(transactionCode)
+                    .orderCode(orderCode)
+                    .checkoutUrl(checkoutUrl)
+                    .accountNumber(accountNumber)
+                    .accountName(accountName)
+                    .bin(bin)
+                    .description(description)
+                    .createdAt(payment.getCreatedAt())
+                    .message("Đã tạo giao dịch.")
+                    .build();
         } catch (Exception e) {
             log.error("Failed to create PayOS payment link: ", e);
             throw new BadRequestException("Lỗi PayOS: " + e.getMessage());
@@ -510,7 +510,7 @@ public class PaymentService {
         if (matcher.find()) {
             txnCode = matcher.group().toUpperCase();
             if (txnCode.contains("-")) {
-                txnCode = txnCode.replace("-", ""); 
+                txnCode = txnCode.replace("-", "");
             }
         }
 
@@ -523,7 +523,7 @@ public class PaymentService {
         Payment payment = paymentRepository
                 .findByTransactionCode(txnCode)
                 .orElse(null);
-                
+
         // Hỗ trợ tìm ngược lại nếu DB lưu có dấu gạch ngang (VD: giao dịch cũ PAY-XXXX)
         if (payment == null && !txnCode.contains("-")) {
             String legacyTxnCode = txnCode.replace("PAY", "PAY-");
@@ -538,8 +538,8 @@ public class PaymentService {
         }
 
         course = courseRepository
-            .findById(payment.getCourseId())
-            .orElse(null);
+                .findById(payment.getCourseId())
+                .orElse(null);
 
         // Đã xử lý rồi
         if ("SUCCESS".equals(payment.getPaymentStatus())) {
@@ -649,7 +649,7 @@ public class PaymentService {
             try {
                 long orderCode = Long.parseLong(payment.getTransactionCode());
                 vn.payos.type.PaymentLinkData linkData = payOS.getPaymentLinkInformation(orderCode);
-                
+
                 if (linkData != null && "PAID".equals(linkData.getStatus())) {
                     payment.setPaymentStatus("SUCCESS");
                     payment.setPaidAt(new Date());
@@ -666,7 +666,7 @@ public class PaymentService {
                                     + (course != null ? course.getTitle() : "")
                                     + "\" đã được hệ thống xác nhận. Bạn có thể bắt đầu học ngay."
                     );
-                    
+
                     log.info("PAYOS API POLLING SUCCESS: Payment {}", payment.getTransactionCode());
                 }
             } catch (Exception ex) {
@@ -675,67 +675,67 @@ public class PaymentService {
 
             // 2. NẾU VẪN PENDING THÌ KIỂM TRA SEPAY (Dành cho các đơn SePay cũ nếu có)
             if ("PENDING".equals(payment.getPaymentStatus()) || "WAITING_CONFIRM".equals(payment.getPaymentStatus())) {
-            try {
-                RestTemplate restTemplate = new RestTemplate();
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("Authorization", "Bearer " + apiToken);
-                headers.set("Content-Type", "application/json");
-                HttpEntity<String> entity = new HttpEntity<>(headers);
+                try {
+                    RestTemplate restTemplate = new RestTemplate();
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.set("Authorization", "Bearer " + apiToken);
+                    headers.set("Content-Type", "application/json");
+                    HttpEntity<String> entity = new HttpEntity<>(headers);
 
-                ResponseEntity<Map> response = restTemplate.exchange(
-                        "https://my.sepay.vn/userapi/transactions/list",
-                        HttpMethod.GET,
-                        entity,
-                        Map.class
-                );
+                    ResponseEntity<Map> response = restTemplate.exchange(
+                            "https://my.sepay.vn/userapi/transactions/list",
+                            HttpMethod.GET,
+                            entity,
+                            Map.class
+                    );
 
-                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                    Map<String, Object> body = response.getBody();
-                    if (body.containsKey("transactions")) {
-                        List<Map<String, Object>> transactions = (List<Map<String, Object>>) body.get("transactions");
-                        
-                        // Lọc qua danh sách giao dịch gần nhất
-                        for (Map<String, Object> txn : transactions) {
-                            String content = txn.get("transaction_content") != null ? txn.get("transaction_content").toString() : "";
-                            String amountStr = txn.get("amount_in") != null ? txn.get("amount_in").toString() : "0";
-                            double amountIn = Double.parseDouble(amountStr);
+                    if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                        Map<String, Object> body = response.getBody();
+                        if (body.containsKey("transactions")) {
+                            List<Map<String, Object>> transactions = (List<Map<String, Object>>) body.get("transactions");
 
-                            // Bỏ gạch ngang để so khớp linh hoạt
-                            String cleanContent = content.replace("-", "").toUpperCase();
-                            String cleanTxnCode = payment.getTransactionCode().replace("-", "").toUpperCase();
+                            // Lọc qua danh sách giao dịch gần nhất
+                            for (Map<String, Object> txn : transactions) {
+                                String content = txn.get("transaction_content") != null ? txn.get("transaction_content").toString() : "";
+                                String amountStr = txn.get("amount_in") != null ? txn.get("amount_in").toString() : "0";
+                                double amountIn = Double.parseDouble(amountStr);
 
-                            if (cleanContent.contains(cleanTxnCode)) {
-                                // Kiểm tra số tiền khớp 100%
-                                if (payment.getAmount() != null && payment.getAmount().doubleValue() <= amountIn) {
-                                    // CHỐT ĐƠN!
-                                    payment.setPaymentStatus("SUCCESS");
-                                    payment.setPaidAt(new Date());
-                                    payment.setUpdatedAt(new Date());
-                                    payment.setBankTransactionId(txn.get("reference_number") != null ? txn.get("reference_number").toString() : "API_SYNC");
-                                    paymentRepository.save(payment);
+                                // Bỏ gạch ngang để so khớp linh hoạt
+                                String cleanContent = content.replace("-", "").toUpperCase();
+                                String cleanTxnCode = payment.getTransactionCode().replace("-", "").toUpperCase();
 
-                                    // Mở khóa học
-                                    autoEnroll(payment.getStudentId(), payment.getCourseId());
-                                    createNotification(
-                                            payment.getStudentId(),
-                                            "Thanh toán thành công",
-                                            "Thanh toán khóa học \""
-                                                    + (course != null ? course.getTitle() : "")
-                                                    + "\" đã được Admin xác nhận. Bạn có thể bắt đầu học ngay."
-                                    );
-                                    
-                                    log.info("API POLLING SUCCESS: Tìm thấy giao dịch {} cho Payment {}", cleanContent, payment.getTransactionCode());
-                                    break;
-                                } else {
-                                    log.warn("API POLLING: Tìm thấy mã {} nhưng số tiền không khớp (Thực tế: {}, Yêu cầu: {})", cleanTxnCode, amountIn, payment.getAmount());
+                                if (cleanContent.contains(cleanTxnCode)) {
+                                    // Kiểm tra số tiền khớp 100%
+                                    if (payment.getAmount() != null && payment.getAmount().doubleValue() <= amountIn) {
+                                        // CHỐT ĐƠN!
+                                        payment.setPaymentStatus("SUCCESS");
+                                        payment.setPaidAt(new Date());
+                                        payment.setUpdatedAt(new Date());
+                                        payment.setBankTransactionId(txn.get("reference_number") != null ? txn.get("reference_number").toString() : "API_SYNC");
+                                        paymentRepository.save(payment);
+
+                                        // Mở khóa học
+                                        autoEnroll(payment.getStudentId(), payment.getCourseId());
+                                        createNotification(
+                                                payment.getStudentId(),
+                                                "Thanh toán thành công",
+                                                "Thanh toán khóa học \""
+                                                        + (course != null ? course.getTitle() : "")
+                                                        + "\" đã được Admin xác nhận. Bạn có thể bắt đầu học ngay."
+                                        );
+
+                                        log.info("API POLLING SUCCESS: Tìm thấy giao dịch {} cho Payment {}", cleanContent, payment.getTransactionCode());
+                                        break;
+                                    } else {
+                                        log.warn("API POLLING: Tìm thấy mã {} nhưng số tiền không khớp (Thực tế: {}, Yêu cầu: {})", cleanTxnCode, amountIn, payment.getAmount());
+                                    }
                                 }
                             }
                         }
                     }
+                } catch (Exception e) {
+                    log.error("Lỗi khi chủ động gọi SePay API: {}", e.getMessage());
                 }
-            } catch (Exception e) {
-                log.error("Lỗi khi chủ động gọi SePay API: {}", e.getMessage());
-            }
             }
         }
 

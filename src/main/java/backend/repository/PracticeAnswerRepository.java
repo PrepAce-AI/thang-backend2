@@ -44,4 +44,6 @@ public interface PracticeAnswerRepository extends JpaRepository<PracticeAnswer, 
             nativeQuery = true
     )
     void deleteByQuestionId(@Param("questionId") Integer questionId);
+
+    void deleteByAttempt_AttemptId(Integer attemptId);
 }

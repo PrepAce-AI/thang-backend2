@@ -15,4 +15,5 @@ public interface TestSessionRepository extends JpaRepository<TestSession, Intege
 
     List<TestSession> findByStudentIdOrderByStartedAtDesc(Integer studentId);
     List<TestSession> findByStatus(String status);
+    List<TestSession> findByQuiz_QuizId(Integer quizId);
 }

@@ -15,7 +15,7 @@ public class Chapter {
     private Integer id;
 
     // 🔥 ĐÃ SỬA: Thêm VARCHAR để lưu tiêu đề chương tiếng Việt
-    @Column(name = "chapter_title", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "chapter_title", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String title;
 
     @Column(name = "chapter_order")

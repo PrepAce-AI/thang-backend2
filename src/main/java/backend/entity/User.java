@@ -23,7 +23,7 @@ public class User {
     private int id;
 
     // 🔥 ĐÃ SỬA: Thêm VARCHAR để lưu họ tên tiếng Việt đầy đủ dấu
-    @Column(name = "full_name", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "full_name", nullable = false, columnDefinition = "NVARCHAR(255)")
     private String fullName;
 
     @Column(name = "email", nullable = false, unique = true)
@@ -56,7 +56,7 @@ public class User {
     private Date verificationExpiry;
 
     // 🔥 ĐÃ SỬA: Thêm VARCHAR để lưu tên trường học tiếng Việt
-    @Column(name = "school", columnDefinition = "VARCHAR(255)")
+    @Column(name = "school", columnDefinition = "NVARCHAR(255)")
     private String school;
 
     // 🔥 ĐÃ SỬA: Thêm LONGTEXT để lưu tiểu sử/giới thiệu bản thân

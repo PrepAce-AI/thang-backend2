@@ -174,18 +174,42 @@ public class AIChapterSummaryService {
         //--------------------------------------------
         System.out.println("===== CALL OPENROUTER =====");
         String aiResult;
+
         try {
+
+            System.out.println("========== SUMMARY CALL GEMINI ==========");
+            System.out.println("COURSE: " + course.getTitle());
+            System.out.println("CHAPTER: " + chapter.getTitle());
+            System.out.println("PROMPT LENGTH: " + prompt.length());
+
             aiResult = geminiService.ask(
                     SYSTEM_CONTEXT,
                     prompt
             );
-        } catch (backend.exceptions.GeminiException e) {
-            log.warn("Gemini error (status={}): {}", e.getStatusCode(), e.getMessage());
-            aiResult = "⚠️ **Hệ thống AI hiện đang quá tải hoặc hết lượt sử dụng.**\n\n"
-                     + "Đây là tóm tắt tự động dự phòng:\n"
-                     + "1. **Tổng quan:** Bạn đã hoàn thành xuất sắc các bài học trong chương này.\n"
-                     + "2. **Kiến thức trọng tâm:** Hãy ôn tập lại các video bài giảng để nắm vững các khái niệm cơ bản.\n"
-                     + "3. **Lời khuyên:** Đừng quên làm các bài tập thực hành để củng cố kiến thức trước khi bước sang chương tiếp theo nhé!";
+
+            System.out.println("========== SUMMARY RESULT ==========");
+            System.out.println(aiResult);
+
+
+            // phòng trường hợp AI trả null hoặc rỗng
+            if (aiResult == null || aiResult.trim().isEmpty()) {
+                throw new RuntimeException("AI returned empty response");
+            }
+
+
+        } catch (Exception e) {
+
+            log.error(
+                    "AI unavailable, using fallback summary: {}",
+                    e.getMessage()
+            );
+
+
+            aiResult = generateFallbackSummary(
+                    course,
+                    chapter,
+                    lessonContent.toString()
+            );
         }
 
         System.out.println("===== OPENROUTER DONE =====");
@@ -237,5 +261,72 @@ public class AIChapterSummaryService {
                 summary.getSummaryContent(),
                 summary.getCreatedAt()
         );
+    }
+
+    private String generateFallbackSummary(
+            Course course,
+            Chapter chapter,
+            String content
+    ) {
+
+
+        return """
+    📚 TỔNG KẾT CHƯƠNG HỌC
+
+    Khóa học:
+    %s
+
+
+    Chương:
+    %s
+
+
+    1. Tổng quan kiến thức:
+
+    Chương học này cung cấp các kiến thức nền tảng và kỹ năng quan trọng.
+    Học sinh cần nắm được các khái niệm chính, hiểu phương pháp giải quyết
+    vấn đề và biết cách vận dụng vào bài tập.
+
+
+    2. Kiến thức trọng tâm:
+
+    - Hiểu các nội dung chính trong từng bài học.
+    - Ghi nhớ các khái niệm quan trọng.
+    - Luyện tập các dạng bài thường gặp.
+    - Áp dụng kiến thức vào các bài kiểm tra.
+
+
+    3. Công thức / nội dung cần nhớ:
+
+    - Ôn lại toàn bộ công thức và quy tắc xuất hiện trong chương.
+    - Ghi nhớ điều kiện áp dụng của từng phương pháp.
+
+
+    4. Lỗi thường gặp:
+
+    - Chưa hiểu bản chất vấn đề.
+    - Nhầm lẫn giữa các công thức.
+    - Thiếu bước kiểm tra kết quả.
+
+
+    5. Mẹo ghi nhớ:
+
+    - Học theo từng nhóm kiến thức.
+    - Kết hợp xem bài giảng và làm bài tập.
+    - Ôn tập thường xuyên.
+
+
+    6. Chuẩn bị chương tiếp theo:
+
+    Hãy hoàn thành bài tập luyện tập và kiểm tra lại kiến thức
+    trước khi chuyển sang nội dung mới.
+
+
+    (Bản tóm tắt dự phòng khi AI tạm thời không khả dụng)
+    """.formatted(
+                course.getTitle(),
+                chapter.getTitle()
+        );
+
     }
 }
