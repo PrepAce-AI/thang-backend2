@@ -37,7 +37,7 @@ public class StudentAnswer {
     @Column(name = "score")
     private Float score; // Lưu điểm riêng của câu này (phục vụ chấm câu tự luận)
 
-    @Column(name = "teacher_comment", columnDefinition = "LONGTEXT")
+    @Column(name = "teacher_comment", columnDefinition = "NVARCHAR(MAX)")
     private String teacherComment;
 
     @Column(name = "answered_at")

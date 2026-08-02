@@ -1,5 +1,6 @@
 package backend.dto.response;
 
+import jakarta.persistence.Column;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -26,8 +27,12 @@ public class PracticeQuestionReview {
 
     /** Lời giải chi tiết — nguồn dữ liệu cho box "Giải thích lỗi sai ở đâu" */
     private String explanation;
+
+    @Column(name = "essay_answer", columnDefinition = "NVARCHAR(MAX)")
     private String essayAnswer;
     private String questionType; // CHOICE, ESSAY, SHORT_ANSWER
     private Double score;
+
+    @Column(name = "teacher_comment", columnDefinition = "NVARCHAR(MAX)")
     private String teacherComment;
 }
